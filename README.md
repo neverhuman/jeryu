@@ -26,9 +26,9 @@ pkg-config, OpenSSL development headers, rustup with the toolchain specified
 in `rust-toolchain.toml`, and Node.js 22.19+ on the 22.x line or Node.js 24+
 with npm. CI uses Node.js 26.1.0. On Ubuntu, native
 prerequisites are provided by `build-essential pkg-config libssl-dev git`.
-The immutable Redline and auditor source tags are public. The governed
-auditor artifacts and portable verification still need qualification before
-complete credential-free CI can pass.
+SQLite is bundled with the Rust application; no database service or RedlineDB
+checkout is required. The governed auditor artifacts and portable verification
+still need qualification before complete credential-free CI can pass.
 
 `build.sh` installs locked npm dependencies, builds the web application, and
 builds the locked Rust CLI with embedded assets. It records source and binary
@@ -64,6 +64,12 @@ and UX tooling use the root npm workspace. Component ownership remains under
 `jeryu-tool-finder`, `jeryu-deploy`, and `jeryu-release-ops`.
 Original manifests and locks are archived as provenance; their paths are not
 active workspace configuration.
+
+RedlineDB compatibility is an explicit optional proof:
+`bash scripts/ci.sh redline`. Its isolated test harness and lockfile keep
+RedlineDB out of normal builds, all-feature workspace tests, and required
+SQLite release checks. See [the contract scope](components/jeryu-release-ops/tests/redline/README.md).
+The server uses SQLite; this proof command does not switch its backend.
 
 Read [AGENTS.md](AGENTS.md) before contributing. Changes target this monorepo;
 the split repositories will be maintained as deterministic downstream mirrors

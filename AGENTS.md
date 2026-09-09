@@ -8,8 +8,12 @@ The public development destination is `neverhuman/jeryu`. Changes belong in
 Use the root Cargo workspace and lockfile for all 65 Rust packages, and the
 root npm workspace and lockfile for the web application and UX tooling.
 Internal Jeryu dependencies use `[workspace.dependencies]`. Preserve package
-names and the existing 5.0.0 / 5.1.0 version distinctions. Redline remains an
-external immutable dependency with its own authority and two-consumer proof.
+names and the existing 5.0.0 / 5.1.0 version distinctions. Bundled SQLite is
+the default runtime. Redline is an optional compatibility proof in the excluded
+`components/jeryu-release-ops/tests/redline` harness with its own lockfile.
+It must not enter the product graph or block the SQLite release. Its immutable
+source authority and two-consumer proof still govern Redline qualification
+and original-checkout retirement.
 
 The root manifest describes the candidate handover. Its `handover.status`
 must remain pending until the protected review and qualification gates pass.

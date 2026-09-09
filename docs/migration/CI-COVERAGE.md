@@ -7,7 +7,13 @@ policies, release validators and the root commands. Regenerate it with
 `cargo run --locked -p jeryu-split-tool --bin jeryu-split -- proof-inventory
 > docs/migration/proof-inventory.json`.
 Every command below must pass at the final reviewed source commit; earlier
-commit results do not qualify later changes.
+commit results do not qualify later changes. Redline compatibility is separately
+opted into with `bash scripts/ci.sh redline`; it is not a SQLite release gate.
+The unchanged SQL contract lives in `components/jeryu-release-ops/tests/redline`
+with its own lockfile. Ordinary Rust checks cover all 65 product packages and
+assert that even their all-feature graph uses bundled SQLite without Redline.
+The protected Redline consumer-evidence producer and original-retirement
+requirements remain separate; this separation does not waive those proofs.
 
 | Required proof | Root command | Preserved acceptance and remaining work |
 | --- | --- | --- |

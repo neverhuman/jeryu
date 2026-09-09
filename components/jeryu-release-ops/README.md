@@ -121,11 +121,16 @@ That lane is non-promoting: deployment and production mutation remain owned by
 - `just score`
 - `just security`
 - `just artifact-support`
-- `just redline-consumer-test`
+- `just redline-consumer-test` (optional Redline qualification)
+
+Standalone Jeryu releases use bundled SQLite. `just release-readiness` does
+not run Redline compatibility tests. The preserved SQL contract and immutable
+Redline dependency live in the separately locked `tests/redline` harness,
+outside the product Cargo workspace. See [its scope](tests/redline/README.md).
 
 `ops/ci/redline-consumer.sh` emits checksummed Redline compatibility evidence
 only from clean, forge-equal `main`, a passing family receipt, and the exact
-immutable engine tag resolved by `Cargo.lock`. The operator must also pass the
+immutable engine tag resolved by `tests/redline/Cargo.lock`. The operator must also pass the
 canonical Jeryu split manifest with `--consumer-manifest`; the script hashes it
 alongside this repository's `agent/audit-policy.toml` instead of inferring a
 manifest from the consumer checkout. The current reviewed dependency is

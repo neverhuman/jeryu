@@ -18,5 +18,5 @@ highlight = "all"
 unknown-registry = "deny"
 unknown-git = "deny"
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]
-# The candidate remains red until the canonical tag is published and repinned.
-allow-git = ["https://github.com/neverhuman/redline-core.git"]
+# The SQLite release graph has no Git dependencies.
+allow-git = []

@@ -2647,7 +2647,7 @@
       "kind": "proof-implementation-or-input",
       "path": "components/jeryu-deploy/crates/jeryu-api/tests/hosted_dependency_transport.rs",
       "port_status": "pending-equivalence-proof",
-      "sha256": "6dddba12b8aa20c5cb03e32348b74f1ecb2fdd6ddd6bb58f324e8e77969e0016"
+      "sha256": "0f2e9add82a917e8c9de2cdb47529a27e22e2788df460a7776a670fc5f26f61b"
     },
     {
       "component": "jeryu-deploy",
@@ -2727,7 +2727,7 @@
       "kind": "proof-implementation-or-input",
       "path": "components/jeryu-deploy/crates/jeryu-split-tool/src/monorepo.rs",
       "port_status": "pending-equivalence-proof",
-      "sha256": "4d44629c41d6cf5a7eff87d9fff962fe41482c82db61a2fefb6ed3875bb3fd53"
+      "sha256": "c66bc10e513ff5683c8f1de94e57fa56fe5c1cc8297ad598c4bdb57d4baa16ee"
     },
     {
       "component": "jeryu-deploy",
@@ -4699,7 +4699,7 @@
       "kind": "entrypoint",
       "path": "components/jeryu-release-ops/Justfile",
       "port_status": "pending-equivalence-proof",
-      "sha256": "139676360c2918b70fc3657b21ae26a46d1e00c390b1c691c32c612fd301d6cf"
+      "sha256": "49dfaeaa8465cf9b8e4dcbd46424261ba4f158c92f7651d60743ed2587af6868"
     },
     {
       "component": "jeryu-release-ops",
@@ -4788,7 +4788,7 @@
       "kind": "threshold-policy",
       "path": "components/jeryu-release-ops/agent/test-map.json",
       "port_status": "pending-equivalence-proof",
-      "sha256": "9d3bb9631ae27d113acd1658754411ff9685cf236761277a058c4c8af409b398"
+      "sha256": "efca42df8c2eea283ce4f0f291964fbe381b9ecebec126e034ed0c92681a2385"
     },
     {
       "component": "jeryu-release-ops",
@@ -5042,14 +5042,6 @@
       "component": "jeryu-release-ops",
       "declaration": null,
       "kind": "proof-implementation-or-input",
-      "path": "components/jeryu-release-ops/crates/jeryu-obs/tests/redline_consumer_contract.rs",
-      "port_status": "pending-equivalence-proof",
-      "sha256": "b14610912d3b28f5894f40ab5a6a04a65e31884714226d9d666f3d31a5970f9c"
-    },
-    {
-      "component": "jeryu-release-ops",
-      "declaration": null,
-      "kind": "proof-implementation-or-input",
       "path": "components/jeryu-release-ops/crates/jeryu-obs/tests/reliability_soak.rs",
       "port_status": "pending-equivalence-proof",
       "sha256": "8b63f66a1c732dd06e895971fd4a2bbb8463df9b2f7f84336900a0170c530401"
@@ -5178,9 +5170,17 @@
       "component": "jeryu-release-ops",
       "declaration": null,
       "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-release-ops/ops/ci/check-manifest.sh",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "411d4c4246a295a212f78c12431127e3dca7f91500fdcc92b83f2743faa598df"
+    },
+    {
+      "component": "jeryu-release-ops",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
       "path": "components/jeryu-release-ops/ops/ci/check.sh",
       "port_status": "pending-equivalence-proof",
-      "sha256": "cbd3cc27bd03a191d40e64cd887d406ca82a04924eb2fe2b56efd77f2fff3a58"
+      "sha256": "fbc17869e31a4813d33e221a077a786f99c1e2cfa2d1611341a56feeb90b6ee6"
     },
     {
       "component": "jeryu-release-ops",
@@ -5236,7 +5236,7 @@
       "kind": "proof-implementation-or-input",
       "path": "components/jeryu-release-ops/ops/ci/redline-consumer.sh",
       "port_status": "pending-equivalence-proof",
-      "sha256": "2e1aa169bdc0456c34a197cedb251cd83b1cb723f0a045421439d8f1673c760b"
+      "sha256": "06b46072ebc7d7c8aec437d287460172d032aff08049a978c7afef66bbde2810"
     },
     {
       "component": "jeryu-release-ops",
@@ -5333,6 +5333,46 @@
       "path": "components/jeryu-release-ops/scripts/ci-local.sh",
       "port_status": "pending-equivalence-proof",
       "sha256": "50801da15cd52836c83b8013e5c0fe3a80a745c0106c852bebf6765546a9a483"
+    },
+    {
+      "component": "jeryu-release-ops",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-release-ops/tests/redline/Cargo.lock",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "920bc8bf89a5deca8c23af375bd48a2f124499aefb810367bbb246781b742eb8"
+    },
+    {
+      "component": "jeryu-release-ops",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-release-ops/tests/redline/Cargo.toml",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "cbff1813680df3eb8d5e6bd05a5a3535298e350e325bc4611ec4e8e9a23ecea5"
+    },
+    {
+      "component": "jeryu-release-ops",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-release-ops/tests/redline/README.md",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "b314b752693f267546faaeffa88820967fb03b7be19cdee204ee1f669fcb833b"
+    },
+    {
+      "component": "jeryu-release-ops",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-release-ops/tests/redline/tests/redline_consumer_contract.rs",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "b14610912d3b28f5894f40ab5a6a04a65e31884714226d9d666f3d31a5970f9c"
+    },
+    {
+      "component": "jeryu-release-ops",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-release-ops/tests/redline/tests/source_identity.rs",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "d67529587691bc153478b8944c630f0a177f0f74aa08ee1a7625e2f6dc2542de"
     },
     {
       "component": "jeryu-release-ops",
@@ -6791,7 +6831,7 @@
       "kind": "threshold-policy",
       "path": "deny.toml",
       "port_status": "pending-equivalence-proof",
-      "sha256": "8d0a12de7ec914cfce561097ff0ec910e270f0fc6ca42a0e67a0c48050c183bd"
+      "sha256": "d6d4c37c4161d6e04c73d8b642442d9343d70526bdfe0cf44970016a75d34b9b"
     },
     {
       "component": "jeryu",
@@ -6991,7 +7031,7 @@
       "kind": "proof-implementation-or-input",
       "path": "scripts/ci.sh",
       "port_status": "pending-equivalence-proof",
-      "sha256": "eb89940b827657a672b104544026ae1b2e032b20974a5796e9e6742baaf76339"
+      "sha256": "6d464d835b50bfce788f792307e2bc1cfca827dda91112910bec512153c2f8c6"
     },
     {
       "component": "jeryu",

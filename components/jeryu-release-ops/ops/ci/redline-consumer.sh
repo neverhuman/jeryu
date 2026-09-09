@@ -108,12 +108,13 @@ family_manifest_digest="$(jq -er '.manifest_sha256' "$family_ci")"
 engine_commit="$(jq -er --arg tag "$engine_tag" '.repositories[] | select(.name == "redline-core" and .status == "pass" and .tag == $tag) | .commit' "$family_ci")"
 [[ "$engine_commit" =~ ^[0-9a-f]{40}$ ]] || die "family CI does not bind the Redline engine commit"
 
-locked_source="$(cargo metadata --locked --format-version 1 --manifest-path "$root/Cargo.toml" | jq -er '.packages[] | select(.name == "redlinedb") | .source')"
+contract_manifest="$root/tests/redline/Cargo.toml"
+locked_source="$(cargo metadata --locked --format-version 1 --manifest-path "$contract_manifest" | jq -er '.packages[] | select(.name == "redlinedb") | .source')"
 [[ "$locked_source" == *"tag=$engine_tag"*"#$engine_commit" ]] || die "Cargo.lock does not bind the reviewed Redline tag and commit"
 
 mkdir -p "$(dirname "$output")"
 test_log="${output%.json}.test.log"
-if ! cargo test --locked --manifest-path "$root/Cargo.toml" -p jeryu-obs --test redline_consumer_contract -- --nocapture >"$test_log" 2>&1; then
+if ! cargo test --locked --manifest-path "$contract_manifest" --test redline_consumer_contract -- --nocapture >"$test_log" 2>&1; then
   printf 'redline-consumer: contract test failed; see %s\n' "$test_log" >&2
   exit 1
 fi

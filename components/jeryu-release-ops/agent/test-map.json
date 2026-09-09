@@ -68,7 +68,7 @@
     "RELEASE_PROCESS.md": {
       "command": "just release-readiness",
       "lane": "release",
-      "purpose": "verify release gates and immutable Redline evidence policy"
+      "purpose": "verify SQLite release gates; optional Redline evidence has a separate contract lane"
     },
     "ROLLBACK.md": {
       "command": "just release-readiness",
@@ -304,6 +304,16 @@
       "command": "just check && just score",
       "lane": "check",
       "purpose": "verify closed release-receipt schemas are parseable and audit-visible"
+    },
+    "tests/redline/": {
+      "command": "cargo test --locked --manifest-path tests/redline/Cargo.toml",
+      "lane": "redline-compatibility",
+      "purpose": "explicit optional Redline SQL and immutable-source contracts outside the SQLite release workspace"
+    },
+    "ops/ci/redline-consumer.sh": {
+      "command": "just redline-consumer-test",
+      "lane": "redline-compatibility",
+      "purpose": "verify the separate protected Redline evidence producer without coupling it to SQLite release readiness"
     }
   },
   "workspace": "jeryu-release-ops"

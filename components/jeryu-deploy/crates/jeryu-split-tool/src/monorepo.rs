@@ -10,6 +10,7 @@ use std::{
 use toml::Value;
 
 pub(super) fn validate_manifest(manifest: &Value, check_paths: bool) -> Result<()> {
+    validate_storage(manifest)?;
     ensure!(
         manifest["repo_family"].as_str() == Some("jeryu-split"),
         "family identity changed"
@@ -56,7 +57,50 @@ pub(super) fn validate_manifest(manifest: &Value, check_paths: bool) -> Result<(
     Ok(())
 }
 
+fn validate_storage(manifest: &Value) -> Result<()> {
+    let storage = manifest
+        .get("storage")
+        .context("storage policy is missing")?;
+    ensure!(
+        storage.get("default_backend").and_then(Value::as_str) == Some("sqlite")
+            && storage.get("bundled_sqlite").and_then(Value::as_bool) == Some(true),
+        "standalone releases require bundled SQLite by default"
+    );
+    let redline = manifest
+        .get("redline")
+        .context("Redline proof policy is missing")?;
+    ensure!(
+        redline.get("role").and_then(Value::as_str) == Some("optional-compatibility-proof")
+            && redline.get("required_for_release").and_then(Value::as_bool) == Some(false)
+            && redline.get("contract_manifest").and_then(Value::as_str)
+                == Some("components/jeryu-release-ops/tests/redline/Cargo.toml"),
+        "Redline compatibility must remain separate from the SQLite release"
+    );
+    ensure!(
+        redline
+            .get("two_consumer_proof_required")
+            .and_then(Value::as_bool)
+            == Some(true),
+        "optional Redline qualification still requires its two-consumer proof"
+    );
+    Ok(())
+}
+
+fn validate_sqlite_lock(lock: &Value) -> Result<()> {
+    for package in lock["package"].as_array().context("lock packages")? {
+        let name = package["name"].as_str().context("locked package name")?;
+        let source = package.get("source").and_then(Value::as_str).unwrap_or("");
+        ensure!(
+            !name.starts_with("redlinedb") && !source.contains("/redline-core"),
+            "SQLite release graph must not resolve Redline: {name}"
+        );
+    }
+    Ok(())
+}
+
 pub(super) fn check(root: &Path) -> Result<()> {
+    let lock: Value = toml::from_str(&fs::read_to_string(root.join("Cargo.lock"))?)?;
+    validate_sqlite_lock(&lock)?;
     let output = Command::new("cargo")
         .current_dir(root)
         .args([
@@ -255,6 +299,84 @@ source_repository = "https://github.com/neverhuman/jankurai.git"
 "#,
         )
         .expect("auditor manifest")
+    }
+
+    #[test]
+    fn sqlite_policy_rejects_missing_malformed_or_blocking_redline_settings() {
+        let manifest: Value = toml::from_str(
+            r#"
+[storage]
+default_backend = "sqlite"
+bundled_sqlite = true
+[redline]
+role = "optional-compatibility-proof"
+required_for_release = false
+contract_manifest = "components/jeryu-release-ops/tests/redline/Cargo.toml"
+two_consumer_proof_required = true
+"#,
+        )
+        .unwrap();
+        validate_storage(&manifest).unwrap();
+        for table in ["storage", "redline"] {
+            let mut missing = manifest.clone();
+            missing.as_table_mut().unwrap().remove(table);
+            assert!(validate_storage(&missing).is_err());
+            for key in if table == "storage" {
+                vec!["default_backend", "bundled_sqlite"]
+            } else {
+                vec![
+                    "role",
+                    "required_for_release",
+                    "contract_manifest",
+                    "two_consumer_proof_required",
+                ]
+            } {
+                for invalid in [
+                    None,
+                    Some(Value::Integer(0)),
+                    Some(Value::String("invalid".into())),
+                ] {
+                    let mut changed = manifest.clone();
+                    let settings = changed[table].as_table_mut().unwrap();
+                    settings.remove(key);
+                    if let Some(value) = invalid {
+                        settings.insert(key.into(), value);
+                    }
+                    assert!(validate_storage(&changed).is_err(), "{table}.{key}");
+                }
+            }
+        }
+        let mut required = manifest.clone();
+        required["redline"]["required_for_release"] = Value::Boolean(true);
+        assert!(validate_storage(&required).is_err());
+        let mut waived = manifest.clone();
+        waived["redline"]["two_consumer_proof_required"] = Value::Boolean(false);
+        assert!(validate_storage(&waived).is_err());
+    }
+
+    #[test]
+    fn sqlite_lock_rejects_redline_packages_and_renamed_git_edges() {
+        let lock: Value =
+            toml::from_str("[[package]]\nname='rusqlite'\nversion='0.32.1'\n").unwrap();
+        validate_sqlite_lock(&lock).unwrap();
+        for name in [
+            "redlinedb",
+            "redlinedb-core",
+            "redlinedb-parser",
+            "redlinedb-io",
+        ] {
+            let mut changed = lock.clone();
+            changed["package"][0]["name"] = Value::String(name.into());
+            assert!(validate_sqlite_lock(&changed).is_err());
+        }
+        let mut alias = lock;
+        alias["package"][0].as_table_mut().unwrap().insert(
+            "source".into(),
+            Value::String(
+                "git+https://github.com/neverhuman/redline-core.git?tag=example#abc".into(),
+            ),
+        );
+        assert!(validate_sqlite_lock(&alias).is_err());
     }
 
     #[test]

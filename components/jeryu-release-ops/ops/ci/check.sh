@@ -20,7 +20,7 @@ if [[ -f package.json ]]; then
 fi
 
 if [[ -f repos.manifest.toml ]]; then
-  cargo run --locked --quiet -p jeryu-repogate -- family-manifest
+  bash ops/ci/check-manifest.sh
 fi
 if [[ -d schemas ]]; then
   python3 - <<'PY'

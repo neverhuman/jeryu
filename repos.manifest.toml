@@ -227,9 +227,17 @@ predecessor_repository = "jeryu/jeryu-release-ops"
 predecessor_commit = "7cb0782601b11134e4005fc891dd018dd4e6367b"
 runtime_cutover = false
 
+[storage]
+default_backend = "sqlite"
+bundled_sqlite = true
+
 [redline]
+role = "optional-compatibility-proof"
+required_for_release = false
+contract_manifest = "components/jeryu-release-ops/tests/redline/Cargo.toml"
 source_authority = "jain-redline/redline-split-ops"
 public_repository = "https://github.com/neverhuman/redline-core.git"
 tag = "redline-core-v4.1.0-jain.6"
 commit = "d0de59930141baffcfa2b514480e75b14627f24d"
+# Required for Redline qualification/retirement, not the SQLite release.
 two_consumer_proof_required = true

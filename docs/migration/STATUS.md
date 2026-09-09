@@ -9,7 +9,38 @@ ancestry from the existing GitHub portal main. `imports.json` binds each
 original commit and tree to its integration commit. Complete Jeryu histories,
 untracked files, runtime/support material and build output are preserved in
 private custody. Historical active manifests and lockfiles are retained under
-`original-manifests/`; Cargo and npm use only the new root files.
+`original-manifests/`; product Cargo and npm use the new root files.
+
+The latest user direction makes RedlineDB independent of the SQLite release.
+The server already opens durable SQLite databases. Its only Redline build
+edge was an Obs development contract, now preserved byte-for-byte in the
+excluded `components/jeryu-release-ops/tests/redline` workspace with its own
+Cargo-generated lock. `scripts/ci.sh redline` explicitly runs that optional
+proof; required local/hosted lanes and Release Ops readiness do not invoke it.
+The root candidate manifest and its validator declare bundled SQLite as the
+default and Redline compatibility as nonblocking. Historical Redline authority,
+immutable tags, two-consumer proof and original-retirement gates are unchanged.
+
+Local locked all-feature metadata contains all 65 product packages, 459 total
+packages, zero Redline packages and zero Git dependencies. Cargo removed 217
+lockfile lines without upgrading packages. Split-tool tests (22 unit and four
+CLI contracts), the API dependency identity test, all five Obs integration
+tests, affected warning-denied Clippy, candidate manifest routing and CI
+dispatch checks pass. The separate Redline harness passes formatting, Clippy,
+the original transaction/reopen test and immutable four-package identity test.
+An empty-cache build and installed runtime at the committed successor remain
+the next proof; these local checks do not qualify publication or all CI.
+
+At exact `d74049f3`, the complete web lane passed: 97 generated contracts,
+180 unit tests, production/Storybook, seven real-backend browser tests,
+70 UI/accessibility browser tests, 110 action entries, Lighthouse and nine UX
+collector checks. Its source-bound candidate auditor installation and all nine
+independent auxiliary producer steps also passed. Complete auxiliary outputs
+were archived, restored and compared before guarded scratch removal. Full
+auxiliary admission remains pending. The actual root audit at that commit
+still failed: 64 against 85, eight caps and 35 hard findings. Independent
+review identified a real onboarding-state error swallow alongside upstream
+classification defects; no threshold or finding was waived.
 
 Legacy cleanup accounts for 214 partial merge files and all 107 declared dirty
 patch outputs in restored private Git histories and a path-by-path disposition

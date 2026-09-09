@@ -22,7 +22,13 @@ Cross-repo Rust dependencies are pinned Git dependencies using
 `*-v4.0.0-split.0` tags. Only `jeryu-deploy` may use local sibling path patches
 for split-family development.
 
-The Redline database dependency is separately pinned to an immutable
+For the standalone monorepo release, bundled SQLite is the default and
+Redline must not block product builds or required CI. The optional
+`tests/redline` contract has an excluded workspace and lockfile; all 65
+product packages remain governed by the root Cargo workspace. Historical
+Redline authority and retirement proofs remain required for their own scope.
+
+The optional Redline contract dependency is separately pinned to an immutable
 `redline-core-v4.1.0-jain.N` tag. A revision change must update the locked
 source, consumer producer, and release documentation together, then pass the
 consumer and full PR proof lanes described in `ops/AGENTS.md`.

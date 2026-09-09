@@ -18,10 +18,10 @@ artifact-support:
   ./ops/ci/artifact_support.sh
 
 redline-consumer-test:
-  cargo test --locked -p jeryu-obs --test redline_consumer_contract
+  cargo test --locked --manifest-path tests/redline/Cargo.toml --test redline_consumer_contract
   bash ops/ci/redline-consumer-authority-test.sh
 
-release-readiness: fast check score security artifact-support redline-consumer-test
+release-readiness: fast check score security artifact-support
 
 profile:
   printf '%s\n' "rust-workspace"

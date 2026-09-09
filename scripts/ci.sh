@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Local and hosted CI use this same entrypoint. Every command is required.
+# Local and hosted CI use this same entrypoint; `all` lists required lanes.
 set -euo pipefail
 root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)
 cd "$root"
@@ -19,6 +19,12 @@ case ${1:-all} in
     ;;
   public)
     cargo run --locked -p jeryu-split-tool --bin jeryu-split -- public-preflight
+    ;;
+  redline)
+    # Explicit compatibility proof, independent of the SQLite release matrix.
+    cargo fmt --manifest-path components/jeryu-release-ops/tests/redline/Cargo.toml --all -- --check
+    cargo clippy --locked --manifest-path components/jeryu-release-ops/tests/redline/Cargo.toml --all-targets -- -D warnings
+    cargo test --locked --manifest-path components/jeryu-release-ops/tests/redline/Cargo.toml
     ;;
   auditor)
     source scripts/bootstrap-jankurai.sh
@@ -109,5 +115,5 @@ case ${1:-all} in
   all)
     for lane in source public rust web runtime product security sandbox oci splits legacy; do "$0" "$lane"; done
     ;;
-  *) printf 'usage: scripts/ci.sh {source|public|auditor|auxiliary|rust|web|runtime|product|security|sandbox|oci|splits|legacy|all}\n' >&2; exit 2 ;;
+  *) printf 'usage: scripts/ci.sh {source|public|auditor|auxiliary|rust|web|runtime|product|security|sandbox|oci|splits|legacy|redline|all}\n' >&2; exit 2 ;;
 esac

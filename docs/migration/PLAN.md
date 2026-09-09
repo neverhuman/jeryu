@@ -13,7 +13,11 @@ one lockfile. Keep the ten component directories as ownership and export
 boundaries. The ordinary product path is `scripts/build.sh`,
 `scripts/install.sh --from-source`, then `jeryu serve`; running every CI lane
 is a release qualification task. SQLite remains the durable runtime for this
-release. Runner installation is optional and must state its host requirements.
+release. Redline compatibility uses a separately locked, excluded test harness
+invoked by `scripts/ci.sh redline`; it must not block the SQLite release or
+resolve during default or all-feature product builds. The Redline-specific
+two-consumer and original-retirement gates remain separate. Runner installation
+is optional and must state its host requirements.
 
 The largest design risks are competing authorities, private tool/dependency
 routes, CI wrappers that assume a particular machine, and splits that only

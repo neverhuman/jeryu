@@ -4,14 +4,21 @@ use serde_json::Value;
 use std::{path::Path, process::Command};
 
 #[test]
-fn jeryu_packages_have_one_workspace_identity_and_redline_stays_immutable() {
+fn jeryu_packages_have_one_workspace_identity_and_sqlite_needs_no_redline() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"))
         .ancestors()
         .find(|path| path.join("Cargo.lock").is_file())
         .expect("workspace lock");
     let output = Command::new("cargo")
         .current_dir(root)
-        .args(["metadata", "--locked", "--offline", "--format-version", "1"])
+        .args([
+            "metadata",
+            "--locked",
+            "--offline",
+            "--all-features",
+            "--format-version",
+            "1",
+        ])
         .output()
         .expect("cargo metadata");
     assert!(output.status.success(), "locked metadata failed");
@@ -67,19 +74,27 @@ fn jeryu_packages_have_one_workspace_identity_and_redline_stays_immutable() {
         .iter()
         .filter(|p| p["name"].as_str().unwrap().starts_with("redlinedb"))
         .collect();
-    if expected_external.is_some() {
-        // Redline is an Obs dev-dependency. Cargo does not inherit the tests
-        // of an external package into Deploy's standalone dependency closure.
-        assert!(redline.is_empty());
-        return;
-    }
-    assert_eq!(redline.len(), 4);
-    let mut sources = std::collections::BTreeSet::new();
-    for package in redline {
-        let source = package["source"].as_str().expect("Redline is external");
-        assert!(source.contains("tag=redline-core-v4.1.0-jain.6"));
-        assert!(source.ends_with("#d0de59930141baffcfa2b514480e75b14627f24d"));
-        sources.insert(source);
-    }
-    assert_eq!(sources.len(), 1, "Redline source identities diverged");
+    assert!(
+        redline.is_empty(),
+        "SQLite builds must not resolve Redline, even with all features"
+    );
+    let sqlite: Vec<_> = packages
+        .iter()
+        .filter(|p| p["name"] == "libsqlite3-sys")
+        .collect();
+    assert_eq!(sqlite.len(), 1, "one SQLite implementation");
+    let node = metadata["resolve"]["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["id"] == sqlite[0]["id"])
+        .unwrap();
+    assert!(
+        node["features"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|f| f == "bundled"),
+        "SQLite must build without a host database installation"
+    );
 }
