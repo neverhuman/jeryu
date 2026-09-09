@@ -1,6 +1,10 @@
 # Changelog
 
 ## Unreleased
+- Fence scheduler transitions by the complete lease, runner epoch and current
+  scheduler time. Expiration consumes retry attempts, cancellation is terminal,
+  and an idempotent expiry sweep emits retry or failure receipts. Direct
+  `LeaseBook::complete` and `fail` callers must now supply scheduler time.
 - Split oversized sandbox launch, workcell, agent-driver, OAuth, registry, OCI,
   and fleet source into focused implementation and test modules without
   changing public Rust paths, serialized contracts, syscall ordering,

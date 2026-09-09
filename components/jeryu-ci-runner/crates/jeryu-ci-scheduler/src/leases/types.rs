@@ -36,6 +36,8 @@ pub enum JobLeaseState {
     Succeeded,
     /// Job exhausted retry attempts.
     Failed { attempts: u32, reason: String },
+    /// Job was cancelled and will not be retried.
+    Cancelled { attempts: u32, reason: String },
 }
 
 /// Scheduler lease receipt event.
@@ -49,6 +51,8 @@ pub enum LeaseEventKind {
     Requeued,
     /// Job exhausted retry budget.
     Failed,
+    /// Job was cancelled without retrying.
+    Cancelled,
 }
 
 impl LeaseEventKind {
@@ -59,6 +63,7 @@ impl LeaseEventKind {
             Self::Completed => "completed",
             Self::Requeued => "requeued",
             Self::Failed => "failed",
+            Self::Cancelled => "cancelled",
         }
     }
 }

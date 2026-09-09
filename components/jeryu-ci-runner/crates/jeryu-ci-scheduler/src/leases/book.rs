@@ -60,9 +60,8 @@ impl LeaseBook {
 
     /// Acquires a job lease.
     ///
-    /// Re-acquiring the same active job by the same worker is idempotent and
-    /// returns the existing lease. A different worker can take over only after
-    /// the previous lease has expired.
+    /// Re-acquiring the same active job by the same worker and epoch is
+    /// idempotent. Expired leases consume an attempt before any takeover.
     pub fn acquire(
         &mut self,
         job_id: &str,
@@ -82,6 +81,9 @@ impl LeaseBook {
         now_epoch: u64,
         ttl_seconds: u64,
     ) -> Result<JobLease, LeaseError> {
+        if ttl_seconds == 0 || now_epoch.checked_add(ttl_seconds).is_none() {
+            return Err(LeaseError::InvalidLeaseTime(job_id.to_string()));
+        }
         let worker_id = worker_id.into();
         let run_id = self.run_id.clone();
         let schedule_hash = self.schedule_hash.clone();
@@ -92,8 +94,19 @@ impl LeaseBook {
         match &record.state {
             JobLeaseState::Pending => {}
             JobLeaseState::Leased(lease) => {
+                if now_epoch < lease.acquired_at_epoch {
+                    return Err(LeaseError::InvalidLeaseTime(job_id.to_string()));
+                }
                 if lease.expires_at_epoch > now_epoch {
                     if lease.worker_id == worker_id {
+                        if lease.node_epoch != node_epoch {
+                            return Err(LeaseError::FencedOut {
+                                job_id: job_id.to_string(),
+                                worker_id,
+                                node_epoch,
+                                active_node_epoch: lease.node_epoch,
+                            });
+                        }
                         return Ok(lease.clone());
                     }
                     return Err(LeaseError::ActiveLease {
@@ -102,12 +115,19 @@ impl LeaseBook {
                         expires_at_epoch: lease.expires_at_epoch,
                     });
                 }
+                retry_or_fail(record, "lease expired".to_string());
+                if matches!(record.state, JobLeaseState::Failed { .. }) {
+                    return Err(LeaseError::PermanentlyFailed(job_id.to_string()));
+                }
             }
             JobLeaseState::Succeeded => {
                 return Err(LeaseError::AlreadySucceeded(job_id.to_string()));
             }
             JobLeaseState::Failed { .. } => {
                 return Err(LeaseError::PermanentlyFailed(job_id.to_string()));
+            }
+            JobLeaseState::Cancelled { .. } => {
+                return Err(LeaseError::AlreadyCancelled(job_id.to_string()));
             }
         }
 
@@ -173,46 +193,85 @@ impl LeaseBook {
         })
     }
 
-    /// Marks an active lease successful.
-    pub fn complete(&mut self, lease: &JobLease) -> Result<(), LeaseError> {
-        let record = self
-            .jobs
-            .get_mut(&lease.job_id)
-            .ok_or_else(|| LeaseError::UnknownJob(lease.job_id.clone()))?;
-        match &record.state {
-            JobLeaseState::Leased(active) if active.id == lease.id => {
-                record.state = JobLeaseState::Succeeded;
-                Ok(())
-            }
-            _ => Err(LeaseError::LeaseMismatch(lease.job_id.clone())),
-        }
+    /// Marks an active lease successful at the scheduler's current time.
+    pub fn complete(&mut self, lease: &JobLease, at_epoch: u64) -> Result<(), LeaseError> {
+        self.active_record(lease, at_epoch)?.state = JobLeaseState::Succeeded;
+        Ok(())
     }
 
     /// Marks an active lease failed, requeueing when retry attempts remain.
-    pub fn fail(&mut self, lease: &JobLease, reason: impl Into<String>) -> Result<(), LeaseError> {
-        let reason = reason.into();
+    pub fn fail(
+        &mut self,
+        lease: &JobLease,
+        reason: impl Into<String>,
+        at_epoch: u64,
+    ) -> Result<(), LeaseError> {
+        retry_or_fail(self.active_record(lease, at_epoch)?, reason.into());
+        Ok(())
+    }
+
+    /// Cancels an active lease without scheduling another attempt.
+    pub fn cancel(
+        &mut self,
+        lease: &JobLease,
+        reason: impl Into<String>,
+        at_epoch: u64,
+    ) -> Result<(), LeaseError> {
+        let record = self.active_record(lease, at_epoch)?;
+        record.state = JobLeaseState::Cancelled {
+            attempts: record.attempt,
+            reason: reason.into(),
+        };
+        Ok(())
+    }
+
+    /// Sweeps expired leases once, returning their retry or terminal receipts.
+    /// The transport must persist these transitions together with its queue.
+    pub fn expire(&mut self, at_epoch: u64) -> Vec<LeaseReceipt> {
+        let expired: Vec<_> = self
+            .jobs
+            .values()
+            .filter_map(|record| match &record.state {
+                JobLeaseState::Leased(lease) if lease.expires_at_epoch <= at_epoch => {
+                    Some(lease.clone())
+                }
+                _ => None,
+            })
+            .collect();
+        expired
+            .into_iter()
+            .map(|lease| {
+                let record = self.jobs.get_mut(&lease.job_id).expect("known expired job");
+                let kind = retry_or_fail(record, "lease expired".to_string());
+                self.lease_receipt(kind, &lease, at_epoch, "lease expired", None, None)
+            })
+            .collect()
+    }
+
+    fn active_record(
+        &mut self,
+        lease: &JobLease,
+        at_epoch: u64,
+    ) -> Result<&mut JobLeaseRecord, LeaseError> {
         let record = self
             .jobs
             .get_mut(&lease.job_id)
             .ok_or_else(|| LeaseError::UnknownJob(lease.job_id.clone()))?;
-        match &record.state {
-            JobLeaseState::Leased(active) if active.id == lease.id => {
-                if record.attempt < record.max_attempts {
-                    record.attempt += 1;
-                    record.state = JobLeaseState::Pending;
-                } else {
-                    record.state = JobLeaseState::Failed {
-                        attempts: record.attempt,
-                        reason,
-                    };
-                }
-                Ok(())
-            }
-            _ => Err(LeaseError::LeaseMismatch(lease.job_id.clone())),
+        if !matches!(&record.state, JobLeaseState::Leased(active) if active == lease) {
+            return Err(LeaseError::LeaseMismatch(lease.job_id.clone()));
         }
+        if at_epoch < lease.acquired_at_epoch {
+            return Err(LeaseError::InvalidLeaseTime(lease.job_id.clone()));
+        }
+        if at_epoch >= lease.expires_at_epoch {
+            return Err(LeaseError::LeaseExpired(lease.job_id.clone()));
+        }
+        Ok(record)
     }
 
     /// Applies a runner result to the active lease and emits a replay receipt.
+    /// `at_epoch` must come from the scheduler clock, not the runner's payload.
+    /// The lease id binds the attempt; an expired attempt cannot report a result.
     pub fn apply_result(
         &mut self,
         result: &JobResult,
@@ -242,7 +301,7 @@ impl LeaseBook {
         let result_hash = Some(result.receipt_hash());
         match result.outcome {
             JobOutcome::Success => {
-                self.complete(&lease)?;
+                self.complete(&lease, at_epoch)?;
                 Ok(self.lease_receipt(
                     LeaseEventKind::Completed,
                     &lease,
@@ -252,12 +311,20 @@ impl LeaseBook {
                     result_hash,
                 ))
             }
-            JobOutcome::Failed
-            | JobOutcome::Cancelled
-            | JobOutcome::TimedOut
-            | JobOutcome::InfrastructureFailure => {
+            JobOutcome::Cancelled => {
+                self.cancel(&lease, "runner reported cancelled", at_epoch)?;
+                Ok(self.lease_receipt(
+                    LeaseEventKind::Cancelled,
+                    &lease,
+                    at_epoch,
+                    "runner reported cancelled",
+                    None,
+                    result_hash,
+                ))
+            }
+            JobOutcome::Failed | JobOutcome::TimedOut | JobOutcome::InfrastructureFailure => {
                 let reason = format!("runner reported {}", result.outcome.as_str());
-                self.fail(&lease, reason.clone())?;
+                self.fail(&lease, reason.clone(), at_epoch)?;
                 let kind = match self.state(&result.job_id) {
                     Some(JobLeaseState::Pending) => LeaseEventKind::Requeued,
                     Some(JobLeaseState::Failed { .. }) => LeaseEventKind::Failed,
@@ -336,6 +403,20 @@ impl LeaseBook {
             request_hash,
             result_hash,
         }
+    }
+}
+
+fn retry_or_fail(record: &mut JobLeaseRecord, reason: String) -> LeaseEventKind {
+    if record.attempt < record.max_attempts {
+        record.attempt += 1;
+        record.state = JobLeaseState::Pending;
+        LeaseEventKind::Requeued
+    } else {
+        record.state = JobLeaseState::Failed {
+            attempts: record.attempt,
+            reason,
+        };
+        LeaseEventKind::Failed
     }
 }
 

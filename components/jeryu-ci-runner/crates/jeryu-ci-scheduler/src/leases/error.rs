@@ -11,6 +11,12 @@ pub enum LeaseError {
     AlreadySucceeded(String),
     /// Job has failed permanently.
     PermanentlyFailed(String),
+    /// Job was cancelled and cannot be acquired again.
+    AlreadyCancelled(String),
+    /// Lease time is invalid or precedes its acquisition.
+    InvalidLeaseTime(String),
+    /// The scheduler clock has reached the active lease's expiry.
+    LeaseExpired(String),
     /// Another worker holds a non-expired lease.
     ActiveLease {
         /// Job id.
@@ -43,6 +49,9 @@ impl fmt::Display for LeaseError {
             Self::UnknownJob(job) => write!(f, "unknown job: {job}"),
             Self::AlreadySucceeded(job) => write!(f, "job already succeeded: {job}"),
             Self::PermanentlyFailed(job) => write!(f, "job permanently failed: {job}"),
+            Self::AlreadyCancelled(job) => write!(f, "job already cancelled: {job}"),
+            Self::InvalidLeaseTime(job) => write!(f, "invalid lease time for job: {job}"),
+            Self::LeaseExpired(job) => write!(f, "lease expired for job: {job}"),
             Self::ActiveLease {
                 job_id,
                 worker_id,

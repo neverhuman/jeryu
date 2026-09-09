@@ -10,6 +10,9 @@ mod book;
 mod error;
 mod types;
 
+#[cfg(test)]
+mod fencing_tests;
+
 pub use book::LeaseBook;
 pub use error::LeaseError;
 pub use types::{JobLease, JobLeaseState, LeaseEventKind, LeaseReceipt, LeasedJobRequest};
@@ -24,7 +27,7 @@ mod tests {
     };
     use jeryu_runner_protocol::{JobOutcome, JobResult};
 
-    fn pipeline(max_attempts: u32) -> Pipeline {
+    pub(super) fn pipeline(max_attempts: u32) -> Pipeline {
         let mut pipeline = Pipeline::new(
             PipelineSource::NativeToml,
             "acme/repo",
@@ -47,7 +50,7 @@ mod tests {
         pipeline
     }
 
-    fn lease_book(max_attempts: u32) -> LeaseBook {
+    pub(super) fn lease_book(max_attempts: u32) -> LeaseBook {
         let pipeline = pipeline(max_attempts);
         let schedule = deterministic_schedule(&pipeline).expect("schedule");
         LeaseBook::new("run-1", &pipeline, &schedule).expect("lease book")
@@ -67,7 +70,7 @@ mod tests {
 
     #[test]
     fn active_lease_blocks_other_worker_until_expiry() {
-        let mut leases = lease_book(1);
+        let mut leases = lease_book(2);
         leases
             .acquire("test", "worker-a", 100, 30)
             .expect("first lease");
@@ -80,12 +83,12 @@ mod tests {
             .acquire("test", "worker-b", 131, 30)
             .expect("expired lease can be acquired");
         assert_eq!(takeover.worker_id, "worker-b");
-        assert_eq!(takeover.attempt, 1);
+        assert_eq!(takeover.attempt, 2);
     }
 
     #[test]
     fn superseded_worker_result_after_takeover_is_rejected() {
-        let pipeline = pipeline(1);
+        let pipeline = pipeline(2);
         let schedule = deterministic_schedule(&pipeline).expect("schedule");
         let mut leases = LeaseBook::new("run-1", &pipeline, &schedule).expect("lease book");
         let original = leases
@@ -96,7 +99,7 @@ mod tests {
             .expect("takeover lease");
         assert_ne!(original.id, takeover.id);
         assert!(matches!(
-            leases.complete(&original),
+            leases.complete(&original, 140),
             Err(LeaseError::LeaseMismatch(_))
         ));
     }
@@ -107,7 +110,7 @@ mod tests {
         let first = leases
             .acquire("test", "worker-a", 100, 30)
             .expect("first lease");
-        leases.fail(&first, "flake").expect("requeue");
+        leases.fail(&first, "flake", 120).expect("requeue");
         assert!(matches!(leases.state("test"), Some(JobLeaseState::Pending)));
         assert_eq!(leases.attempt("test"), Some(2));
 
@@ -117,7 +120,7 @@ mod tests {
         assert_eq!(second.attempt, 2);
         assert_ne!(first.id, second.id);
         leases
-            .fail(&second, "still failing")
+            .fail(&second, "still failing", 150)
             .expect("permanent fail");
         assert!(matches!(
             leases.state("test"),
@@ -129,7 +132,7 @@ mod tests {
     fn completed_job_cannot_be_released() {
         let mut leases = lease_book(1);
         let lease = leases.acquire("test", "worker-a", 100, 30).expect("lease");
-        leases.complete(&lease).expect("complete");
+        leases.complete(&lease, 110).expect("complete");
         assert!(matches!(
             leases.acquire("test", "worker-a", 110, 30),
             Err(LeaseError::AlreadySucceeded(_))
@@ -271,7 +274,7 @@ mod tests {
         assert!(matches!(leases.state("test"), Some(JobLeaseState::Pending)));
     }
 
-    fn result_for(lease: &super::JobLease, outcome: JobOutcome) -> JobResult {
+    pub(super) fn result_for(lease: &super::JobLease, outcome: JobOutcome) -> JobResult {
         JobResult {
             runner_id: lease.worker_id.clone(),
             runner_epoch: lease.node_epoch,
