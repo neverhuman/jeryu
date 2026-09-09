@@ -12,7 +12,7 @@
 # merge those protected PRs, then run `ops/install-jankurai.sh` from exact clean
 # protected jeryu-tool main and rebuild the agent-sandbox image.
 
-schema_version = "1"
+schema_version = "2"
 
 [jankurai]
 repo                  = "http://127.0.0.1:8787/git/jeryu/jankurai.git"
@@ -76,3 +76,8 @@ input-boundary       = "advisory"
 agent-tool-supply    = "advisory"
 release-readiness    = "advisory"
 cost-budget          = "advisory"
+
+# Public transport for the same immutable producer identity above. This does
+# not promote the candidate manifest or change any source/build/binary pin.
+[distribution]
+source_repository = "https://github.com/neverhuman/jankurai.git"

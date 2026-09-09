@@ -41,8 +41,11 @@ Remaining release gates include:
   six Rust packages are MIT; the bundled JetBrains Mono font is SIL OFL 1.1.
   Before publication the public history was bundled/restored; anonymous
   readback confirmed the exact new tag and every existing public ref unchanged.
-  The portable authority generator, installer and receipts remain required;
-  public preflight still rejects the historical private source declaration.
+  The candidate manifest now declares an explicit public distribution URL
+  separately from its unchanged producer/build identity. Schema 1 remains
+  supported; schema 2 rejects unknown or substituted distribution fields.
+  Anonymous immutable-tag preflight passes. The portable authority generator,
+  installer and receipts remain required; availability is not build proof.
   The canonical
   Redline tag `redline-core-v4.1.0-jain.6` is now anonymously available from
   `neverhuman/redline-core` at the exact

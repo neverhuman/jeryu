@@ -35,6 +35,14 @@ pub const PIN_ENV_FIELDS: [(&str, &str); 26] = [
 ];
 
 pub(super) const TOP_LEVEL_FIELDS: [&str; 4] = ["schema_version", "jankurai", "floors", "tools"];
+pub(super) const TOP_LEVEL_FIELDS_V2: [&str; 5] = [
+    "schema_version",
+    "jankurai",
+    "floors",
+    "tools",
+    "distribution",
+];
+pub(super) const PUBLIC_SOURCE_REPOSITORY: &str = "https://github.com/neverhuman/jankurai.git";
 pub(super) const FLOOR_FIELDS: [&str; 4] =
     ["default", "public-portal", "jeryu-ci-runner", "jeryu-tool"];
 pub(super) const TOOL_FIELDS: [&str; 20] = [

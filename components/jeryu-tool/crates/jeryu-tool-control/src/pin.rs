@@ -5,7 +5,10 @@ use std::path::Path;
 
 #[path = "pin_fields.rs"]
 mod fields;
-use fields::{FLOOR_FIELDS, TOOL_FIELDS, TOP_LEVEL_FIELDS, exact_keys, shell_double_quote_safe};
+use fields::{
+    FLOOR_FIELDS, PUBLIC_SOURCE_REPOSITORY, TOOL_FIELDS, TOP_LEVEL_FIELDS, TOP_LEVEL_FIELDS_V2,
+    exact_keys, shell_double_quote_safe,
+};
 pub use fields::{
     PIN_ENV_FIELDS, PIN_MARKER_BEGIN, PIN_MARKER_END, WORKFLOW_PIN_MARKER_BEGIN,
     WORKFLOW_PIN_MARKER_END,
@@ -28,9 +31,29 @@ impl Pin {
         let top = parsed
             .as_table()
             .ok_or_else(|| "tool-manifest.toml must contain a top-level table".to_owned())?;
-        exact_keys(top, &TOP_LEVEL_FIELDS, "top-level")?;
-        if top.get("schema_version").and_then(toml::Value::as_str) != Some("1") {
-            return Err("tool-manifest.toml schema_version must be \"1\"".to_owned());
+        match top.get("schema_version").and_then(toml::Value::as_str) {
+            Some("1") => exact_keys(top, &TOP_LEVEL_FIELDS, "top-level")?,
+            Some("2") => {
+                exact_keys(top, &TOP_LEVEL_FIELDS_V2, "top-level")?;
+                let distribution = top
+                    .get("distribution")
+                    .and_then(toml::Value::as_table)
+                    .ok_or_else(|| "tool-manifest.toml missing [distribution]".to_owned())?;
+                exact_keys(distribution, &["source_repository"], "[distribution]")?;
+                if distribution
+                    .get("source_repository")
+                    .and_then(toml::Value::as_str)
+                    != Some(PUBLIC_SOURCE_REPOSITORY)
+                {
+                    return Err(
+                        "tool-manifest.toml [distribution].source_repository must be the approved public Jankurai mirror"
+                            .to_owned(),
+                    );
+                }
+            }
+            _ => {
+                return Err("tool-manifest.toml schema_version must be \"1\" or \"2\"".to_owned());
+            }
         }
 
         let table = top

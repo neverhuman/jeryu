@@ -103,6 +103,37 @@ pub(super) fn check(root: &Path) -> Result<()> {
     Ok(())
 }
 
+fn public_auditor_repository(tool: &Value) -> Result<&str> {
+    ensure!(
+        tool.get("schema_version").and_then(Value::as_str) == Some("2"),
+        "public auditor distribution requires tool-manifest schema_version \"2\""
+    );
+    ensure!(
+        tool.get("jankurai")
+            .and_then(|pin| pin.get("repo"))
+            .and_then(Value::as_str)
+            == Some("http://127.0.0.1:8787/git/jeryu/jankurai.git"),
+        "governed auditor producer identity changed"
+    );
+    let distribution = tool
+        .get("distribution")
+        .and_then(Value::as_table)
+        .context("public auditor distribution is missing")?;
+    ensure!(
+        distribution.len() == 1 && distribution.contains_key("source_repository"),
+        "public auditor distribution must contain only source_repository"
+    );
+    let repository = distribution
+        .get("source_repository")
+        .and_then(Value::as_str)
+        .context("public auditor source_repository must be a string")?;
+    ensure!(
+        repository == "https://github.com/neverhuman/jankurai.git",
+        "public auditor transport is not the approved Jankurai mirror"
+    );
+    Ok(repository)
+}
+
 pub(super) fn public_preflight(root: &Path) -> Result<()> {
     let lock: Value = toml::from_str(&fs::read_to_string(root.join("Cargo.lock"))?)?;
     let mut failures = BTreeSet::new();
@@ -131,26 +162,30 @@ pub(super) fn public_preflight(root: &Path) -> Result<()> {
     let tool: Value = toml::from_str(&fs::read_to_string(
         root.join("components/jeryu-tool/tool-manifest.toml"),
     )?)?;
-    if !tool["jankurai"]["repo"]
-        .as_str()
-        .is_some_and(|url| url.starts_with("https://github.com/neverhuman/"))
-    {
-        failures.insert("governed auditor source is not public".into());
-    } else {
-        refs.insert((
-            tool["jankurai"]["repo"]
-                .as_str()
-                .context("auditor remote")?
-                .to_owned(),
-            tool["jankurai"]["tag"]
-                .as_str()
-                .context("auditor tag")?
-                .to_owned(),
-            tool["jankurai"]["rev"]
-                .as_str()
-                .context("auditor commit")?
-                .to_owned(),
-        ));
+    match public_auditor_repository(&tool) {
+        Ok(repository) => {
+            println!(
+                "governed auditor producer: {}",
+                tool["jankurai"]["repo"]
+                    .as_str()
+                    .context("auditor producer")?
+            );
+            println!("governed auditor public transport: {repository}");
+            refs.insert((
+                repository.to_owned(),
+                tool["jankurai"]["tag"]
+                    .as_str()
+                    .context("auditor tag")?
+                    .to_owned(),
+                tool["jankurai"]["rev"]
+                    .as_str()
+                    .context("auditor commit")?
+                    .to_owned(),
+            ));
+        }
+        Err(error) => {
+            failures.insert(error.to_string());
+        }
     }
     for (remote, tag, expected) in refs {
         // Empty credentials/configuration are essential: a personal rewrite or
@@ -203,4 +238,81 @@ pub(super) fn public_preflight(root: &Path) -> Result<()> {
         "public immutable tags match anonymously; a fresh clone/build remains a separate required proof"
     );
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn auditor_manifest() -> Value {
+        toml::from_str(
+            r#"
+schema_version = "2"
+[jankurai]
+repo = "http://127.0.0.1:8787/git/jeryu/jankurai.git"
+[distribution]
+source_repository = "https://github.com/neverhuman/jankurai.git"
+"#,
+        )
+        .expect("auditor manifest")
+    }
+
+    #[test]
+    fn public_auditor_transport_keeps_the_original_producer_identity() {
+        let manifest = auditor_manifest();
+        assert_eq!(
+            public_auditor_repository(&manifest).expect("public mirror"),
+            "https://github.com/neverhuman/jankurai.git"
+        );
+        assert_eq!(
+            manifest["jankurai"]["repo"].as_str(),
+            Some("http://127.0.0.1:8787/git/jeryu/jankurai.git")
+        );
+    }
+
+    #[test]
+    fn public_auditor_transport_rejects_legacy_missing_and_extra_distribution() {
+        let mut legacy = auditor_manifest();
+        legacy["schema_version"] = Value::String("1".to_owned());
+        legacy
+            .as_table_mut()
+            .expect("manifest")
+            .remove("distribution");
+        assert!(public_auditor_repository(&legacy).is_err());
+
+        let mut missing = auditor_manifest();
+        missing
+            .as_table_mut()
+            .expect("manifest")
+            .remove("distribution");
+        assert!(public_auditor_repository(&missing).is_err());
+
+        let mut extra = auditor_manifest();
+        extra["distribution"]
+            .as_table_mut()
+            .expect("distribution")
+            .insert("fallback".to_owned(), Value::Boolean(true));
+        assert!(public_auditor_repository(&extra).is_err());
+    }
+
+    #[test]
+    fn public_auditor_transport_rejects_unapproved_urls_and_producer_changes() {
+        for repository in [
+            "http://github.com/neverhuman/jankurai.git",
+            "https://github.com.evil.invalid/neverhuman/jankurai.git",
+            "https://user@github.com/neverhuman/jankurai.git",
+            "https://github.com/neverhuman/jankurai.git?ref=main",
+            "https://github.com/neverhuman/jankurai.git#main",
+            "https://github.com/neverhuman/jankurai.git/",
+            "https://github.com/neverhuman/another-tool.git",
+        ] {
+            let mut manifest = auditor_manifest();
+            manifest["distribution"]["source_repository"] = Value::String(repository.to_owned());
+            assert!(public_auditor_repository(&manifest).is_err());
+        }
+        let mut changed = auditor_manifest();
+        changed["jankurai"]["repo"] =
+            Value::String("https://github.com/neverhuman/jankurai.git".to_owned());
+        assert!(public_auditor_repository(&changed).is_err());
+    }
 }
