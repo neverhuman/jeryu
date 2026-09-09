@@ -20,11 +20,18 @@ for path in "${required[@]}"; do
   }
 done
 
-floor="$(awk -F= '/^[[:space:]]*minimum_score[[:space:]]*=/ {
-  gsub(/[[:space:]]/, "", $2); print $2; exit
-}' agent/audit-policy.toml)"
-[[ "${floor}" =~ ^[0-9]+$ ]] || {
-  printf 'score check failed: minimum_score is not an integer\n' >&2
+floor="$(awk -F= '
+  /^[[:space:]]*minimum_score[[:space:]]*=/ {
+    count++; value=$2; sub(/[[:space:]]*#.*/, "", value)
+    gsub(/[[:space:]]/, "", value)
+  }
+  END { if (count != 1) exit 1; print value }
+' agent/audit-policy.toml)" || {
+  printf 'score check failed: policy must contain one minimum_score\n' >&2
+  exit 1
+}
+[[ "$floor" =~ ^(8[5-9]|9[0-9]|100)$ ]] || {
+  printf 'score check failed: minimum_score must be an integer from 85 through 100\n' >&2
   exit 1
 }
 
@@ -33,6 +40,25 @@ jankurai audit . --full --mode advisory --policy agent/audit-policy.toml \
   --fail-under "${floor}" --json .jankurai/repo-score.json \
   --md .jankurai/repo-score.md
 
+# Validate the findings themselves: advisory summaries may report zero hard findings.
+jq -es '
+  length == 1 and (.[0] |
+    type == "object"
+    and (.score | type == "number" and . == floor and . >= 0 and . <= 100)
+    and .caps_applied == []
+    and (if has("caps") then .caps == [] else true end)
+    and (.findings | type == "array" and all(.[];
+      type == "object"
+      and (.severity == "medium" or .severity == "low" or .severity == "info")
+      and (if has("hardness") then .hardness == "soft" else true end)))
+    and (if has("hard_findings") then .hard_findings == 0 else true end)
+    and (.decision | type == "object"
+      and (.minimum_score | type == "number" and . == floor and . >= 0 and . <= 100)
+      and (if has("hard_findings") then .hard_findings == 0 else true end)))
+' .jankurai/repo-score.json >/dev/null || {
+  printf 'score check failed: malformed report, caps, or hard findings\n' >&2
+  exit 1
+}
 score="$(jq -er '.score | select(type == "number") | floor' \
   .jankurai/repo-score.json)" || {
   printf 'score check failed: score is not numeric\n' >&2

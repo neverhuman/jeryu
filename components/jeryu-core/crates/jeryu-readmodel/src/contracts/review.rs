@@ -86,3 +86,33 @@ pub struct SubmitReviewRequest {
     pub thread_comments: Vec<CreateReviewCommentRequest>,
     pub evidence: Option<ReviewEvidence>,
 }
+
+/// Body for a targeted self-dismissal; the review UUID is a route parameter.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct DismissPullReviewRequest {
+    pub expected_head_sha: String,
+    pub reason: String,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::DismissPullReviewRequest;
+
+    #[test]
+    fn dismissal_contract_requires_head_and_reason() {
+        for missing in [
+            r#"{"reason":"withdraw verdict"}"#,
+            r#"{"expected_head_sha":"abc"}"#,
+        ] {
+            assert!(serde_json::from_str::<DismissPullReviewRequest>(missing).is_err());
+        }
+        let request = DismissPullReviewRequest {
+            expected_head_sha: "a".repeat(40),
+            reason: "withdraw verdict".to_string(),
+        };
+        let json = serde_json::to_value(&request).unwrap();
+        assert_eq!(json["expected_head_sha"], "a".repeat(40));
+        assert_eq!(json["reason"], "withdraw verdict");
+    }
+}

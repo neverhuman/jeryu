@@ -10,7 +10,7 @@ use crate::model::*;
 impl ForgeCore {
     pub fn create_user(&self, request: CreateUserRequest) -> Result<User> {
         require_name("login", &request.login)?;
-        let mut state = self.state.write();
+        let mut state = self.runtime.state.write();
         if state.users.contains_key(&request.login) {
             return Err(ForgeError::Conflict(format!("user {}", request.login)));
         }
@@ -28,7 +28,8 @@ impl ForgeCore {
     }
 
     pub fn get_user(&self, login: &str) -> Result<User> {
-        self.state
+        self.runtime
+            .state
             .read()
             .users
             .get(login)
@@ -50,7 +51,7 @@ impl ForgeCore {
 
     pub fn create_organization(&self, request: CreateOrganizationRequest) -> Result<Organization> {
         require_name("login", &request.login)?;
-        let mut state = self.state.write();
+        let mut state = self.runtime.state.write();
         if state.organizations.contains_key(&request.login) {
             return Err(ForgeError::Conflict(format!(
                 "organization {}",
@@ -72,7 +73,8 @@ impl ForgeCore {
     }
 
     pub fn get_organization(&self, login: &str) -> Result<Organization> {
-        self.state
+        self.runtime
+            .state
             .read()
             .organizations
             .get(login)
@@ -87,7 +89,7 @@ impl ForgeCore {
             None => slugify(&request.name),
         };
         require_name("team slug", &slug)?;
-        let mut state = self.state.write();
+        let mut state = self.runtime.state.write();
         if !state.organizations.contains_key(org) {
             return Err(ForgeError::NotFound(format!("organization {org}")));
         }
@@ -110,7 +112,7 @@ impl ForgeCore {
     }
 
     pub fn list_teams(&self, org: &str) -> Result<Vec<Team>> {
-        let state = self.state.read();
+        let state = self.runtime.state.read();
         if !state.organizations.contains_key(org) {
             return Err(ForgeError::NotFound(format!("organization {org}")));
         }

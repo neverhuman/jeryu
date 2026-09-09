@@ -41,6 +41,7 @@ fn source_kind(relative: &str) -> Option<&'static str> {
         || relative.starts_with("crates/jeryu-tool-control/")
         || relative.starts_with("crates/jeryu-release-toolkit/")
         || relative == "tool-manifest.toml"
+        || relative == "rust-toolchain.toml"
     {
         Some("proof-implementation-or-input")
     } else {
@@ -153,6 +154,10 @@ mod tests {
         );
         assert!(source_kind("crates/jeryu-runner-oci/examples/oci_probe.rs").is_some());
         assert!(source_kind("crates/jeryu-ci-scheduler/src/leases/fencing_tests.rs").is_some());
+        assert_eq!(
+            source_kind("rust-toolchain.toml"),
+            Some("proof-implementation-or-input")
+        );
         assert_eq!(source_kind("docs/migration/proof-inventory.json"), None);
         assert_eq!(source_kind("target/ci/evidence.json"), None);
     }

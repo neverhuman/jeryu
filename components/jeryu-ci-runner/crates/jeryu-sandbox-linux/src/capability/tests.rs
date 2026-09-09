@@ -139,3 +139,27 @@ fn blocked_userns_degrades_with_named_missing() {
         other => panic!("expected degraded, got {other:?}"),
     }
 }
+
+#[test]
+fn cgroup_probe_rejects_controller_enable_failure_before_creating_leaf() {
+    let parent = tempfile::tempdir().expect("private fake cgroup parent");
+    // A directory makes the control write fail even when tests run as root.
+    std::fs::create_dir(parent.path().join("cgroup.subtree_control")).unwrap();
+
+    assert!(!cgroup_subtree_is_enforceable(parent.path()));
+    assert_eq!(std::fs::read_dir(parent.path()).unwrap().count(), 1);
+}
+
+#[test]
+fn cgroup_probe_requires_kernel_controller_readback_before_creating_leaf() {
+    let parent = tempfile::tempdir().expect("private fake cgroup parent");
+    let control = parent.path().join("cgroup.subtree_control");
+    std::fs::write(&control, b"").unwrap();
+    // A regular file accepts the write but returns the command tokens unchanged.
+    // The kernel acknowledges enabled controllers as bare memory/pids names.
+    // Accepting a write without that readback would incorrectly report this
+    // ordinary directory as enforceable after creating a fake cgroup.procs.
+    assert!(!cgroup_subtree_is_enforceable(parent.path()));
+    assert_eq!(std::fs::read(&control).unwrap(), b"+pids +memory");
+    assert_eq!(std::fs::read_dir(parent.path()).unwrap().count(), 1);
+}

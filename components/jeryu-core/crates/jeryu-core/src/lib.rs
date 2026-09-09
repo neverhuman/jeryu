@@ -19,10 +19,11 @@ mod webhooks;
 
 pub use crate::branch_protection::{
     BranchProtectionEvaluation, EvaluationContext, MergeBlocker, RefOperation, RefOperationBlocker,
-    RefOperationEvaluation, effective_reviews_for_head,
+    RefOperationEvaluation, effective_reviews_for_head, effective_reviews_for_pull_request,
 };
 pub use crate::core::{
-    AuditEntry, ForgeCore, MergeReadiness, RepoMaterializer, RepositoryDeletion,
+    AuditEntry, ForgeCore, MergeReadiness, MutationCoordinator, RepoMaterializer,
+    RepositoryDeletion,
 };
 pub use crate::error::{AgentRepairHint, JeryuError, JeryuResult};
 pub use crate::errors::{ForgeError, Result};

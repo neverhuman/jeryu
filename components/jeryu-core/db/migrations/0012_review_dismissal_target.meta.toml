@@ -1,0 +1,23 @@
+# jankurai:migration v1
+id = "0012_review_dismissal_target"
+owner = "forge-api"
+reviewer = "forge-api"
+change_type = "expand"
+safety = "online"
+transaction = "required"
+lock_timeout = "5s"
+statement_timeout = "60s"
+estimated_rows = 0
+deploy_phase = "expand"
+app_compatibility = "new_app_old_db"
+requires = ["0011_review_head_sha"]
+rollback = "db/rollbacks/0012_review_dismissal_target.sql"
+backfill = "none; preserve historical NULL dismissal targets without inferring authority"
+data_classification = "internal"
+tenant_impact = "Core enforces same-repository and same-PR targeted self-dismissal; older writers must remain stopped"
+tests = [
+  "db-migration-analyze",
+  "migration_0012_preserves_unbound_dismissals",
+  "review_dismissal_survives_sqlite_reopen_and_unrelated_write",
+  "failed_review_write_rolls_back_profile_and_review",
+]

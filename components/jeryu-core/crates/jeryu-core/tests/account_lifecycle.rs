@@ -1,3 +1,7 @@
+mod support;
+
+use support::private_directory;
+
 use std::sync::{Arc, Barrier};
 
 use chrono::{Duration, Utc};
@@ -128,7 +132,7 @@ fn expired_revoked_consumed_and_unknown_invitations_share_one_error() {
         baseline
     );
 
-    let temp = tempfile::tempdir().unwrap();
+    let temp = private_directory();
     let db = temp.path().join("forge.sqlite");
     let expired = {
         let core = ForgeCore::open_sqlite(&db).unwrap();
@@ -280,7 +284,7 @@ fn invitation_bindings_apply_only_when_activation_completes() {
 
 #[test]
 fn invitation_secret_is_absent_from_sqlite_and_state_survives_reopen() {
-    let temp = tempfile::tempdir().unwrap();
+    let temp = private_directory();
     let db = temp.path().join("forge.sqlite");
     let secret;
     {
@@ -310,7 +314,7 @@ fn invitation_secret_is_absent_from_sqlite_and_state_survives_reopen() {
 
 #[test]
 fn first_owner_bootstrap_is_permanently_consumed() {
-    let temp = tempfile::tempdir().unwrap();
+    let temp = private_directory();
     let db = temp.path().join("forge.sqlite");
     {
         let core = ForgeCore::open_sqlite(&db).unwrap();
@@ -345,7 +349,7 @@ fn first_owner_bootstrap_is_permanently_consumed() {
 
 #[test]
 fn sqlite_open_rejects_case_fold_collisions() {
-    let temp = tempfile::tempdir().unwrap();
+    let temp = private_directory();
     let db = temp.path().join("forge.sqlite");
     drop(ForgeCore::open_sqlite(&db).unwrap());
     let conn = Connection::open(&db).unwrap();

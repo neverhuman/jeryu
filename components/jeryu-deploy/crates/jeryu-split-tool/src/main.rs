@@ -13,6 +13,7 @@ use clap::{Parser, Subcommand};
 use serde::Serialize;
 use toml::Value;
 
+mod build_config;
 mod canonical_json;
 mod monorepo;
 mod proof_inventory;
@@ -30,6 +31,11 @@ struct Cli {
 enum Command {
     /// Validate one local identity for every Jeryu package in the monorepo.
     MonorepoCheck,
+    /// Check component compiler/config projections; explicitly refresh with --write.
+    BuildConfig {
+        #[arg(long)]
+        write: bool,
+    },
     /// Fail unless every external Git dependency uses a public immutable source.
     PublicPreflight,
     /// Inventory all retained workflows, proof declarations and CI entrypoints.
@@ -217,6 +223,7 @@ fn parse_manifest_compat(args: &[OsString]) -> std::result::Result<Cli, Manifest
 fn run(cli: Cli) -> Result<()> {
     match cli.command {
         Command::MonorepoCheck => monorepo::check(Path::new(".")),
+        Command::BuildConfig { write } => build_config::run(Path::new("."), write),
         Command::PublicPreflight => monorepo::public_preflight(Path::new(".")),
         Command::ProofInventory { check } => proof_inventory::run(Path::new("."), check),
         Command::ExportTree {

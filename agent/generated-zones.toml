@@ -2,3 +2,14 @@
 path = ".jankurai/**"
 generator = "just score"
 manual_edits = false
+
+# These compatibility paths inherit the two root build configuration files.
+[[zones]]
+path = "components/*/rust-toolchain.toml"
+generator = "cargo run --locked -p jeryu-split-tool --bin jeryu-split -- build-config --write"
+manual_edits = false
+
+[[zones]]
+path = "components/*/.cargo/config.toml"
+generator = "cargo run --locked -p jeryu-split-tool --bin jeryu-split -- build-config --write"
+manual_edits = false

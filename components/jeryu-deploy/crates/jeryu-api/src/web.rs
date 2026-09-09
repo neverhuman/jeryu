@@ -438,8 +438,6 @@ pub async fn serve(config: WebServerConfig) -> Result<(), Box<dyn std::error::Er
             "trust_local_dev requires a loopback bind address",
         )));
     }
-    std::fs::create_dir_all(&config.data_dir)?;
-    std::fs::create_dir_all(&config.git_storage_root)?;
     let db_path = config.data_dir.join("forge.sqlite");
     // Share one RepoManager between the create-repo materializer (so a created
     // repo gets a bare repo on disk) and the smart-HTTP transport (so it can be
@@ -447,7 +445,7 @@ pub async fn serve(config: WebServerConfig) -> Result<(), Box<dyn std::error::Er
     let repo_manager = Arc::new(RepoManager::new(GitdConfig::new(
         config.git_storage_root.clone(),
     )));
-    let core = ForgeCore::open_sqlite(db_path)?
+    let core = ForgeCore::open_managed(&db_path, &config.git_storage_root)?
         .with_repo_materializer(Arc::new(GitMaterializer::new(repo_manager.clone())));
     let split_catalog = SplitCatalog::load(&config.split_manifests);
     let tool_registry_path = resolve_tool_registry_path(&config.split_manifests);
@@ -611,7 +609,11 @@ fn app(state: WebState, spa_dir: &Path) -> AxumRouter {
         )
         .route(
             "/api/v1/repos/:id/pulls/:number/reviews",
-            post(pulls::review),
+            get(pulls::review_history).post(pulls::review),
+        )
+        .route(
+            "/api/v1/repos/:id/pulls/:number/reviews/:review_id/dismiss",
+            post(pulls::dismiss_review),
         )
         .route(
             "/api/v1/repos/:id/pulls/:number/comments",

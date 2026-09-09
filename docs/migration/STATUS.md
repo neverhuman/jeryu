@@ -7,18 +7,94 @@ been cut over. `handover.status` remains `pending-protected-review`.
 The September 9 continuation audit does not establish a complete CI pass. The
 previous full-run process is unavailable and has no recovered final exit status;
 required sandbox, OCI, legacy and auxiliary coverage must be verified separately.
-GitHub main still points to the historical portal; two temporary public source
-refs contain earlier migration candidates, and neither is evidence of current
-GitHub CI success.
+GitHub main contains the source through `4c93436a`, merged as PR 64 without an
+approving review. Its reduced aggregate and ignored host tests do not establish
+complete CI qualification. Branch protection now requires the aggregate and all
+twelve lane checks from GitHub Actions, up-to-date source, a fresh independent
+approval, enforced administrators, linear history and resolved conversations.
+The public history and the local `30be4162` checkpoint are preserved in verified
+private bundles and archival refs. This successor retains public ancestry and
+restores the complete hosted required matrix. Local `all` and the hosted matrix
+also require the full auxiliary command,
+which fails while its admission adapters are unavailable.
+Local `all` runs every lane and reports each exit before returning failure if
+any required lane failed; a missing proof cannot be hidden by an earlier stop.
+
+At `30be4162`, all 35 split-tool tests and warning-denied Clippy, source/public
+checks, seven cache-poisoning scenarios and persistent Codegraph CLI checks
+passed. The actual source release build, all 18 installer transaction scenarios,
+three installation-directory selections and all three installed runtime tests
+passed, including authenticated Git, protected review/merge and restart
+persistence. Rust passed formatting and Clippy but its complete test command
+reached the time limit. Web passed contracts, 180 unit tests, production and
+Storybook builds, seven backend browser tests, 70 UI tests and the action matrix,
+then timed out during Lighthouse. Security passed dependency, license, history
+and workflow checks, then timed out during SBOM generation. These three lanes
+remain incomplete and need longer runs on the successor.
+
+The successor retains the public `--store` / `JERYU_STORE` interface: SQLite is
+the default, and Redline aliases visibly select that same durable engine. A
+reviewed sandbox probe correction rejects failed controller delegation before
+creating a child cgroup. Runner's auditor transport tests remain enabled and use
+the actual verified public candidate installation in portable CI. The installed
+governed receipt proof remains a separate mandatory handover command. These
+successor passed both cgroup admission regressions and the two real store
+process tests. The latter exercised eight starts against one SQLite database,
+seven persisted CLI writes, flag/environment precedence, fallback notices and
+rejection before state creation. Neither unavailable host capabilities nor
+missing authority evidence qualify as a pass.
+
+The reviewed Core source through `92827e5b069a59bc9ae798b3a9ec72b9d410e923`
+(tree `3cf00135a2ff3991d22c8c570a908101648b3e0a`) is integrated with its
+authenticated review-history and targeted self-dismissal API routes. The
+[58-path source disposition](core-successor-92827e5.tsv) preserves the original
+`4582e10f` baseline, already-equivalent files, retained monorepo CI and owning
+generation requirements. Complete original history remains in verified private
+custody; this integration does not publish unaudited archival history. Seven
+new router regressions cover authorization, CSRF, exact-head/current-review
+checks, immutable history and failed SQLite write rollback; all seven passed.
+All 419 Core, domain and readmodel tests passed after owning contract generation,
+with no ignored cases. The root lock changed only the existing direct `libc`
+edge, preserving package versions and identities. Core/Work/Web contract
+generation and drift checks, Web typechecking and build-configuration checks
+passed. Initial test-environment, generation-order and test-macro failures
+remain recorded; these preparation results do not qualify the complete matrix.
+The imported coordinator is a shared runtime primitive; complete mutation
+admission and Git/SQLite recovery remain separate work. Migration 0012 retains
+its backup, stopped older writer and rollback requirements for any future
+installed upgrade. The running service has not been upgraded.
+
+Root compiler and Cargo configuration now govern ten component toolchain files
+and seven existing component Cargo configs as byte-identical projections.
+The owning Rust command checks drift before metadata and explicitly regenerates
+those files; legacy override filenames are rejected. Compilation, all eight
+new tests and the complete 35-test split-tool suite passed. The owning generator
+verified all 17 projections and regenerated the proof inventory successfully.
+Root Rust 1.97.1 and the governed auditor's separate 1.95.0 builder pin are unchanged.
+Cache's immutable baseline and required successor qualification remain intact.
 
 The continuation repairs Deploy's web gate to build the current monorepo bundle
 (or fetch the export's exact public source) and exercise the three server/CLI
-process tests. Four advisory score wrappers now reject actual hard findings even
-when decision summaries report zero. Their 47 and 228 focused synthetic cases
-pass; they do not substitute for production builds or governed audit results.
+process tests. All eight affected advisory score wrappers now reject actual
+hard findings even when decision summaries report zero. Their score-policy
+parsers reject malformed or lowered minima while preserving each component's
+existing floor, including Intelligence 82, Tool 65 and Runner's effective 91.
+The 47 web-helper scenarios, 514 report/producer cases and 256 Python policy
+cases pass; these do not substitute for production builds or governed audits.
 API unit-test sessions now receive a private, owned auth home, preventing copies
 from the operator's home during tests. Production auth lookup is unchanged;
-actual compilation and tests of that correction remain pending.
+its actual compilation, private-home regression, two existing auth-seeding
+tests and warning-denied API Clippy passed at `b9f3086e`.
+
+That clean commit also passed 27 split-tool tests, source/public checks, all
+44 Cache and 184 Release Ops nextest cases with zero skips, and the repaired
+Deploy web gate with the current production bundle, API routing check and all
+three server/CLI process tests. The current-source release build and source
+installation passed all 18 installer transaction scenarios and the three
+installed Git/authenticated-review/merge/restart tests. The native security
+command passed source secret scanning, workflow checks, locked metadata,
+cached dependency auditing and CycloneDX generation. These are exact-commit
+results; the complete public security lane and full CI matrix remain separate.
 
 Six empty Runner fixtures were preserved, restored and removed using exact
 `rmdir` calls after repeated physical-path, mount and open-handle checks. Dirty
@@ -300,9 +376,9 @@ Four auxiliary proof wrappers now share actual copy-code and migration
 producers, with one root command for the complete 65-package default-feature
 Rust map/witness graph. They preserve failed producer exits and reject missing,
 malformed or contradictory reports. All 75 synthetic cases, shell checks and
-root check suites pass. This preliminary command remains outside `all` and
-the hosted matrix until actual producer qualification and the missing full
-proof adapters pass. Default/full execution must fail for unavailable protected
+root check suites pass. The independent subset remains useful for diagnosis;
+`all` and the hosted matrix now require the full command. Default/full execution
+must fail for unavailable protected
 baseline, changed-hunk, proofbind/proofmark, configuration and conformance
 admission. Standalone wrappers also refuse pending an authenticated export
 adapter. See [auxiliary command scope](AUXILIARY-PROOFS.md).

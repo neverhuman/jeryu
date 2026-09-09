@@ -163,6 +163,10 @@ pub struct Review {
     /// are audit history only; they never satisfy current-head protection.
     #[serde(default)]
     pub head_sha: Option<String>,
+    /// The explicit verdict removed by this dismissal event. Historical
+    /// target-less dismissals remain unbound audit evidence.
+    #[serde(default)]
+    pub dismissed_review_id: Option<Uuid>,
     pub submitted_at: DateTime<Utc>,
 }
 
@@ -199,6 +203,14 @@ pub struct CreateReviewRequest {
     /// state write lock. HTTP callers set this from their exact-head request.
     #[serde(default)]
     pub expected_head_sha: Option<String>,
+}
+
+/// Dismiss the caller's current verdict without rewriting its audit row.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct DismissReviewRequest {
+    pub review_id: Uuid,
+    pub expected_head_sha: String,
+    pub reason: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

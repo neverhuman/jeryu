@@ -1,5 +1,9 @@
 //! UUID-preserving repository-transfer and persistence coverage.
 
+mod support;
+
+use support::private_directory;
+
 use jeryu_core::{
     CheckConclusion, CheckRunStatus, CommitStatusState, CreateCheckRunRequest,
     CreateCommentRequest, CreateCommitStatusRequest, CreateIssueRequest, CreateLabelRequest,
@@ -100,7 +104,7 @@ fn seed_full_repo(core: &ForgeCore) -> uuid::Uuid {
         },
     )
     .unwrap();
-    core.set_codeowners("jeryu", "redline", "*.rs @operator")
+    core.set_codeowners("jeryu", "redline", "*.rs @reviewer")
         .unwrap();
     core.set_repository_readme("jeryu", "redline", "# Redline\n".to_string())
         .unwrap();
@@ -127,7 +131,7 @@ fn seed_full_repo(core: &ForgeCore) -> uuid::Uuid {
         "jeryu",
         "redline",
         pull.number,
-        "operator",
+        "reviewer",
         CreateReviewRequest {
             body: None,
             event: ReviewState::Approved,
@@ -197,7 +201,7 @@ fn transfer(repository_id: uuid::Uuid, fingerprint: &str) -> PrepareRepositoryTr
 
 #[test]
 fn transfer_preserves_uuid_scoped_state_alias_and_journal_across_reopen() {
-    let temp = tempfile::tempdir().unwrap();
+    let temp = private_directory();
     let database = temp.path().join("forge.sqlite");
     let repository_id;
     let transaction_id;

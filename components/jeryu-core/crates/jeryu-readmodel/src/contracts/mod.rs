@@ -39,8 +39,8 @@ pub use repository::{
     RepositoryTransferReceipt, RepositoryTransferRequest, RepositoryVisibility,
 };
 pub use review::{
-    CreateReviewCommentRequest, ReviewComment, ReviewEvidence, ReviewSuggestion, ReviewThread,
-    ReviewVerdict, SubmitReviewRequest,
+    CreateReviewCommentRequest, DismissPullReviewRequest, ReviewComment, ReviewEvidence,
+    ReviewSuggestion, ReviewThread, ReviewVerdict, SubmitReviewRequest,
 };
 pub use settings::{
     AccessSettings, AgentSettings, AuditSettings, BranchProtectionRule, CiSettings,
@@ -154,6 +154,7 @@ contract_exports!(
     RepositoryVisibility,
     RetentionSettings,
     ReviewComment,
+    DismissPullReviewRequest,
     ReviewEvidence,
     ReviewPosture,
     ReviewSuggestion,

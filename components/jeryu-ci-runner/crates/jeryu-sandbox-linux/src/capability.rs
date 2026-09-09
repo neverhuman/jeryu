@@ -378,8 +378,23 @@ fn cgroup_subtree_is_enforceable(dir: &std::path::Path) -> bool {
     use nix::sys::wait::{WaitStatus, waitpid};
     use nix::unistd::{ForkResult, fork};
 
-    // Ensure controllers are delegated to children before we create a leaf.
-    let _ = std::fs::write(dir.join("cgroup.subtree_control"), b"+pids +memory");
+    // A successful migration alone does not prove resource enforcement. A
+    // populated domain can reject memory delegation while still accepting an
+    // unlimited child. Do not admit it and later enable only pids/CPU: that can
+    // turn the parent threaded and make new domain children invalid.
+    let control = dir.join("cgroup.subtree_control");
+    if std::fs::write(&control, b"+pids +memory").is_err() {
+        return false;
+    }
+    let Ok(enabled) = std::fs::read_to_string(&control) else {
+        return false;
+    };
+    if !["memory", "pids"]
+        .iter()
+        .all(|required| enabled.split_whitespace().any(|actual| actual == *required))
+    {
+        return false;
+    }
 
     let leaf = dir.join(format!("jeryu-cap-probe-{}.scope", std::process::id()));
     let _ = std::fs::remove_dir(&leaf);

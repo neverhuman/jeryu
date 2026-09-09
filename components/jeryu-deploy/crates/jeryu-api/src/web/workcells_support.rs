@@ -118,6 +118,24 @@ pub(super) fn forge_error(err: ForgeError) -> AxumResponse {
             ][..],
             "route merges through the review flow, then retry the export if needed",
         ),
+        ForgeError::Forbidden(_) => (
+            StatusCode::FORBIDDEN,
+            "forge_forbidden",
+            &[
+                "authenticate as an actor permitted to perform this operation",
+                "preserve the repository and review ownership rules",
+            ][..],
+            "retry only after the required actor authorization is established",
+        ),
+        ForgeError::WriterUnavailable(_) => (
+            StatusCode::SERVICE_UNAVAILABLE,
+            "forge_writer_unavailable",
+            &[
+                "inspect the current writer and backing resource custody",
+                "retry after the owning process releases the resource or custody is restored",
+            ][..],
+            "verify writer ownership and storage identity before retrying",
+        ),
         ForgeError::Storage(_) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             "forge_storage",

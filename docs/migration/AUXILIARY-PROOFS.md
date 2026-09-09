@@ -1,8 +1,10 @@
 # Auxiliary producer commands
 
 These preliminary commands run actual independent producers for a clean
-monorepo candidate. They are callable locally through the root CI entrypoint;
-they are not yet included in `all` or the hosted matrix.
+monorepo candidate. They are callable locally through the root CI entrypoint.
+Local `all` and the hosted matrix require the default/full command, whose
+missing admission gates return failure. Passing an independent subset does
+not satisfy that required job.
 
 ```bash
 bash scripts/ci.sh auxiliary copy-code jeryu-core

@@ -1,5 +1,9 @@
+mod support;
+
+use support::private_directory;
+
 use std::fs;
-use std::os::unix::fs::PermissionsExt;
+use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
 
 use chrono::Duration;
 use jeryu_core::{
@@ -14,7 +18,7 @@ use rusqlite::Connection;
 
 #[test]
 fn auth_accounts_sessions_tokens_and_grants_round_trip_sqlite() {
-    let temp = tempfile::tempdir().unwrap();
+    let temp = private_directory();
     let db = temp.path().join("forge.sqlite");
     let session_token;
     let pat_secret;
@@ -220,7 +224,7 @@ fn checked_repo_grants_require_repo_admin_access() {
 
 #[test]
 fn sqlite_store_round_trips_core_forge_resources() {
-    let temp = tempfile::tempdir().unwrap();
+    let temp = private_directory();
     let db = temp.path().join("forge.sqlite");
     let pr_number;
 
@@ -328,7 +332,7 @@ fn sqlite_store_round_trips_core_forge_resources() {
             },
         )
         .unwrap();
-        core.set_codeowners("alice", "jeryu", "*.rs @alice")
+        core.set_codeowners("alice", "jeryu", "*.rs @reviewer")
             .unwrap();
         let pr = core
             .create_pull_request(
@@ -358,7 +362,7 @@ fn sqlite_store_round_trips_core_forge_resources() {
             "alice",
             "jeryu",
             pr.number,
-            "alice",
+            "reviewer",
             CreateReviewRequest {
                 body: Some("approval receipt recorded".to_string()),
                 event: ReviewState::Approved,
@@ -515,7 +519,7 @@ fn sqlite_store_round_trips_core_forge_resources() {
     );
     assert_eq!(
         reopened.get_codeowners("alice", "jeryu").unwrap(),
-        "*.rs @alice"
+        "*.rs @reviewer"
     );
     assert_eq!(
         reopened
@@ -583,7 +587,7 @@ fn sqlite_store_round_trips_core_forge_resources() {
 
 #[test]
 fn review_head_and_latest_reviewer_state_survive_sqlite_reopen() {
-    let temp = tempfile::tempdir().unwrap();
+    let temp = private_directory();
     let db = temp.path().join("forge.sqlite");
     let number;
     {
@@ -660,7 +664,7 @@ fn review_head_and_latest_reviewer_state_survive_sqlite_reopen() {
 
 #[test]
 fn failed_sqlite_write_rolls_back_memory_state() {
-    let temp = tempfile::tempdir().unwrap();
+    let temp = private_directory();
     let db = temp.path().join("forge.sqlite");
     let core = ForgeCore::open_sqlite(&db).unwrap();
     core.create_repository(
@@ -686,7 +690,7 @@ fn failed_sqlite_write_rolls_back_memory_state() {
             },
         )
         .unwrap_err();
-    assert!(matches!(err, ForgeError::Storage(_)));
+    assert!(matches!(err, ForgeError::WriterUnavailable(_)), "{err:?}");
     assert!(matches!(
         core.get_repository("alice", "rolled-back").unwrap_err(),
         ForgeError::NotFound(_)
@@ -696,7 +700,7 @@ fn failed_sqlite_write_rolls_back_memory_state() {
 
 #[test]
 fn repository_visibility_persists_across_sqlite_reopen() {
-    let temp = tempfile::tempdir().unwrap();
+    let temp = private_directory();
     let db = temp.path().join("forge.sqlite");
 
     {
@@ -729,7 +733,7 @@ fn repository_visibility_persists_across_sqlite_reopen() {
 
 #[test]
 fn failed_visibility_write_rolls_back_memory_state() {
-    let temp = tempfile::tempdir().unwrap();
+    let temp = private_directory();
     let db = temp.path().join("forge.sqlite");
     let core = ForgeCore::open_sqlite(&db).unwrap();
     core.create_repository(
@@ -747,7 +751,10 @@ fn failed_visibility_write_rolls_back_memory_state() {
     let error = core
         .set_repository_visibility("alice", "stable-visibility", true)
         .unwrap_err();
-    assert!(matches!(error, ForgeError::Storage(_)));
+    assert!(
+        matches!(error, ForgeError::WriterUnavailable(_)),
+        "{error:?}"
+    );
     assert!(
         !core
             .get_repository("alice", "stable-visibility")
@@ -759,7 +766,7 @@ fn failed_visibility_write_rolls_back_memory_state() {
 
 #[test]
 fn unchanged_visibility_does_not_require_a_sqlite_write() {
-    let temp = tempfile::tempdir().unwrap();
+    let temp = private_directory();
     let db = temp.path().join("forge.sqlite");
     let core = ForgeCore::open_sqlite(&db).unwrap();
     core.create_repository(
@@ -789,7 +796,7 @@ fn unchanged_visibility_does_not_require_a_sqlite_write() {
 
 #[test]
 fn sqlite_open_backfills_missing_default_branch_protection() {
-    let temp = tempfile::tempdir().unwrap();
+    let temp = private_directory();
     let db = temp.path().join("forge.sqlite");
 
     {
@@ -829,8 +836,16 @@ fn sqlite_open_backfills_missing_default_branch_protection() {
 
 #[test]
 fn sqlite_open_backfills_pull_request_source_repository() {
-    let temp = tempfile::tempdir().unwrap();
+    let temp = private_directory();
     let db = temp.path().join("forge.sqlite");
+    drop(
+        fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o600)
+            .open(&db)
+            .unwrap(),
+    );
     let created_at = "2026-06-03T00:00:00Z";
     let repo_id = "11111111-1111-1111-1111-111111111111";
     let issue_id = "22222222-2222-2222-2222-222222222222";
@@ -928,7 +943,7 @@ fn sqlite_open_backfills_pull_request_source_repository() {
 /// whole repositories table, so a field missed in persist/load silently wipes.
 #[test]
 fn sqlite_store_round_trips_repository_family() {
-    let temp = tempfile::tempdir().unwrap();
+    let temp = private_directory();
     let db = temp.path().join("forge.sqlite");
 
     {
@@ -989,7 +1004,7 @@ fn sqlite_store_round_trips_repository_family() {
 /// a re-ingested (branch, commit_sha), and vanish with their repository.
 #[test]
 fn sqlite_store_round_trips_jankurai_scores() {
-    let temp = tempfile::tempdir().unwrap();
+    let temp = private_directory();
     let db = temp.path().join("forge.sqlite");
 
     {
@@ -1092,7 +1107,7 @@ fn sqlite_store_round_trips_jankurai_scores() {
 /// owner's same-named repository, nor through unknown repositories.
 #[test]
 fn jankurai_scores_are_isolated_per_repository_owner() {
-    let temp = tempfile::tempdir().unwrap();
+    let temp = private_directory();
     let db = temp.path().join("forge.sqlite");
     let core = ForgeCore::open_sqlite(&db).unwrap();
     for owner in ["alice", "mallory"] {

@@ -67,7 +67,7 @@ impl ForgeCore {
         require_name("base", &request.base)?;
         self.ensure_repo_exists(owner, repo)?;
         self.ensure_user(author);
-        let mut state = self.state.write();
+        let mut state = self.runtime.state.write();
         let previous = state.clone();
         let issue_number = next_issue_number(&mut state, owner, repo);
         let pull_number = next_pull_number(&mut state, owner, repo);
@@ -156,7 +156,7 @@ impl ForgeCore {
         state_filter: Option<PullRequestState>,
     ) -> Result<Vec<PullRequest>> {
         self.ensure_repo_exists(owner, repo)?;
-        let state = self.state.read();
+        let state = self.runtime.state.read();
         let mut pulls: Vec<_> = state
             .pulls
             .values()
@@ -178,7 +178,7 @@ impl ForgeCore {
     }
 
     pub fn get_pull_request(&self, owner: &str, repo: &str, number: u64) -> Result<PullRequest> {
-        let state = self.state.read();
+        let state = self.runtime.state.read();
         let mut pr = match state
             .pulls
             .get(&(owner.to_string(), repo.to_string(), number))
@@ -203,7 +203,7 @@ impl ForgeCore {
         number: u64,
         request: UpdatePullRequestRequest,
     ) -> Result<PullRequest> {
-        let mut state = self.state.write();
+        let mut state = self.runtime.state.write();
         let previous = state.clone();
         let key = (owner.to_string(), repo.to_string(), number);
         let pr = match state.pulls.get_mut(&key) {
@@ -263,7 +263,7 @@ impl ForgeCore {
         head_sha: &str,
     ) -> Result<Vec<PullRequest>> {
         self.ensure_repo_exists(owner, repo)?;
-        let mut state = self.state.write();
+        let mut state = self.runtime.state.write();
         let previous = state.clone();
         let now = Utc::now();
         let keys: Vec<_> = state
@@ -326,7 +326,7 @@ impl ForgeCore {
         number: u64,
         requested_sha: Option<&str>,
     ) -> Result<MergeReadiness> {
-        let state = self.state.read();
+        let state = self.runtime.state.read();
         let key = (owner.to_string(), repo.to_string(), number);
         let pr = match state.pulls.get(&key).cloned() {
             Some(pr) => pr,
@@ -393,7 +393,7 @@ impl ForgeCore {
         merge_sha: String,
         requested_sha: Option<&str>,
     ) -> Result<MergeResult> {
-        let mut state = self.state.write();
+        let mut state = self.runtime.state.write();
         let previous = state.clone();
         let key = (owner.to_string(), repo.to_string(), number);
         let pr_snapshot = match state.pulls.get(&key).cloned() {

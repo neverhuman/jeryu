@@ -235,8 +235,9 @@ Constraint policy:
 - Every newly created review captures the pull request's exact head while Core
   holds the state write lock. HTTP callers also supply that head as an
   optimistic-concurrency guard, and a moved head rejects the review.
-- At most one review per reviewer is effective: the latest non-dismissed row at
-  the current head. A later approval supersedes that reviewer's earlier changes
+- At most one explicit verdict per reviewer is effective at the current head.
+  Comments preserve it; targeted dismissal semantics are specified under 0012.
+  A later approval supersedes that reviewer's earlier changes
   request at the same head; another reviewer's current changes request remains a
   merge blocker.
 - Head movement invalidates approvals and changes requests without deleting or
@@ -250,3 +251,34 @@ Rollback/backfill:
 - The additive column remains during an application rollback. If schema removal
   is unavoidable, restore the verified pre-0011 copy rather than rebuilding the
   live reviews table in place.
+
+## 0012 Targeted review dismissal
+
+The additive nullable `reviews.dismissed_review_id` stores the UUID of the
+verdict removed by a new immutable `DISMISSED` event; its body stores the reason.
+Existing rows remain unchanged with a NULL target. The application guards the
+column addition with `PRAGMA table_info(reviews)` for repeated opens.
+
+Core validates the same repository, PR, current head, owning actor and effective
+explicit verdict while holding its state write guard. It rejects blank reasons,
+generic target-less dismissal submissions and author self approvals. The shared
+PR selector excludes inherited self approvals from required-count and CODEOWNERS
+qualification. A targeted dismissal clears only its named current verdict and
+never restores an older one. A historical target-less dismissal suppresses a
+preceding approval but cannot erase a rejection; a later explicit decision can
+establish a new verdict. Headless events remain unbound history.
+
+No self-referential foreign key is added: the existing full-state rewrite
+deletes and reinserts the history. Core enforces the target's identity and scope;
+UUID parsing fails on corrupt stored values. Existing repository/PR foreign keys
+remain. SQLite provides no row-level security here: the owning service and its
+filesystem boundary remain responsible for tenant and actor access. A raw actor
+login and an implicitly created profile are not authenticated account custody.
+
+Before applying the migration, stop writers, hold the migration lock and retain
+a verified consistent `VACUUM INTO` copy. The column addition needs the schema
+write lock; use the recorded bounded lock and statement timeouts. There is no
+data backfill. Do not start an older writer against the migrated database: its
+full-state rewrite erases target bindings. The rollback notice retains all audit
+rows; after accepted mutations, recover forward. Full state rollback is available
+only when it would lose no accepted mutation.

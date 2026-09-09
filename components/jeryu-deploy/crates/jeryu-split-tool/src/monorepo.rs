@@ -99,6 +99,7 @@ fn validate_sqlite_lock(lock: &Value) -> Result<()> {
 }
 
 pub(super) fn check(root: &Path) -> Result<()> {
+    crate::build_config::run(root, false)?;
     let lock: Value = toml::from_str(&fs::read_to_string(root.join("Cargo.lock"))?)?;
     validate_sqlite_lock(&lock)?;
     let output = Command::new("cargo")

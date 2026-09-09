@@ -13,6 +13,7 @@ web_build() { npm ci; npm run build; }
 
 case ${1:-all} in
   source)
+    bash tests/ci-matrix.sh
     cargo run --locked -p jeryu-split-tool --bin jeryu-split -- monorepo-check
     cargo run --locked -p jeryu-split-tool --bin jeryu-split -- manifest --check-paths
     cargo run --locked -p jeryu-split-tool --bin jeryu-split -- proof-inventory --check
@@ -39,10 +40,19 @@ case ${1:-all} in
     web_build
     cargo fmt --all -- --check
     cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
+    # Full metadata resolves all targets, including crates a host-only build did not fetch.
+    cargo fetch --locked
+    # Runner transport tests require the actual immutable public auditor, even
+    # on a fresh host. Absence or verification failure is a lane failure.
+    source scripts/bootstrap-jankurai.sh
+    bootstrap_public_jankurai
     cargo test --locked --workspace --all-features --exclude jeryu-sandbox-linux
-    if [[ -f /home/ubuntu/.jeryu/bin/jankurai && ! -L /home/ubuntu/.jeryu/bin/jankurai ]]; then
-      cargo test --locked -p jeryu-runnerd --test hosted_dependency_transport -- --ignored
-    fi
+    ;;
+  runner-governed)
+    # Separately mandatory installed-authority handover proof. No candidate
+    # receipt, file-existence gate or ignored test can substitute for this lane.
+    JERYU_MONOREPO_CANDIDATE=0 cargo test --locked -p jeryu-runnerd \
+      --test hosted_dependency_transport
     ;;
   web)
     bash scripts/contracts.sh --check
@@ -86,7 +96,15 @@ case ${1:-all} in
     actionlint .github/workflows/ci.yml
     zizmor .github/workflows/ci.yml
     mkdir -p target/security
-    syft dir:. -o spdx-json=target/security/jeryu.spdx.json
+    # This is the source inventory; caches and Git objects are not source inputs.
+    # The native CycloneDX lane uses the same exclusions. Release archives need
+    # their own artifact inventory before publication.
+    syft dir:. --exclude './target/**' --exclude './.git/**' \
+      --parallelism "$CARGO_BUILD_JOBS" --source-name jeryu \
+      --source-version "$(git rev-parse HEAD)" \
+      -o spdx-json=target/security/jeryu.spdx.json
+    jq -e '.spdxVersion == "SPDX-2.3" and (.packages | type == "array" and length > 0)' \
+      target/security/jeryu.spdx.json >/dev/null
     ;;
   sandbox)
     # Run only in a disposable Linux environment with the required privileges.
@@ -120,7 +138,8 @@ case ${1:-all} in
     done
     ;;
   all)
-    for lane in source public rust web runtime product security sandbox oci splits legacy; do "$0" "$lane"; done
+    source scripts/ci-lanes.sh
+    jeryu_ci_all "$0"
     ;;
-  *) printf 'usage: scripts/ci.sh {source|public|auditor|auxiliary|rust|web|runtime|product|security|sandbox|oci|splits|legacy|redline|all}\n' >&2; exit 2 ;;
+  *) printf 'usage: scripts/ci.sh {source|public|auditor|auxiliary|rust|runner-governed|web|runtime|product|security|sandbox|oci|splits|legacy|redline|all}\n' >&2; exit 2 ;;
 esac

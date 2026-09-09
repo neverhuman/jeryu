@@ -15,6 +15,52 @@ const GOVERNED_JANKURAI_VERSION: &str = "jankurai 1.6.11";
 const GOVERNED_JANKURAI_SHA256: &str =
     "9e6b8857a26f6004d4c74e510e13b06d880f2e2ae0c89502698889ed690c5d6c";
 
+// Candidate CI and the installed governed receipt prove different authorities.
+// Selection is explicit; a missing candidate input never falls back to the host.
+struct Auditor {
+    binary: PathBuf,
+    candidate: Option<CandidateAuditor>,
+}
+
+struct CandidateAuditor {
+    head: String,
+    receipt: PathBuf,
+}
+
+impl Auditor {
+    fn selected() -> Self {
+        match std::env::var("JERYU_MONOREPO_CANDIDATE").as_deref() {
+            Err(std::env::VarError::NotPresent) | Ok("0") => Self {
+                binary: PathBuf::from(GOVERNED_JANKURAI),
+                candidate: None,
+            },
+            Ok("1") => {
+                let head = std::env::var("JERYU_MONOREPO_EXPECTED_HEAD")
+                    .expect("candidate tests require the exact source commit");
+                assert!(
+                    head.len() == 40
+                        && head
+                            .bytes()
+                            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte)),
+                    "candidate source must be a full lowercase commit"
+                );
+                Self {
+                    binary: std::env::var_os("JERYU_GOVERNED_JANKURAI_BIN")
+                        .map(PathBuf::from)
+                        .expect("candidate tests require the verified installation binary"),
+                    candidate: Some(CandidateAuditor {
+                        head,
+                        receipt: std::env::var_os("JERYU_JANKURAI_RECEIPT")
+                            .map(PathBuf::from)
+                            .expect("candidate tests require the verified installation receipt"),
+                    }),
+                }
+            }
+            _ => panic!("JERYU_MONOREPO_CANDIDATE must be absent, 0 or 1"),
+        }
+    }
+}
+
 struct Scratch(PathBuf);
 
 impl Scratch {
@@ -143,6 +189,7 @@ fn write_fake_jankurai(path: &Path, version: &str, marker: &Path, mode: u32) {
 }
 
 fn run_library_jankurai(
+    auditor: &Auditor,
     earlier_path: &Path,
     governed_override: Option<&Path>,
     receipt_override: Option<&Path>,
@@ -153,24 +200,54 @@ fn run_library_jankurai(
     command
         .args([
             "-lc",
-            "export PATH=\"$2:$PATH\"; cd \"$1\"; source ops/ci/lib.sh; require_jankurai; printf 'command=%s\\nfile=%s\\nversion=' \"$(command -v jankurai)\" \"$(type -P -- jankurai)\"; jankurai --version",
+            r#"export PATH="$2:$PATH"; cd "$1"; source ops/ci/lib.sh; require_jankurai
+printf 'command=%s\nfile=%s\n' "$(command -v jankurai)" "$(type -P -- jankurai)"
+if [[ ${JERYU_MONOREPO_CANDIDATE:-0} == 1 ]]; then
+  [[ $JERYU_CANDIDATE_JANKURAI_DESCRIPTOR =~ ^/proc/$BASHPID/fd/[0-9]+$ ]]
+  [[ $(realpath -e -- "$JERYU_CANDIDATE_JANKURAI_DESCRIPTOR") == "$JERYU_GOVERNED_JANKURAI_BIN" ]]
+  printf 'authority=public-candidate\nsource=%s\nbinary=%s\n' "$JERYU_MONOREPO_EXPECTED_HEAD" "$JERYU_GOVERNED_JANKURAI_BIN"
+else
+  printf 'authority=governed-receipt\n'
+fi
+printf 'version='
+jankurai --version"#,
             "_",
             root.to_str().expect("UTF-8 workspace root"),
             earlier_path.to_str().expect("UTF-8 hostile PATH"),
         ])
-        .env("CARGO_HOME", earlier_path)
         .env("JERYU_JANKURAI_BIN", earlier_path.join("jankurai"))
         .env(
             "GIT_CONFIG_GLOBAL",
             root.join(".cargo/hosted-gitconfig"),
         )
         .env_remove("JAIN_RELEASE_CI")
+        .env_remove("JERYU_MONOREPO_CANDIDATE")
+        .env_remove("JERYU_MONOREPO_EXPECTED_HEAD")
+        .env_remove("JERYU_CANDIDATE_JANKURAI_DESCRIPTOR")
+        .env_remove("JERYU_INSTALL_TEST_MODE")
         .env_remove("JERYU_GOVERNED_JANKURAI_BIN")
         .env_remove("JERYU_JANKURAI_RECEIPT")
         .env_remove("JERYU_JANKURAI_RECEIPT_SHA256")
         .env_remove("JERYU_JANKURAI_ALLOW_TEST_RECEIPT");
+    // Candidate receipt verification runs the owning renderer through locked,
+    // offline Cargo and therefore retains the caller's actual Cargo cache. The
+    // separately required governed proof retains the hostile Cargo-home case.
+    if governed_override.is_some() || auditor.candidate.is_none() {
+        command.env("CARGO_HOME", earlier_path);
+    }
     if let Some(path) = governed_override {
+        // These hostile specimens exercise the retained receipt-bound binary
+        // guards, before receipt admission. They never receive candidate mode:
+        // an unrelated candidate path/receipt error cannot satisfy the proof.
         command.env("JERYU_GOVERNED_JANKURAI_BIN", path);
+    } else if let Some(candidate) = &auditor.candidate {
+        // Re-verify the real installation in this child login shell. A parent
+        // descriptor path is not evidence of a descriptor retained by the child.
+        command
+            .env("JERYU_MONOREPO_CANDIDATE", "1")
+            .env("JERYU_MONOREPO_EXPECTED_HEAD", &candidate.head)
+            .env("JERYU_GOVERNED_JANKURAI_BIN", &auditor.binary)
+            .env("JERYU_JANKURAI_RECEIPT", &candidate.receipt);
     }
     if let Some(path) = receipt_override {
         command.env("JERYU_JANKURAI_RECEIPT", path);
@@ -383,31 +460,47 @@ fn source_helper_rejects_unsafe_caller_configs_and_scrubs_injections() {
     );
 }
 
-#[test]
-#[ignore = "host/VM: requires governed Jankurai 1.6.11 at /home/ubuntu/.jeryu/bin/jankurai"]
-fn login_shell_proof_replay_uses_only_the_governed_jankurai_binary() {
-    let scratch = Scratch::new();
-    let hostile_bin = scratch.0.join("hostile-bin");
-    let hostile = hostile_bin.join("jankurai");
-    let hostile_marker = scratch.0.join("hostile-ran");
-    write_fake_jankurai(&hostile, "jankurai 99.0.0", &hostile_marker, 0o755);
+fn assert_refused_at(output: Output, case: &str, stage: &str) {
+    assert!(!output.status.success(), "{case} was accepted");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains(stage),
+        "{case} failed at the wrong stage: {stderr}"
+    );
+}
 
-    let output = run_library_jankurai(&hostile_bin, None, None, false);
+fn assert_selected_auditor(auditor: &Auditor, hostile_bin: &Path, hostile_marker: &Path) {
+    let output = run_library_jankurai(auditor, hostile_bin, None, None, false);
     assert!(
         output.status.success(),
-        "governed Jankurai was not selected: {}",
+        "selected Jankurai authority was not verified: {}",
         String::from_utf8_lossy(&output.stderr)
     );
+    let (path_resolution, provenance) = if let Some(candidate) = &auditor.candidate {
+        // Candidate execution uses the verified descriptor. PATH intentionally
+        // still resolves the hostile executable, which must never run.
+        (
+            hostile_bin.join("jankurai"),
+            format!(
+                "authority=public-candidate\nsource={}\nbinary={}\n",
+                candidate.head,
+                auditor.binary.display()
+            ),
+        )
+    } else {
+        (
+            auditor.binary.clone(),
+            "authority=governed-receipt\n".to_owned(),
+        )
+    };
     assert_eq!(
         String::from_utf8(output.stdout).expect("UTF-8 Jankurai version"),
         format!(
-            "command=jankurai\nfile={GOVERNED_JANKURAI}\nversion={GOVERNED_JANKURAI_VERSION}\n"
+            "command=jankurai\nfile={}\n{provenance}version={GOVERNED_JANKURAI_VERSION}\n",
+            path_resolution.display()
         )
     );
-    assert_eq!(
-        sha256_file(Path::new(GOVERNED_JANKURAI)),
-        GOVERNED_JANKURAI_SHA256
-    );
+    assert_eq!(sha256_file(&auditor.binary), GOVERNED_JANKURAI_SHA256);
     assert!(
         !hostile_marker.exists(),
         "an earlier PATH Jankurai was executed"
@@ -415,8 +508,20 @@ fn login_shell_proof_replay_uses_only_the_governed_jankurai_binary() {
 }
 
 #[test]
-#[ignore = "host/VM: requires governed Jankurai 1.6.11 at /home/ubuntu/.jeryu/bin/jankurai"]
+fn login_shell_proof_replay_uses_only_the_governed_jankurai_binary() {
+    let scratch = Scratch::new();
+    let hostile_bin = scratch.0.join("hostile-bin");
+    let hostile = hostile_bin.join("jankurai");
+    let hostile_marker = scratch.0.join("hostile-ran");
+    write_fake_jankurai(&hostile, "jankurai 99.0.0", &hostile_marker, 0o755);
+
+    let auditor = Auditor::selected();
+    assert_selected_auditor(&auditor, &hostile_bin, &hostile_marker);
+}
+
+#[test]
 fn governed_jankurai_custody_identity_and_receipt_fail_closed() {
+    let auditor = Auditor::selected();
     let scratch = Scratch::new();
     let hostile_bin = scratch.0.join("hostile-bin");
     let hostile_marker = scratch.0.join("hostile-ran");
@@ -427,11 +532,16 @@ fn governed_jankurai_custody_identity_and_receipt_fail_closed() {
         0o755,
     );
 
+    // Every isolated invocation first proves that its selected actual authority
+    // succeeds. Hostile receipt refusals therefore cannot pass on a missing tool.
+    assert_selected_auditor(&auditor, &hostile_bin, &hostile_marker);
+
     let missing = scratch.0.join("missing-jankurai");
-    let missing_result = run_library_jankurai(&hostile_bin, Some(&missing), None, false);
-    assert!(
-        !missing_result.status.success(),
-        "missing governed binary was accepted"
+    let missing_result = run_library_jankurai(&auditor, &hostile_bin, Some(&missing), None, false);
+    assert_refused_at(
+        missing_result,
+        "missing governed binary",
+        "governed jankurai must be an absolute executable regular file",
     );
 
     let symlink_target = scratch.0.join("symlink-target");
@@ -443,11 +553,10 @@ fn governed_jankurai_custody_identity_and_receipt_fail_closed() {
     );
     let symlink_path = scratch.0.join("symlink-jankurai");
     symlink(&symlink_target, &symlink_path).expect("create Jankurai symlink");
-    assert!(
-        !run_library_jankurai(&hostile_bin, Some(&symlink_path), None, false)
-            .status
-            .success(),
-        "symlinked governed binary was accepted"
+    assert_refused_at(
+        run_library_jankurai(&auditor, &hostile_bin, Some(&symlink_path), None, false),
+        "symlinked governed binary",
+        "governed jankurai must be an absolute executable regular file",
     );
 
     let symlink_parent_target = scratch.0.join("symlink-parent-target");
@@ -459,25 +568,26 @@ fn governed_jankurai_custody_identity_and_receipt_fail_closed() {
     );
     let symlink_parent_home = scratch.0.join("symlink-parent-home");
     symlink(&symlink_parent_target, &symlink_parent_home).expect("create Jankurai parent symlink");
-    assert!(
-        !run_library_jankurai(
+    assert_refused_at(
+        run_library_jankurai(
+            &auditor,
             &hostile_bin,
             Some(&symlink_parent_home.join("bin/jankurai")),
             None,
             false,
-        )
-        .status
-        .success(),
-        "governed binary beneath a symlinked parent was accepted"
+        ),
+        "governed binary beneath a symlinked parent",
+        "governed jankurai path traverses a symlink",
     );
 
     let hardlink_path = scratch.0.join("hardlink/jankurai");
     fs::create_dir_all(hardlink_path.parent().expect("hardlink parent"))
         .expect("create hardlink directory");
-    fs::copy(GOVERNED_JANKURAI, &hardlink_path).expect("copy governed Jankurai fixture");
+    fs::copy(&auditor.binary, &hardlink_path).expect("copy governed Jankurai fixture");
     let hardlink_alias = scratch.0.join("hardlink/jankurai-alias");
     fs::hard_link(&hardlink_path, &hardlink_alias).expect("create Jankurai hardlink");
-    let hardlink_result = run_library_jankurai(&hostile_bin, Some(&hardlink_path), None, false);
+    let hardlink_result =
+        run_library_jankurai(&auditor, &hostile_bin, Some(&hardlink_path), None, false);
     assert!(
         !hardlink_result.status.success(),
         "hard-linked governed binary was accepted"
@@ -496,11 +606,10 @@ fn governed_jankurai_custody_identity_and_receipt_fail_closed() {
         &scratch.0.join("non-executable-ran"),
         0o644,
     );
-    assert!(
-        !run_library_jankurai(&hostile_bin, Some(&non_executable), None, false)
-            .status
-            .success(),
-        "non-executable governed binary was accepted"
+    assert_refused_at(
+        run_library_jankurai(&auditor, &hostile_bin, Some(&non_executable), None, false),
+        "non-executable governed binary",
+        "governed jankurai must be an absolute executable regular file",
     );
 
     let wrong_version_path = scratch.0.join("wrong-version/jankurai");
@@ -510,7 +619,13 @@ fn governed_jankurai_custody_identity_and_receipt_fail_closed() {
         &scratch.0.join("wrong-version-ran"),
         0o755,
     );
-    let wrong_version = run_library_jankurai(&hostile_bin, Some(&wrong_version_path), None, false);
+    let wrong_version = run_library_jankurai(
+        &auditor,
+        &hostile_bin,
+        Some(&wrong_version_path),
+        None,
+        false,
+    );
     assert!(
         !wrong_version.status.success(),
         "wrong governed version was accepted"
@@ -528,24 +643,44 @@ fn governed_jankurai_custody_identity_and_receipt_fail_closed() {
         &scratch.0.join("wrong-digest-ran"),
         0o755,
     );
-    assert!(
-        !run_library_jankurai(&hostile_bin, Some(&wrong_digest_path), None, false)
-            .status
-            .success(),
-        "wrong governed digest was accepted"
+    assert_refused_at(
+        run_library_jankurai(
+            &auditor,
+            &hostile_bin,
+            Some(&wrong_digest_path),
+            None,
+            false,
+        ),
+        "wrong governed digest",
+        "governed jankurai identity mismatch",
     );
 
-    assert!(
-        !run_library_jankurai(&hostile_bin, None, Some(Path::new("/dev/null")), false)
-            .status
-            .success(),
-        "malformed explicit receipt was accepted"
+    let (receipt_stage, test_mode_stage) = if auditor.candidate.is_some() {
+        (
+            "receipt must belong to this installation",
+            "candidate mode cannot satisfy release-broker or test authority",
+        )
+    } else {
+        (
+            "governed jankurai receipt mismatch",
+            "governed jankurai receipt mismatch",
+        )
+    };
+    assert_refused_at(
+        run_library_jankurai(
+            &auditor,
+            &hostile_bin,
+            None,
+            Some(Path::new("/dev/null")),
+            false,
+        ),
+        "malformed explicit receipt",
+        receipt_stage,
     );
-    assert!(
-        !run_library_jankurai(&hostile_bin, None, None, true)
-            .status
-            .success(),
-        "release receipt was accepted as test-mode authority"
+    assert_refused_at(
+        run_library_jankurai(&auditor, &hostile_bin, None, None, true),
+        "release receipt as test-mode authority",
+        test_mode_stage,
     );
     assert!(
         !hostile_marker.exists(),

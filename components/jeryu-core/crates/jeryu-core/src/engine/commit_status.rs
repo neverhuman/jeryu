@@ -35,7 +35,7 @@ impl ForgeCore {
             created_at: now,
             updated_at: now,
         };
-        let mut state = self.state.write();
+        let mut state = self.runtime.state.write();
         let previous = state.clone();
         state
             .statuses
@@ -58,7 +58,7 @@ impl ForgeCore {
         self.ensure_repo_exists(owner, repo)?;
         // No status entry for the sha means no statuses have been posted; an
         // empty list is the intended value (and is itself reported as Pending).
-        let statuses = match self.state.read().statuses.get(&(
+        let statuses = match self.runtime.state.read().statuses.get(&(
             owner.to_string(),
             repo.to_string(),
             sha.to_string(),

@@ -319,6 +319,16 @@ pub(super) fn error_response(err: ForgeError) -> Response {
             "jeryu.explain_blockers",
             "branch protection blocks this; ask jeryu to explain the blockers and required checks",
         ),
+        ForgeError::Forbidden(_) => (
+            403,
+            "jeryu.get_system_snapshot",
+            "the authenticated actor is not permitted to perform this operation",
+        ),
+        ForgeError::WriterUnavailable(_) => (
+            503,
+            "jeryu.get_system_snapshot",
+            "writer custody is unavailable; inspect the current owner and backing resources before retrying",
+        ),
         ForgeError::Storage(_) => (
             500,
             "jeryu.get_system_snapshot",

@@ -34,7 +34,7 @@ impl ForgeCore {
             require_jankurai_proof: request.require_jankurai_proof,
             updated_at: Utc::now(),
         };
-        let mut state = self.state.write();
+        let mut state = self.runtime.state.write();
         let previous = state.clone();
         state.branch_protections.insert(
             (owner.to_string(), repo.to_string(), branch.to_string()),
@@ -51,6 +51,7 @@ impl ForgeCore {
         branch: &str,
     ) -> Result<BranchProtectionRule> {
         match self
+            .runtime
             .state
             .read()
             .branch_protections
@@ -68,7 +69,7 @@ impl ForgeCore {
     /// protection to require code-owner approval of changed paths.
     pub fn set_codeowners(&self, owner: &str, repo: &str, contents: &str) -> Result<()> {
         self.ensure_repo_exists(owner, repo)?;
-        let mut state = self.state.write();
+        let mut state = self.runtime.state.write();
         let previous = state.clone();
         state
             .codeowners
@@ -80,6 +81,7 @@ impl ForgeCore {
     pub fn get_codeowners(&self, owner: &str, repo: &str) -> Result<String> {
         self.ensure_repo_exists(owner, repo)?;
         match self
+            .runtime
             .state
             .read()
             .codeowners
@@ -98,7 +100,7 @@ impl ForgeCore {
         number: u64,
         sha: Option<&str>,
     ) -> Result<BranchProtectionEvaluation> {
-        let state = self.state.read();
+        let state = self.runtime.state.read();
         let pr = match state
             .pulls
             .get(&(owner.to_string(), repo.to_string(), number))
@@ -125,7 +127,7 @@ impl ForgeCore {
         actor_is_admin: bool,
     ) -> Result<RefOperationEvaluation> {
         self.ensure_repo_exists(owner, repo)?;
-        let state = self.state.read();
+        let state = self.runtime.state.read();
         let protection = state.branch_protections.get(&(
             owner.to_string(),
             repo.to_string(),

@@ -7,6 +7,10 @@
 //! repo's rows survive, and (2) the `forge_audit_log` table — appended outside
 //! the rewrite — survives arbitrary later mutations.
 
+mod support;
+
+use support::private_directory;
+
 use jeryu_core::{
     CheckConclusion, CheckRunStatus, CommitStatusState, CreateCheckRunRequest,
     CreateCommentRequest, CreateCommitStatusRequest, CreateIssueRequest, CreateLabelRequest,
@@ -135,7 +139,7 @@ fn seed_full_repo(core: &ForgeCore, owner: &str, repo: &str) -> String {
         owner,
         repo,
         pr.number,
-        owner,
+        "reviewer",
         CreateReviewRequest {
             body: Some("looks fine".to_string()),
             event: ReviewState::Approved,
@@ -191,7 +195,7 @@ fn repo_scoped_rows(conn: &Connection, table: &str, repo_id: &str) -> i64 {
 /// survives untouched.
 #[test]
 fn delete_repository_purges_every_table_and_spares_siblings() {
-    let temp = tempfile::tempdir().unwrap();
+    let temp = private_directory();
     let db = temp.path().join("forge.sqlite");
 
     let (doomed_id, keeper_id, doomed_hook_id) = {
@@ -290,7 +294,7 @@ fn delete_repository_purges_every_table_and_spares_siblings() {
 /// of the subject repository itself.
 #[test]
 fn forge_audit_log_survives_full_state_rewrites() {
-    let temp = tempfile::tempdir().unwrap();
+    let temp = private_directory();
     let db = temp.path().join("forge.sqlite");
 
     let (requested_id, completed_id) = {

@@ -69,7 +69,7 @@ impl ForgeCore {
             phase: phase.to_string(),
             detail,
         };
-        let Some(storage) = &self.storage else {
+        let Some(storage) = &self.runtime.storage else {
             return Ok(entry.id);
         };
         storage.append_audit(&entry)?;
@@ -80,7 +80,7 @@ impl ForgeCore {
     ///
     /// The in-memory core has no store and therefore no trail: empty list.
     pub fn list_audit(&self, subject: &str) -> Result<Vec<AuditEntry>> {
-        let Some(storage) = &self.storage else {
+        let Some(storage) = &self.runtime.storage else {
             return Ok(Vec::new());
         };
         storage.list_audit(subject)
