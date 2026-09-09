@@ -150,6 +150,9 @@ pub(crate) struct WebState {
     pub(crate) auth_rate_limits: Arc<Mutex<BTreeMap<String, auth::RateLimitBucket>>>,
     #[cfg(test)]
     _test_databases: Arc<test_databases::TestDatabases>,
+    /// Unit-test sessions must never seed agent credentials from the operator home.
+    #[cfg(test)]
+    session_auth_home: Arc<tempfile::TempDir>,
 }
 
 impl WebState {
@@ -212,6 +215,8 @@ impl WebState {
             work,
             warm_pool,
             session_runtime: sessions::SessionRuntimeConfig::from_env(),
+            #[cfg(test)]
+            session_auth_home: Arc::new(tempfile::tempdir().expect("session fixture auth home")),
             split_catalog,
             tool_registry_path: None,
             split_manifests: Vec::new(),

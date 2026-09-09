@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-lane="${1:-required}"
+[[ $# -le 1 ]] || { printf 'expected at most one CI lane\n' >&2; exit 2; }
+repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
+cd "$repo_root"
+lane="${1-required}"
 case "$lane" in
   required)
-    just release-readiness
+    exec bash ops/ci/pr-ci.sh
     ;;
   fast)
     just fast

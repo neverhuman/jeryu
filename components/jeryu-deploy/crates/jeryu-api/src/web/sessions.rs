@@ -391,7 +391,11 @@ fn create_session(
     // Seed the host operator's agent auth into the workspace so the
     // container's codex/claude CLI starts pre-authenticated (login once on the
     // host, every session inherits). Best-effort: a missing file never blocks.
-    seed_agent_auth(&workspace, &agent_id);
+    #[cfg(test)]
+    let auth_home = Some(state.session_auth_home.path());
+    #[cfg(not(test))]
+    let auth_home = None;
+    seed_agent_auth(&workspace, &agent_id, auth_home);
 
     // Pick the PTY execution backend. The native in-process kernel sandbox cannot be
     // created on a host whose AppArmor blocks the unprivileged userns

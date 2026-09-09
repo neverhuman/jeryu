@@ -100,6 +100,9 @@ case ${1:-all} in
       components/jeryu-ci-runner/target/jankurai/runner-sandbox/enforcement.json >/dev/null
     ;;
   legacy)
+    # Matrix jobs and direct local lanes have independent prerequisite state.
+    bash scripts/bootstrap-ci-tools.sh --legacy
+    web_build
     source scripts/bootstrap-jankurai.sh
     bootstrap_public_jankurai
     export JERYU_TOOL_RENDER="$root/components/jeryu-tool/ops/ci/check-rendered-identity.sh"

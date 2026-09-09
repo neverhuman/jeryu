@@ -932,6 +932,30 @@ fn resolve_agent_program_maps_ids_command_and_env_override() {
 }
 
 #[test]
+fn session_auth_uses_owned_fixture_home() {
+    let state = WebState::new(ForgeCore::new());
+    let workspace = tempfile::tempdir().expect("session workspace");
+    let auth_home = state.session_auth_home.path();
+    assert!(
+        std::fs::read_dir(auth_home)
+            .expect("fixture home")
+            .next()
+            .is_none()
+    );
+    std::fs::create_dir(auth_home.join(".codex")).expect("fixture codex directory");
+    let marker = r#"{"source":"jeryu-unit-test-fixture"}"#;
+    std::fs::write(auth_home.join(".codex/auth.json"), marker).expect("fixture auth marker");
+
+    super::seed_agent_auth(workspace.path(), "codex", Some(auth_home));
+
+    assert_eq!(
+        std::fs::read_to_string(workspace.path().join(".agent-home/.codex/auth.json"))
+            .expect("seeded fixture marker"),
+        marker
+    );
+}
+
+#[test]
 fn seed_agent_auth_copies_claude_state_and_marks_onboarding_complete() {
     let host = tempfile::tempdir().expect("host auth home");
     let workspace = tempfile::tempdir().expect("session workspace");

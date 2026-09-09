@@ -5,7 +5,7 @@ set -euo pipefail
 root=${1:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)}
 candidate=${2:-}
 # The optional individual script is for artifact review before source integration.
-# Normal CI always exercises each of the five checked-in entrypoints.
+# Normal CI exercises the five quick/default dispatchers and Release Ops.
 # shellcheck source=tests/scratch.sh
 source "$root/tests/scratch.sh"
 bash_bin=$(command -v bash)
@@ -34,6 +34,7 @@ set -euo pipefail
 case $1 in
   fast) printf 'fast\n' >> "$TRACE"; exit "$FAST_STATUS" ;;
   check) printf 'check\n' >> "$TRACE"; exit "$CHECK_STATUS" ;;
+  score|security|artifact-support|redline-consumer-test) printf '%s\n' "$1" >> "$TRACE"; exit "$CHECK_STATUS" ;;
   *) exit 92 ;;
 esac
 MOCK
@@ -54,7 +55,7 @@ run_case() {
   (
     cd "$temporary/foreign cwd"
     env -i PATH="$temporary/bin:/usr/bin:/bin" HOME="$temporary" \
-      TRACE="$temporary/trace" EXPECTED_DEFAULT_CWD="$temporary/foreign cwd" \
+      TRACE="$temporary/trace" EXPECTED_DEFAULT_CWD="${default_cwd:-$temporary/foreign cwd}" \
       EXPECTED_REQUIRED_CWD="$component_root" \
       FAST_STATUS="${fast_status:-0}" CHECK_STATUS="${check_status:-0}" \
       REQUIRED_STATUS="${required_status:-0}" \
@@ -94,6 +95,27 @@ for component in jeryu-ci-runner jeryu-core jeryu-deploy jeryu-intelligence jery
   run_case extra_argument 2 '' required extra
   run_case extra_empty_argument 2 '' required ''
 done
+# Release Ops preserves its established default of the complete required gate.
+# Its other named lanes continue to select exactly one existing recipe.
+if [[ -z $candidate ]]; then
+  component=jeryu-release-ops
+  component_root="$root/components/$component"
+  dispatcher="$component_root/scripts/ci-local.sh"
+  default_cwd=$component_root
+  fast_status=0 check_status=0 required_status=0
+  run_case default 0 required
+  run_case required 0 required required
+  for required_status in 3 23 143; do
+    run_case required_failure "$required_status" required required
+  done
+  required_status=0
+  for lane in fast check score security artifact-support; do run_case "$lane" 0 "$lane" "$lane"; done
+  run_case contract_drift 0 redline-consumer-test contract-drift
+  run_case unknown_argument 2 '' unknown
+  run_case empty_argument 2 '' ''
+  run_case extra_argument 2 '' required extra
+  run_case extra_empty_argument 2 '' required ''
+fi
 # Report success only after the shared identity/link/mount cleanup succeeds.
 jeryu_remove_test_scratch
 trap - EXIT

@@ -22,7 +22,7 @@ require_once() {
   printf '%s\n' "$line"
 }
 
-workspace_line="$(require_once 'cargo nextest run --locked --offline --workspace \')"
+workspace_line="$(require_once 'cargo nextest run --locked --offline --manifest-path "$member_manifest" "${nextest_scope[@]}" \')"
 poisoning_line="$(require_once 'bash tests/cache_poisoning_matrix.sh')"
 contract_line="$(require_once 'bash ops/ci/contract-drift.sh')"
 artifact_line="$(require_once 'bash ops/ci/artifact_support.sh')"

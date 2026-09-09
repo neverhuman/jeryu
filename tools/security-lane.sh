@@ -55,7 +55,7 @@ bind_tool() {
   local output_name="$1"
   local name="$2"
   local path canonical mode links uid digest
-  path="$(type -P -- "$name" 2>/dev/null || true)"
+  if (( $# == 3 )); then path=$3; else path="$(type -P -- "$name" 2>/dev/null || true)"; fi
   if [[ -z "$path" ]]; then
     record "tool:${name}" "fail" "required" "tool is not installed"
     failed=1
@@ -82,6 +82,56 @@ bind_tool() {
   read -r digest _ < <("$sha256_bin" "$canonical")
   record "tool:${name}" "pass" "required" "path=${canonical} uid=${uid} mode=${mode} links=${links} sha256=${digest}"
   printf -v "$output_name" '%s' "$canonical"
+}
+
+# Rustup normally installs cargo as a link to its dispatcher. Resolve the
+# source-pinned installed Cargo without executing that dispatcher or consulting
+# RUSTUP_TOOLCHAIN. Protected broker admission remains direct-file only.
+bind_cargo() {
+  local output_name=$1 candidate dispatcher toolchain_root channel version
+  candidate="$(type -P -- cargo 2>/dev/null || true)"
+  dispatcher="$(type -P -- rustup 2>/dev/null || true)"
+  if [[ ${JAIN_RELEASE_CI:-0} == 1 || -z $candidate || -z $dispatcher ||
+        ! $candidate -ef $dispatcher ]]; then
+    bind_tool "$output_name" cargo
+    return $?
+  fi
+  toolchain_root=${RUSTUP_HOME:-${HOME:?HOME is required for the default Rustup installation}/.rustup}
+  # The maintained toolchain must contain one numeric pin in its owning table.
+  channel=''
+  if [[ -f rust-toolchain.toml && ! -L rust-toolchain.toml &&
+        $(stat -c %h -- rust-toolchain.toml) == 1 ]]; then
+    channel=$(awk '
+      /^[[:space:]]*\[/ {
+        inside = ($0 ~ /^[[:space:]]*\[toolchain\][[:space:]]*$/)
+        if (inside) tables++
+      }
+      inside && /^[[:space:]]*channel[[:space:]]*=/ {
+        count++
+        if ($0 !~ /^[[:space:]]*channel[[:space:]]*=[[:space:]]*"[0-9]+\.[0-9]+\.[0-9]+"[[:space:]]*$/) exit 1
+        value=$0; sub(/^[^"]*"/, "", value); sub(/"[[:space:]]*$/, "", value)
+      }
+      END { if (tables != 1 || count != 1) exit 1; print value }
+    ' rust-toolchain.toml) || channel=''
+  fi
+  if [[ ! $channel =~ ^[0-9]+\.[0-9]+\.[0-9]+$ || $toolchain_root != /* ||
+        $(uname -s):$(uname -m) != Linux:x86_64 ]]; then
+    record "tool:cargo" "fail" "required" "Rustup Cargo requires a numeric source pin, absolute installation root and supported Linux x86_64 host"
+    failed=1
+    printf -v "$output_name" '%s' ""
+    return 1
+  fi
+  candidate="$toolchain_root/toolchains/$channel-x86_64-unknown-linux-gnu/bin/cargo"
+  bind_tool "$output_name" cargo "$candidate" || return 1
+  version=$("$candidate" --version) || version=''
+  if [[ ! $version =~ ^cargo\ ([0-9]+\.[0-9]+\.[0-9]+)\ \([0-9a-f]+\ [0-9]{4}-[0-9]{2}-[0-9]{2}\)$ ||
+        ${BASH_REMATCH[1]:-} != "$channel" ]]; then
+    record "cargo-toolchain" "fail" "required" "resolved Cargo version does not match the source toolchain pin"
+    failed=1
+    printf -v "$output_name" '%s' ""
+    return 1
+  fi
+  record "cargo-toolchain" "pass" "required" "source toolchain=$channel resolved Cargo=$candidate"
 }
 
 write_evidence() {
@@ -152,9 +202,9 @@ fi
 
 if [[ -f Cargo.toml ]]; then
   cargo_bin=""
-  bind_tool cargo_bin cargo || true
+  bind_cargo cargo_bin || true
   if [[ -n "$cargo_bin" ]]; then
-    if "$cargo_bin" metadata --format-version 1 --no-deps >/dev/null; then
+    if "$cargo_bin" metadata --locked --format-version 1 --no-deps >/dev/null; then
       record "cargo-metadata" "pass" "required" "workspace dependency metadata resolves"
     else
       record "cargo-metadata" "fail" "required" "cargo metadata returned nonzero"

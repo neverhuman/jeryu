@@ -2,8 +2,8 @@
 # Public, pinned CI prerequisites. The governed Jankurai receipt is separate.
 set -euo pipefail
 root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)
-[[ $# == 0 || ( $# == 1 && $1 == --binary-tools-only ) ]] || {
-  printf 'usage: scripts/bootstrap-ci-tools.sh [--binary-tools-only]\n' >&2; exit 2;
+[[ $# == 0 || ( $# == 1 && ( $1 == --binary-tools-only || $1 == --legacy ) ) ]] || {
+  printf 'usage: scripts/bootstrap-ci-tools.sh [--binary-tools-only|--legacy]\n' >&2; exit 2;
 }
 [[ $(uname -s) == Linux && $(uname -m) == x86_64 ]] || {
   printf 'CI tool bootstrap currently supports Linux x86_64\n' >&2; exit 1;
@@ -60,12 +60,16 @@ while read -r name version member digest url extra; do
   printf 'Verified %s %s\n' "$name" "$version"
 done < "$root/ci/tools.lock.tsv"
 if [[ ${1:-} != --binary-tools-only ]]; then
-  while read -r crate version extra; do
-    [[ -n "$crate" && $crate != \#* ]] || continue
-    [[ -z "${extra:-}" && $crate =~ ^[a-z][a-z-]*$ && $version =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
-      printf 'invalid Cargo tool lock row\n' >&2; exit 1;
-    }
-    cargo install --locked --registry crates-io --version "$version" --root "$tool_root" "$crate"
-  done < "$root/ci/cargo-tools.lock.tsv"
+  cargo_locks=("$root/ci/cargo-tools.lock.tsv")
+  if [[ ${1:-} == --legacy ]]; then cargo_locks+=("$root/ci/legacy-cargo-tools.lock.tsv"); fi
+  for cargo_lock in "${cargo_locks[@]}"; do
+    while read -r crate version extra; do
+      [[ -n "$crate" && $crate != \#* ]] || continue
+      [[ -z "${extra:-}" && $crate =~ ^[a-z][a-z-]*$ && $version =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+        printf 'invalid Cargo tool lock row\n' >&2; exit 1;
+      }
+      cargo install --locked --registry crates-io --version "$version" --root "$tool_root" "$crate"
+    done < "$cargo_lock"
+  done
 fi
 printf 'CI tools installed in %s\n' "$tool_root/bin"

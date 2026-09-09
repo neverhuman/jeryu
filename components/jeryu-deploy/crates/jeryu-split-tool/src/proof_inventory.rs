@@ -24,7 +24,7 @@ fn source_kind(relative: &str) -> Option<&'static str> {
     {
         Some("threshold-policy")
     } else if [
-        "ops/", "scripts/", "tools/", "tests/", ".cargo/", ".config/", "images/", "ux-qa/",
+        "ops/", "scripts/", "tools/", "tests/", "ci/", ".cargo/", ".config/", "images/", "ux-qa/",
     ]
     .iter()
     .any(|prefix| relative.starts_with(prefix))
@@ -147,6 +147,10 @@ mod tests {
         ] {
             assert!(source_kind(path).is_some(), "missing proof source: {path}");
         }
+        assert_eq!(
+            source_kind("ci/legacy-cargo-tools.lock.tsv"),
+            Some("proof-implementation-or-input")
+        );
         assert!(source_kind("crates/jeryu-runner-oci/examples/oci_probe.rs").is_some());
         assert!(source_kind("crates/jeryu-ci-scheduler/src/leases/fencing_tests.rs").is_some());
         assert_eq!(source_kind("docs/migration/proof-inventory.json"), None);

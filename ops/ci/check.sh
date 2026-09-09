@@ -3,9 +3,9 @@ set -euo pipefail
 
 source ops/ci/lib.sh
 if [[ -f Cargo.toml ]]; then
-  cargo metadata --format-version 1 --no-deps >/dev/null
+  cargo metadata --locked --format-version 1 --no-deps >/dev/null
   if [[ "${JERYU_SPLIT_FULL_CHECK:-0}" == "1" ]]; then
-    cargo check --workspace --all-targets --jobs "${JERYU_CI_JOBS:-40}"
+    cargo check --locked --workspace --all-targets --jobs "${JERYU_CI_JOBS:-40}"
   fi
 fi
 
@@ -28,6 +28,7 @@ for script in scripts/*.sh ops/ci/*.sh tools/*.sh tests/*.sh; do
   bash -n "$script"
 done
 bash tests/score-policy-hostiles.sh
+bash tests/score-report-hostiles.sh
 bash tests/scratch-hostiles.sh
 bash tests/auxiliary-proofs.sh
 bash tests/component-ci-dispatch.sh

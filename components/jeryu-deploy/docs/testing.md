@@ -21,6 +21,31 @@ identity/content at both existing recheck points. It never restores or discards
 changed inputs. `bash scripts/test-workspace-lock.sh` exercises synthetic
 standalone and monorepo layouts without compiling or fetching dependencies.
 
+The web gate and generated Deploy split CI share `ops/ci/web-build.sh`.
+In the monorepo it builds the checked, clean root with `npm ci` and
+`npm run build`. A generated split fetches the exact public monorepo commit
+from `.jeryu-source.json` and verifies its original Deploy component tree
+before building the Web source there. Exported Deploy Cargo commands still
+compile their own package and clear `JERYU_TEST_BINARY`; a root or installed
+binary cannot substitute for that independent process proof.
+
+The helper inspects the existing physical dist before npm/Vite can clear it,
+rejects linked/nonregular bundle entries, and validates the complete resulting asset
+set and local index references. Source HEAD/tree, tracked bytes and custody,
+provenance and the bundle are checked again after Cargo. Failed or changed
+scratch remains available for diagnosis; success cleanup checks its identity,
+mounts and internal-only links. Caller `JERYU_WEB_DIST` is not proof authority.
+Historical standalone trees without split provenance may use only an unchanged
+Git-committed vendored bundle; the sibling `stage-web-dist.sh` recipe does not
+establish CI provenance. Generated public exports contain no vendored bundle.
+
+`bash scripts/test-web-build.sh` exercises synthetic layout, provenance,
+asset, failure-status and cleanup cases without a product build or runtime
+claim. Real web qualification retains the API browser/JSON routing unit test
+and runs all three existing CLI standalone process tests, including embedded
+assets/notices, auth, Git operations and restart persistence. The routing unit
+uses a temporary page; it is not itself production-bundle evidence.
+
 Repository scripts define the reproducible commands. Local runs are developer
 evidence; the protected hosted `jeryu-deploy/required` result at the exact head
 is merge authority. Neither side may replace a failed command with a silent
@@ -55,9 +80,10 @@ Primary lanes:
   union from `agent/ci-lanes.toml`, including GitHub clean profile proof,
   security toolchain verification, retired-listener/process rejection, and all
   full workflow lanes.
-- `bash ops/ci/web.sh`: validates Deploy's tracked, immutable `apps/web/dist`
-  bundle and its API serving integration. Web source, Playwright, and rendered
-  UX gates run in the standalone `jeryu-web` repository before staging.
+- `bash ops/ci/web.sh`: builds or admits the exact-source/committed bundle
+  described above, retains the API route regression and runs the three real
+  CLI process tests. Web typechecking, Playwright and rendered UX proof remain
+  required in their owning Web and root lanes.
 - `bash ci-fast-push.sh`: local publish path after gates pass; it pushes the
   current branch and opens or reports a PR. Direct `HEAD:main` push requires
   explicit `--push-main` or `JERYU_CI_PUSH_MAIN=1`.

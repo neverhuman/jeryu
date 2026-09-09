@@ -2,13 +2,18 @@
 set -euo pipefail
 
 source ops/ci/lib.sh
-if [[ -f Cargo.toml ]]; then
-  cargo metadata --locked --offline --format-version 1 --no-deps >/dev/null
-  if [[ "${JERYU_SPLIT_FULL_CHECK:-0}" == "1" ]]; then
-    cargo check --locked --offline --workspace --all-targets \
-      --jobs "${JERYU_CI_JOBS:-40}"
+# shellcheck source=ops/ci/cargo-scope.sh
+source ops/ci/cargo-scope.sh
+if [[ "${JERYU_SPLIT_FULL_CHECK:-0}" == "1" ]]; then
+  check_scope=(--workspace)
+  if [[ $component_root != "$git_root" ]]; then
+    check_scope=()
+    for package in "${owned_packages[@]}"; do check_scope+=(--package "$package"); done
   fi
+  cargo check --locked --offline --manifest-path "$member_manifest" "${check_scope[@]}" \
+    --all-targets --jobs "${JERYU_CI_JOBS:-40}"
 fi
+# End Cargo ownership check.
 
 for script in scripts/*.sh ops/ci/*.sh; do
   [[ -e "$script" ]] || continue

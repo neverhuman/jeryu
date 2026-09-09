@@ -118,13 +118,21 @@ pub(super) fn resolve_session_backend(
 /// is logged but never blocks the session. Files are copied fresh (not
 /// bind-mounted) on every session start so credentials are always up-to-date
 /// but the container cannot modify the host's tokens.
-pub(super) fn seed_agent_auth(workspace: &std::path::Path, agent_id: &str) {
-    let host_home = std::env::var("JERYU_AUTH_HOME")
-        .ok()
-        .filter(|v| !v.trim().is_empty())
-        .map(PathBuf::from)
+pub(super) fn seed_agent_auth(
+    workspace: &std::path::Path,
+    agent_id: &str,
+    auth_home: Option<&std::path::Path>,
+) {
+    let host_home = auth_home
+        .map(std::path::Path::to_path_buf)
         .unwrap_or_else(|| {
-            PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| "/root".to_string()))
+            std::env::var("JERYU_AUTH_HOME")
+                .ok()
+                .filter(|v| !v.trim().is_empty())
+                .map(PathBuf::from)
+                .unwrap_or_else(|| {
+                    PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| "/root".to_string()))
+                })
         });
     seed_agent_auth_from_home(workspace, agent_id, &host_home);
 }

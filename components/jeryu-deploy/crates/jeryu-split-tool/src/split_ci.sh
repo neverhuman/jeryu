@@ -23,33 +23,19 @@ case ${1:-ordinary} in
       npm audit --audit-level=high
     else
       if [[ $component == jeryu-deploy ]]; then
-        # The embedded browser is an explicit dependency of this integration
-        # component. Build it from the same immutable public source revision.
-        source_commit=$(jq -er .source_commit .jeryu-source.json)
-        [[ $source_commit =~ ^[0-9a-f]{40}$ ]] || { printf 'invalid source commit\n' >&2; exit 1; }
-        scratch=$(mktemp -d)
-        scratch_identity=$(stat -c '%d:%i' -- "$scratch")
-        cleanup() {
-          local result=$? mounts
-          mounts=$(findmnt -rn -o TARGET) || { printf 'cannot inspect mounts; retaining %s\n' "$scratch" >&2; exit 1; }
-          if [[ -L "$scratch" || ! -d "$scratch" || $(realpath -e -- "$scratch") != "$scratch" \
-                || $(stat -c '%d:%i' -- "$scratch") != "$scratch_identity" ]] \
-              || awk -v root="$scratch" '$0 == root || index($0, root "/") == 1 {found=1} END {exit !found}' <<< "$mounts"; then
-            printf 'retaining replaced or mounted source scratch: %s\n' "$scratch" >&2
-            exit 1
-          fi
-          find "$scratch" -xdev -type l -print >&2
-          rm -rf --one-file-system --preserve-root=all -- "$scratch"
+        # The helper owns the exact public Web source, physical bundle and cleanup.
+        # shellcheck source=ops/ci/web-build.sh
+        source ops/ci/web-build.sh
+        finish_web() {
+          local result=$?
+          trap - EXIT
+          jeryu_web_finish "$result" || { if (( result == 0 )); then result=1; fi; }
           exit "$result"
         }
-        trap cleanup EXIT
-        git clone --no-local --no-checkout --quiet https://github.com/neverhuman/jeryu.git "$scratch/source"
-        git -C "$scratch/source" fetch --quiet --no-tags origin "$source_commit"
-        git -C "$scratch/source" -c core.hooksPath=/dev/null checkout --quiet --detach "$source_commit"
-        [[ $(git -C "$scratch/source" rev-parse HEAD) == "$source_commit" ]]
-        (cd "$scratch/source" && npm ci && npm run build)
-        export JERYU_WEB_DIST="$scratch/source/components/jeryu-web/apps/web/dist"
-        export JERYU_REQUIRE_WEB=1
+        trap finish_web EXIT
+        trap 'exit 130' INT
+        trap 'exit 143' TERM
+        jeryu_web_begin "$(pwd -P)"
       fi
       cargo fmt --all -- --check
       cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
@@ -57,6 +43,10 @@ case ${1:-ordinary} in
       if [[ $component == jeryu-ci-runner ]]; then excluded=(--exclude jeryu-sandbox-linux); fi
       cargo test --locked --workspace --all-features "${excluded[@]}"
       cargo build --locked --workspace
+      if [[ $component == jeryu-deploy ]]; then
+        jeryu_web_finish 0
+        trap - EXIT
+      fi
     fi
     ;;
   oci)

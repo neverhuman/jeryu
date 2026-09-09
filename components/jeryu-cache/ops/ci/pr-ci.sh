@@ -72,7 +72,14 @@ bash ops/ci/score.sh
 bash tools/security-lane.sh
 
 echo "[pr-ci] workspace test suite" >&2
-cargo nextest run --locked --offline --workspace \
+# Re-admit owning metadata after the preceding lanes before selecting tests.
+# shellcheck source=ops/ci/cargo-scope.sh
+source ops/ci/cargo-scope.sh
+nextest_scope=()
+for package in "${owned_packages[@]}"; do
+  nextest_scope+=(--package "$package")
+done
+cargo nextest run --locked --offline --manifest-path "$member_manifest" "${nextest_scope[@]}" \
   --build-jobs "$JOBS" --test-threads "$JOBS"
 echo "[pr-ci] cache poisoning matrix" >&2
 bash tests/cache_poisoning_matrix.sh

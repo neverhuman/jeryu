@@ -4,6 +4,34 @@ This is an unqualified source candidate. GitHub source authority, release
 authority, split publication, relocation, and the running service have not
 been cut over. `handover.status` remains `pending-protected-review`.
 
+The September 9 continuation audit does not establish a complete CI pass. The
+previous full-run process is unavailable and has no recovered final exit status;
+required sandbox, OCI, legacy and auxiliary coverage must be verified separately.
+GitHub main still points to the historical portal; two temporary public source
+refs contain earlier migration candidates, and neither is evidence of current
+GitHub CI success.
+
+The continuation repairs Deploy's web gate to build the current monorepo bundle
+(or fetch the export's exact public source) and exercise the three server/CLI
+process tests. Four advisory score wrappers now reject actual hard findings even
+when decision summaries report zero. Their 47 and 228 focused synthetic cases
+pass; they do not substitute for production builds or governed audit results.
+API unit-test sessions now receive a private, owned auth home, preventing copies
+from the operator's home during tests. Production auth lookup is unchanged;
+actual compilation and tests of that correction remain pending.
+
+Six empty Runner fixtures were preserved, restored and removed using exact
+`rmdir` calls after repeated physical-path, mount and open-handle checks. Dirty
+qualification clones still need their owner's handoff. Session workspaces remain
+in private custody: their process lifetime must be resolved before retirement.
+
+The Jankurai maintainer reconfirmed that no qualified replacement for the
+governed auditor is available: newer source still needs scanner-outcome and
+source-inventory repairs plus producer qualification. Keep the existing
+immutable pin and score floors. Cache's inherited security lane also still
+requires the installed Jain tool bundle; portable bootstrap alone cannot
+satisfy that separate custody contract. These are open full-CI gates.
+
 The ten component imports retain byte-identical source trees and linear
 ancestry from the existing GitHub portal main. `imports.json` binds each
 original commit and tree to its integration commit. Complete Jeryu histories,
