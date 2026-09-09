@@ -384,6 +384,7 @@ fn source_helper_rejects_unsafe_caller_configs_and_scrubs_injections() {
 }
 
 #[test]
+#[ignore = "host/VM: requires governed Jankurai 1.6.11 at /home/ubuntu/.jeryu/bin/jankurai"]
 fn login_shell_proof_replay_uses_only_the_governed_jankurai_binary() {
     let scratch = Scratch::new();
     let hostile_bin = scratch.0.join("hostile-bin");
@@ -414,6 +415,7 @@ fn login_shell_proof_replay_uses_only_the_governed_jankurai_binary() {
 }
 
 #[test]
+#[ignore = "host/VM: requires governed Jankurai 1.6.11 at /home/ubuntu/.jeryu/bin/jankurai"]
 fn governed_jankurai_custody_identity_and_receipt_fail_closed() {
     let scratch = Scratch::new();
     let hostile_bin = scratch.0.join("hostile-bin");

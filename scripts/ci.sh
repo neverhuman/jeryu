@@ -40,6 +40,9 @@ case ${1:-all} in
     cargo fmt --all -- --check
     cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
     cargo test --locked --workspace --all-features --exclude jeryu-sandbox-linux
+    if [[ -f /home/ubuntu/.jeryu/bin/jankurai && ! -L /home/ubuntu/.jeryu/bin/jankurai ]]; then
+      cargo test --locked -p jeryu-runnerd --test hosted_dependency_transport -- --ignored
+    fi
     ;;
   web)
     bash scripts/contracts.sh --check

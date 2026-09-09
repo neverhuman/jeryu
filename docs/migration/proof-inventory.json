@@ -1057,7 +1057,7 @@
       "kind": "proof-implementation-or-input",
       "path": "components/jeryu-ci-runner/crates/jeryu-runnerd/tests/hosted_dependency_transport.rs",
       "port_status": "pending-equivalence-proof",
-      "sha256": "f70a7a2bc3fa5b69b66433b330db201d921390d526a56404e9df18c466e6e8a5"
+      "sha256": "5bc067f9d1039a92d480ad3f425598390de304dec702b9cc17685b66611ea6cf"
     },
     {
       "component": "jeryu-ci-runner",
@@ -7135,7 +7135,7 @@
       "kind": "proof-implementation-or-input",
       "path": "scripts/ci.sh",
       "port_status": "pending-equivalence-proof",
-      "sha256": "d7ca37a5bc6f9752aeca88818c7b3c2c3a6f21f9b2a1298fef417f8ebb2f282a"
+      "sha256": "2020726e9f1b5c57cb6a831599ce2e8f6d4d2ad333bcba9364906fe90728de4c"
     },
     {
       "component": "jeryu",
