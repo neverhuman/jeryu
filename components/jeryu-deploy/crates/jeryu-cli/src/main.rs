@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 
 use clap::Parser;
-use jeryu_cli::{Cli, cli::Commands, client::RemoteOnlyClient, dispatch};
+use jeryu_cli::{cli::Commands, client::RemoteOnlyClient, dispatch, Cli};
 
 fn main() -> ExitCode {
     let mut cli = Cli::parse();
@@ -13,6 +13,7 @@ fn main() -> ExitCode {
         bind,
         spa_dir,
         data_dir,
+        store,
         split_manifest,
     } = &cli.command
     {
@@ -20,6 +21,7 @@ fn main() -> ExitCode {
             *bind,
             spa_dir.clone().unwrap_or_default(),
             data_dir.clone(),
+            store.clone(),
             split_manifest.clone(),
         ) {
             Ok(()) => ExitCode::SUCCESS,
@@ -51,8 +53,14 @@ fn serve(
     bind: std::net::SocketAddr,
     spa_dir: PathBuf,
     data_dir: Option<PathBuf>,
+    store: Option<String>,
     split_manifests: Vec<PathBuf>,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    let env_store = std::env::var("JERYU_STORE").ok();
+    let resolved = jeryu_cli::store::resolve(store.as_deref().or(env_store.as_deref()))?;
+    if let Some(notice) = resolved.fallback_notice() {
+        eprintln!("{notice}");
+    }
     let data_dir = jeryu_cli::data_dir::resolve(data_dir)?;
     let git_storage_root = data_dir.join("git");
     let trust_local_dev = env_flag("JERYU_WEB_TRUST_LOCAL");

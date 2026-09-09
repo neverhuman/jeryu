@@ -15,6 +15,7 @@ pub mod client;
 pub mod commands;
 pub mod data_dir;
 pub mod dispatch;
+pub mod store;
 
 pub use cli::Cli;
 pub use client::{ForgeClient, InMemoryClient};

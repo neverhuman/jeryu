@@ -131,6 +131,11 @@ pub enum Commands {
         #[arg(long)]
         data_dir: Option<PathBuf>,
 
+        /// Durable store. Defaults to bundled SQLite. `redline` is optional and
+        /// falls back to SQLite in this release binary; it never blocks serve.
+        #[arg(long)]
+        store: Option<String>,
+
         /// Split-family manifest used to classify portal and member repositories.
         ///
         /// Repeat this flag to load more than one split family.
