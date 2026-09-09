@@ -6001,7 +6001,7 @@
       "kind": "proof-implementation-or-input",
       "path": "components/jeryu-tool/ops/ci/check.sh",
       "port_status": "pending-equivalence-proof",
-      "sha256": "eccddd31a6d60fde1d976c478a1a5f9f6a3bcdbdd056997a0de38a94d0b53a05"
+      "sha256": "78e748a9b3718008f5aea169354874d4d7cb4eda5df22076ac8f4ffd5fd15fc4"
     },
     {
       "component": "jeryu-tool",
@@ -6113,7 +6113,7 @@
       "kind": "proof-implementation-or-input",
       "path": "components/jeryu-tool/ops/install-jankurai.sh",
       "port_status": "pending-equivalence-proof",
-      "sha256": "90b8aef86a32e1fb7d9ed33e655dd80c567aa9f53433b0c56efd4f1249d3f37e"
+      "sha256": "c2793cdd23bd9817951e73ed6ddbb7b8636f402641b113c569bfe97e6126a086"
     },
     {
       "component": "jeryu-tool",
@@ -6194,6 +6194,14 @@
       "path": "components/jeryu-tool/ops/test-install-jankurai.sh",
       "port_status": "pending-equivalence-proof",
       "sha256": "35c5af4337a4877b0064021209536a06af6cf3523b9f7fdd0e77977d50a5421c"
+    },
+    {
+      "component": "jeryu-tool",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-tool/ops/test-public-candidate-transaction.sh",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "eb2ebdc5f1507314a0391ec5d12678c9b6d8d6f83308810140b2368a0c0e6251"
     },
     {
       "component": "jeryu-tool",

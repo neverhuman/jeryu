@@ -187,6 +187,18 @@ candidate_receipt_valid() {
   [[ "$(jq -S . "${receipt}" | sha256sum | awk '{print $1}')" == "$(sha256_file "${receipt}")" ]]
 }
 
+candidate_receipt_custody() {
+  local fd="$1" digest="$2" path="$3"
+  local held="/proc/${installer_pid}/fd/${fd}"
+  [[ -f "${path}" && ! -L "${path}" &&
+     "$(realpath -e -- "${path}")" == "${path}" &&
+     "$(realpath -e -- "${held}")" == "${path}" &&
+     "$(stat -Lc '%a:%h' -- "${held}")" == 600:1 &&
+     "$(stat -Lc '%d:%i:%u:%g:%a:%h' -- "${held}")" == \
+       "$(stat -Lc '%d:%i:%u:%g:%a:%h' -- "${path}")" &&
+     "$(sha256_file "${held}")" == "${digest}" ]]
+}
+
 # The generated, retained pin supplies JANKURAI_REV before this function runs.
 # shellcheck disable=SC2153
 candidate_public_readback() {
@@ -865,7 +877,12 @@ if [[ -e "${target_custody_path}" || -L "${target_custody_path}" ]]; then
           die "retained candidate receipt changed"
       fi
       if [[ "${public_candidate}" == 1 ]]; then
+        remove_owned_scratch "${candidate_state}" "${candidate_state_identity}" ||
+          die "candidate input cleanup failed; existing installation retained"
+        candidate_state=""
         require_transaction_custody
+        candidate_receipt_custody "${existing_receipt_fd}" "${receipt_digest}" "${receipt}" ||
+          die "current candidate receipt changed during final verification"
         [[ "$(realpath -e -- "${existing_target_descriptor}")" == "${target}" &&
            "$(sha256_file "${existing_target_descriptor}")" == "${JANKURAI_BINARY_SHA256}" &&
            "$(stat -Lc '%d:%i:%u:%g:%h' -- "${existing_target_descriptor}")" == \
@@ -897,6 +914,7 @@ previous_backup=""
 previous_backup_fd=""
 previous_sha=""
 target_replaced=0
+receipt_published=0
 installed_target_identity=""
 success=0
 
@@ -932,6 +950,17 @@ finish() {
   local status=$? keep_candidate_state=0 log_fd log_leaf log_identity
   trap - EXIT
   if [[ "${status}" -ne 0 && "${target_replaced}" -eq 1 && "${success}" -ne 1 ]]; then
+    if [[ "${public_candidate}" == 1 && "${receipt_published}" == 1 ]]; then
+      if validate_retained_leaf "${receipt_fd}" "${receipt_install_identity}" \
+        "${receipt_dir_fd}" "${receipt_leaf}"; then
+        if ! rm -f -- "${receipt_dir_fd_path}/${receipt_leaf}" ||
+           ! sync -f "${receipt_dir_fd_path}"; then
+          printf 'install-jankurai: failed to withdraw transaction receipt; inspect retained evidence\n' >&2
+        fi
+      else
+        printf 'install-jankurai: failed transaction receipt custody changed; inspect retained evidence\n' >&2
+      fi
+    fi
     validate_install_lock && rollback_target ||
       printf 'install-jankurai: rollback verification failed; retained only verified target bytes\n' >&2
   fi
@@ -946,7 +975,7 @@ finish() {
     remove_retained_leaf "${receipt_install_fd}" "${receipt_install_identity}" \
       "${receipt_dir_fd}" "${receipt_install_leaf}"
   fi
-  if [[ "${status}" -ne 0 && "${public_candidate}" == 1 &&
+  if [[ "${status}" -ne 0 && "${public_candidate}" == 1 && -n "${candidate_state}" &&
         -e "${candidate_state}/build.log" ]]; then
     # Keep diagnostics under the already-held root; never expose cache contents.
     if [[ -f "${candidate_state}/build.log" && ! -L "${candidate_state}/build.log" &&
@@ -965,10 +994,12 @@ finish() {
       keep_candidate_state=1
     fi
   fi
-  remove_owned_scratch "${scratch}" "${scratch_identity}" || {
-    printf 'install-jankurai: retained changed or mounted build scratch\n' >&2
-    status=1
-  }
+  if [[ -n "${scratch}" ]]; then
+    remove_owned_scratch "${scratch}" "${scratch_identity}" || {
+      printf 'install-jankurai: retained changed or mounted build scratch\n' >&2
+      status=1
+    }
+  fi
   if [[ -n "${candidate_state}" && "${keep_candidate_state}" == 0 ]]; then
     remove_owned_scratch "${candidate_state}" "${candidate_state_identity}" || {
       printf 'install-jankurai: retained changed or mounted candidate inputs\n' >&2
@@ -1286,10 +1317,11 @@ else
     die "receipt transaction leaf custody changed"
   mv -fT "${receipt_dir_fd_path}/${receipt_install_leaf}" \
     "${receipt_dir_fd_path}/${receipt_leaf}"
+  receipt_fd="${receipt_install_fd}"
+  receipt_published=1
   receipt_install_leaf=""
   [[ "$(stat -Lc '%d:%i:%u:%g:%h' -- "${receipt_dir_fd_path}/${receipt_leaf}")" == \
      "${receipt_install_identity}" ]] || die "receipt publication identity changed"
-  receipt_fd="${receipt_install_fd}"
   sync -f "${receipt_dir_fd_path}"
 fi
 [[ "$(sha256_file "/proc/${installer_pid}/fd/${receipt_fd}")" == "${receipt_sha}" ]] ||
@@ -1300,18 +1332,27 @@ if [[ "${public_candidate}" == 1 ]]; then
   candidate_public_readback
   candidate_receipt_valid "/proc/${installer_pid}/fd/${receipt_fd}" ||
     die "published candidate receipt failed verification"
+  # Cleanup is part of this transaction. Failure still triggers rollback and
+  # withdrawal of only the receipt published by this attempt.
+  remove_owned_scratch "${scratch}" "${scratch_identity}" || die "candidate build scratch cleanup failed"
+  scratch=""
+  remove_owned_scratch "${candidate_state}" "${candidate_state_identity}" || die "candidate input cleanup failed"
+  candidate_state=""
   require_transaction_custody
+  candidate_receipt_custody "${receipt_fd}" "${receipt_sha}" "${receipt_path}" ||
+    die "published candidate receipt changed during final verification"
   [[ "$(realpath -e -- "${installed_target_descriptor}")" == "${target}" &&
      "$(stat -Lc '%d:%i:%u:%g:%h' -- "${target_custody_path}")" == "${installed_target_identity}" &&
      "$(sha256_file "${installed_target_descriptor}")" == "${JANKURAI_BINARY_SHA256}" ]] ||
     die "published candidate binary changed during final verification"
 fi
 
-success=1
 if [[ "${public_candidate}" == 1 ]]; then
   jq -nc --arg receipt "${receipt_path}" --arg path "${target}" --arg sha256 "${installed_sha}" \
     '{status:"installed",receipt:$receipt,path:$path,sha256:$sha256}'
+  success=1
 else
+  success=1
   printf 'jeryu jankurai installed: %s sha256=%s path=%s receipt=%s\n' \
     "${installed_version}" "${installed_sha}" "${target}" "${receipt_path}"
 fi
