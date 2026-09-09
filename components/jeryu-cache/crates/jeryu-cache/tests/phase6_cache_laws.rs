@@ -5,20 +5,9 @@ use jeryu_cache::harness::run_adversarial_suite;
 use jeryu_cache::ids::{Actor, RepoId, TenantId};
 use jeryu_cache::policy::{CacheContext, CachePolicy, TrustTier};
 use jeryu_cache::service::{JeryuCache, RestoreStatus, StoreStatus};
-use std::fs;
-use std::path::PathBuf;
-use std::time::{SystemTime, UNIX_EPOCH};
 
-fn temp_root(name: &str) -> PathBuf {
-    let nanos = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("clock")
-        .as_nanos();
-    let root = std::env::temp_dir().join(format!("jeryu_cache-{name}-{nanos}"));
-    let _ = fs::remove_dir_all(&root);
-    fs::create_dir_all(&root).expect("temp root");
-    root
-}
+mod support;
+use support::temp_root;
 
 fn tenant() -> TenantId {
     TenantId::new("tenant").expect("tenant")

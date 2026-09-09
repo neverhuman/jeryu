@@ -21,6 +21,14 @@ after verified preservation and link/mount/identity checks. Raw patches and
 reports remain in owner-only archives. This source accounting does not replace
 execution or release qualification; original canonical repositories remain.
 
+A later census found 18 empty Native/phase4 test roots and seven Cache scenario
+roots left by completed tests. All 25 were archived, restored and compared,
+then removed after repeated identity, link, mount and privileged read-only
+handle checks. The archive retains all 40 Cache fixture files. Cache tests now
+own a private outer fixture directory and clean it on every exit; ten tests
+and Clippy pass. Portal hostile tests also guard their scratch, and simulated
+security scanners write only inside an isolated synthetic test repository.
+
 `import-updates.json` records later source deltas without replacing the
 original import mappings. Deploy's two-commit update through `b388edc5` was
 preserved, restored, scanned and integrated at `bdd6c04a`. It preserves the
@@ -61,8 +69,8 @@ Remaining release gates include:
   The candidate manifest now declares an explicit public distribution URL
   separately from its unchanged producer/build identity. Schema 1 remains
   supported; schema 2 rejects unknown or substituted distribution fields.
-  Anonymous immutable-tag preflight passes. The portable authority generator,
-  installer and receipts remain required; availability is not build proof.
+  Anonymous immutable-tag preflight passes. Availability alone is not build
+  proof, and the protected authority handover remains pending.
   The actual portable builder at `ecb8c89d` subsequently reproduced the
   unchanged golden binary and build-context digests from anonymously acquired
   public source and an initially empty registry cache. All source, vendor,
@@ -76,8 +84,17 @@ Remaining release gates include:
   and root `auditor` command are now implemented. Tool unit/integration tests,
   Clippy and the four retained installer/root-seal/renderer/governed-path shell
   suites pass locally. Their separate candidate receipt keeps protected
-  approval pending; actual candidate installation and generated-consumer
-  qualification remain required before the full CI gate can pass.
+  approval pending. At `5fab2aea`, all 83 generated targets across the root and
+  ten components passed the full drift check. The actual public candidate
+  installer fetched source and locked dependencies anonymously, reproduced the
+  same golden binary/context in the offline Docker builder, and published a
+  source-bound candidate receipt. Same-head installation reuse, shared-lock
+  bootstrap reuse, held-descriptor execution and wrong-source/path refusals
+  passed. Its disposable exact-commit clone was removed after guarded cleanup.
+  The shared family ancestors are group-writable, so this proof used a private
+  cache directory; renderer compilation reused existing Cargo tool caches.
+  Final empty-cache monorepo qualification and later candidate commits still
+  require their own complete matrix.
   The canonical
   Redline tag `redline-core-v4.1.0-jain.6` is now anonymously available from
   `neverhuman/redline-core` at the exact

@@ -226,6 +226,11 @@ require_jankurai() {
 }
 
 run_governed_jankurai() {
+  if [[ "${JERYU_MONOREPO_CANDIDATE:-0}" == 1 ]]; then
+    # The renderer-owned wrapper verifies and executes the retained descriptor.
+    jankurai "$@"
+    return
+  fi
   require_jankurai
   "${JERYU_GOVERNED_JANKURAI_BIN}" "$@"
 }

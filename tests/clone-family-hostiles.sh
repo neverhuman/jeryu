@@ -6,15 +6,23 @@ clone_script="${repo_root}/scripts/clone-family.sh"
 tmp_root="$(realpath -e -- "${TMPDIR:-/tmp}")"
 sandbox="$(mktemp -d "${tmp_root}/jeryu-clone-family-hostiles.XXXXXX")"
 
+# Keep this helper in the portal tree so standalone legacy tests remain runnable.
+# shellcheck source=/dev/null
+source "${repo_root}/tests/scratch.sh"
+jeryu_record_test_scratch "$sandbox"
+
 cleanup() {
-  case "$sandbox" in
-    "${tmp_root}"/jeryu-clone-family-hostiles.*) ;;
-    *) return 1 ;;
-  esac
-  [[ -d "$sandbox" && ! -L "$sandbox" && -O "$sandbox" ]] || return 1
-  rm -rf -- "$sandbox"
+  local status=$?
+  jeryu_remove_test_scratch || {
+    printf 'retaining changed, linked, or mounted test scratch: %s\n' "$sandbox" >&2
+    status=1
+  }
+  exit "$status"
 }
-trap cleanup EXIT INT TERM HUP
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+trap 'exit 129' HUP
 
 fail() {
   printf 'clone-family hostile test failed: %s\n' "$1" >&2
