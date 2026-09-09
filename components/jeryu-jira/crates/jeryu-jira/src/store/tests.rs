@@ -1,4 +1,7 @@
-use uuid::Uuid;
+#[path = "../../tests/support/mod.rs"]
+mod support;
+
+use support::TestDatabase;
 
 use super::WorkStore;
 use crate::{
@@ -7,9 +10,10 @@ use crate::{
     WorkPriority, WorkPullRequestLink, WorkRepository, WorkStatus,
 };
 
-fn store() -> WorkStore {
-    let path = std::env::temp_dir().join(format!("jeryu-jira-{}.sqlite", Uuid::new_v4()));
-    WorkStore::open(path).expect("open store")
+fn store() -> (TestDatabase, WorkStore) {
+    let database = TestDatabase::temporary();
+    let store = WorkStore::open(database.path()).expect("open store");
+    (database, store)
 }
 
 fn repo() -> WorkRepository {
@@ -23,8 +27,8 @@ fn repo() -> WorkRepository {
 
 #[test]
 fn create_patch_comment_and_reopen_persist() {
-    let temp = tempfile::tempdir().expect("temp dir");
-    let path = temp.path().join("work.sqlite");
+    let database = TestDatabase::temporary();
+    let path = database.path().to_path_buf();
     let store = WorkStore::open(&path).expect("open store");
     let item = store
         .create(CreateWorkItemRequest {
@@ -75,7 +79,7 @@ fn create_patch_comment_and_reopen_persist() {
 
 #[test]
 fn issue_links_are_unique() {
-    let store = store();
+    let (_database, store) = store();
     let first = store
         .create(CreateWorkItemRequest {
             title: "First".to_string(),
@@ -117,7 +121,7 @@ fn issue_links_are_unique() {
 
 #[test]
 fn pull_request_links_are_deduplicated() {
-    let store = store();
+    let (_database, store) = store();
     let item = store
         .create(CreateWorkItemRequest {
             title: "Track PR".to_string(),
@@ -153,7 +157,7 @@ fn pull_request_links_are_deduplicated() {
 
 #[test]
 fn filter_matches_repo_status_assignee_label_and_search() {
-    let store = store();
+    let (_database, store) = store();
     let created = store
         .create(CreateWorkItemRequest {
             repo: Some(repo()),
@@ -184,7 +188,7 @@ fn filter_matches_repo_status_assignee_label_and_search() {
 
 #[test]
 fn validates_titles_comments_and_links() {
-    let store = store();
+    let (_database, store) = store();
     assert!(matches!(
         store.create(CreateWorkItemRequest {
             title: " ".to_string(),

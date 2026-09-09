@@ -8,20 +8,31 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 score="$repo_root/ops/ci/score.sh"
 authority="$repo_root/ops/ci/source-authority.sh"
 lib="$repo_root/ops/ci/lib.sh"
+# shellcheck source=/dev/null
+source "$repo_root/tests/scratch.sh"
 test_root="$(mktemp -d "${TMPDIR:-/tmp}/jeryu-tool-finder-auditor-git.XXXXXX")"
+jeryu_record_test_scratch "$test_root"
 foreign="$test_root/foreign"
 stderr_log="$test_root/stderr.log"
 evidence="$repo_root/target/jankurai/evidence.json"
 saved=''
+evidence_owned=false
 
 cleanup() {
+  local status=$?
   if [[ -n "${saved:-}" && -f "$saved" ]]; then
-    rm -f -- "$evidence"
-    mv -- "$saved" "$evidence"
+    rm -f -- "$evidence" || exit 1
+    mv -- "$saved" "$evidence" || exit 1
+  elif [[ "$evidence_owned" == true && -f "$evidence" ]]; then
+    rm -- "$evidence" || exit 1
   fi
-  rm -rf -- "$test_root"
+  jeryu_remove_test_scratch || status=1
+  exit "$status"
 }
 trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+trap 'exit 129' HUP
 
 fail() {
   printf 'score auditor git-env hostile test failed: %s\n' "$1" >&2
@@ -47,6 +58,7 @@ if [[ -f "$evidence" && ! -L "$evidence" ]]; then
   mv -- "$evidence" "$saved"
 fi
 printf '{"sentinel":"preserve-auditor-git-env"}\n' > "$evidence"
+evidence_owned=true
 sentinel_sha="$(sha256sum -- "$evidence" | awk '{print $1}')"
 
 # shellcheck source=../ops/ci/source-authority.sh
@@ -169,15 +181,22 @@ env JAIN_RELEASE_CI=1 \
   GIT_NAMESPACE=foreign \
   bash "$score" >"$test_root/release.score.stdout" 2>"$stderr_log" || release_status=$?
 if [[ "$release_status" -eq 0 ]]; then
+  [[ "${JERYU_MONOREPO_CANDIDATE:-0}" != 1 ]] ||
+    fail 'candidate source incorrectly satisfied protected release authority'
   evidence_head="$(jq -er '.head' "$evidence")"
   [[ "$evidence_head" == "$bound_head" ]] ||
     fail 'release: evidence head drifted under foreign ambient Git'
   assert_report_bound release-full "$repo_root/target/jankurai/repo-score.json" ||
     fail 'release: published report identity drifted under foreign ambient Git'
 else
-  grep -Eq 'release broker Jankurai path mismatch|release broker Jankurai custody mismatch' \
-    "$stderr_log" ||
-    fail 'release: foreign-env failure was not a fail-closed release-broker refusal'
+  if [[ "${JERYU_MONOREPO_CANDIDATE:-0}" == 1 ]]; then
+    grep -Fq 'candidate mode cannot satisfy release-broker or test authority' "$stderr_log" ||
+      fail 'candidate: release authority refusal was not explicit'
+  else
+    grep -Eq 'release broker Jankurai path mismatch|release broker Jankurai custody mismatch' \
+      "$stderr_log" ||
+      fail 'release: foreign-env failure was not a fail-closed release-broker refusal'
+  fi
   [[ "$(sha256sum -- "$evidence" | awk '{print $1}')" == "$release_sentinel" ]] ||
     fail 'release: fail-closed foreign-env run destroyed prior evidence'
 fi

@@ -74,6 +74,7 @@ jeryu_tracked_inputs_sha256() {
 
 jeryu_require_physical_source() {
   local top git_dir common_dir objects record ignored worktree_count hidden_error=0 ignored_error=0
+  local storage_root="${repo_root:-}"
   [[ "${repo_root:-}" == /* && -d "$repo_root" && ! -L "$repo_root" ]] || {
     jeryu_source_fail 'repo_root is not a physical absolute directory'
     return 1
@@ -86,7 +87,10 @@ jeryu_require_physical_source() {
     jeryu_source_fail '/usr/bin/git is not a physical executable'
     return 1
   }
-  [[ -d "$repo_root/.git" && ! -L "$repo_root/.git" ]] || {
+  if [[ "${JERYU_MONOREPO_CANDIDATE:-0}" != 0 ]]; then
+    storage_root="$(jeryu_candidate_source_root)" || return 1
+  fi
+  [[ -d "$storage_root/.git" && ! -L "$storage_root/.git" ]] || {
     jeryu_source_fail 'canonical .git is not a physical directory'
     return 1
   }
@@ -95,14 +99,14 @@ jeryu_require_physical_source() {
   git_dir="$(jeryu_governed_git rev-parse --path-format=absolute --absolute-git-dir)" || return 1
   common_dir="$(jeryu_governed_git rev-parse --path-format=absolute --git-common-dir)" || return 1
   objects="$(jeryu_governed_git rev-parse --path-format=absolute --git-path objects)" || return 1
-  [[ "$top" == "$repo_root" && "$git_dir" == "$repo_root/.git" &&
-     "$common_dir" == "$repo_root/.git" && "$objects" == "$repo_root/.git/objects" ]] ||
+  [[ "$top" == "$storage_root" && "$git_dir" == "$storage_root/.git" &&
+     "$common_dir" == "$storage_root/.git" && "$objects" == "$storage_root/.git/objects" ]] ||
     { jeryu_source_fail 'Git top-level, gitdir, common-dir, or object custody differs from canonical'; return 1; }
 
-  [[ ! -e "$repo_root/.git/objects/info/alternates" &&
-     ! -L "$repo_root/.git/objects/info/alternates" ]] ||
+  [[ ! -e "$storage_root/.git/objects/info/alternates" &&
+     ! -L "$storage_root/.git/objects/info/alternates" ]] ||
     { jeryu_source_fail 'repository object alternates are forbidden'; return 1; }
-  [[ ! -e "$repo_root/.git/info/grafts" && ! -L "$repo_root/.git/info/grafts" ]] ||
+  [[ ! -e "$storage_root/.git/info/grafts" && ! -L "$storage_root/.git/info/grafts" ]] ||
     { jeryu_source_fail 'repository grafts are forbidden'; return 1; }
   [[ -z "$(jeryu_governed_git for-each-ref --format='%(refname)' refs/replace)" ]] ||
     { jeryu_source_fail 'replacement refs are forbidden'; return 1; }
@@ -145,6 +149,10 @@ jeryu_require_physical_source() {
     esac
   done < <(jeryu_governed_git ls-files --others --ignored --exclude-standard -z)
   [[ "$ignored_error" == 0 ]] || return 1
+  if [[ "${JERYU_MONOREPO_CANDIDATE:-0}" == 1 ]]; then
+    jeryu_candidate_shared_source_checks "$storage_root" || return 1
+    jeryu_candidate_verify_whole_source "$storage_root" || return 1
+  fi
 }
 
 jeryu_source_snapshot() {
@@ -156,11 +164,17 @@ jeryu_source_snapshot() {
      "$JERYU_SOURCE_TREE" =~ ^[0-9a-f]{40}$ &&
      "$JERYU_SOURCE_INPUTS_SHA256" =~ ^[0-9a-f]{64}$ ]] ||
     { jeryu_source_fail 'source identity is malformed'; return 1; }
-  export JERYU_SOURCE_HEAD JERYU_SOURCE_TREE JERYU_SOURCE_INPUTS_SHA256
+  JERYU_SOURCE_SCOPE_JSON=null
+  if [[ "${JERYU_MONOREPO_CANDIDATE:-0}" == 1 ]]; then
+    JERYU_SOURCE_SCOPE_JSON="$(jeryu_candidate_source_scope \
+      "$JERYU_SOURCE_HEAD" "$JERYU_SOURCE_TREE" "$JERYU_SOURCE_INPUTS_SHA256")" || return 1
+  fi
+  export JERYU_SOURCE_HEAD JERYU_SOURCE_TREE JERYU_SOURCE_INPUTS_SHA256 JERYU_SOURCE_SCOPE_JSON
 }
 
 jeryu_source_verify() {
   local expected_head="$1" expected_tree="$2" expected_inputs="$3"
+  local expected_scope="${4:-${JERYU_SOURCE_SCOPE_JSON:-null}}" actual_scope
   jeryu_require_physical_source || return 1
   [[ "$(jeryu_governed_git rev-parse --verify 'HEAD^{commit}')" == "$expected_head" ]] ||
     { jeryu_source_fail 'HEAD moved during proof'; return 1; }
@@ -168,6 +182,11 @@ jeryu_source_verify() {
     { jeryu_source_fail 'tree moved during proof'; return 1; }
   [[ "$(jeryu_tracked_inputs_sha256)" == "$expected_inputs" ]] ||
     { jeryu_source_fail 'physical tracked inputs moved during proof'; return 1; }
+  if [[ "${JERYU_MONOREPO_CANDIDATE:-0}" == 1 ]]; then
+    actual_scope="$(jeryu_candidate_source_scope "$expected_head" "$expected_tree" "$expected_inputs")" || return 1
+    [[ "$actual_scope" == "$expected_scope" ]] ||
+      { jeryu_source_fail 'shared monorepo inputs or component scope moved during proof'; return 1; }
+  fi
 }
 
 # Reject a Jankurai score report whose Git identity/toplevel does not match the
@@ -196,3 +215,7 @@ jeryu_require_score_report_matches_source() {
   [[ "$report_git_dirty" == "false" ]] ||
     { jeryu_source_fail "score report dirty_worktree is ${report_git_dirty}, expected false"; return 1; }
 }
+
+# Candidate definitions are inert unless the caller explicitly selects candidate mode.
+# shellcheck source=/dev/null
+source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)/source-candidate.sh"

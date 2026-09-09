@@ -9,8 +9,12 @@ score="$repo_root/target/jankurai/evidence.json"
 security="$repo_root/target/security/evidence.json"
 test_dir="$repo_root/target/artifact-support"
 stderr_log="$test_dir/.hostile.stderr"
+# shellcheck source=/dev/null
+source "$repo_root/tests/scratch.sh"
 hostile_root="$(mktemp -d "$test_dir/.hostiles.XXXXXX")"
-external_target="$(mktemp -d "${TMPDIR:-/tmp}/jeryu-tool-finder-external-target.XXXXXX")"
+jeryu_record_test_scratch "$hostile_root"
+external_target=''
+external_target_identity=''
 fake_bin="$hostile_root/fake-bin"
 fake_marker="$hostile_root/fake-tool-executed"
 stale_marker="$hostile_root/stale-repo-target-executed"
@@ -25,41 +29,56 @@ receipt_jobs=''
 alternate_jobs=''
 
 cleanup() {
+  local status=$?
   rm -f -- "$test_dir/.receipt-hardlink" \
     "$test_dir/.artifact-hardlink" \
     "$repo_root/target/jankurai/.evidence-hardlink" \
-    "$repo_root/target/security/.evidence-hardlink" "$stderr_log"
+    "$repo_root/target/security/.evidence-hardlink" "$stderr_log" || exit 1
   if [[ -n "$score_saved" && -f "$score_saved" ]]; then
-    rm -f -- "$score"
-    mv -- "$score_saved" "$score"
+    rm -f -- "$score" || exit 1
+    mv -- "$score_saved" "$score" || exit 1
   fi
   if [[ -L "$receipt" ]]; then
-    rm -- "$receipt"
+    rm -- "$receipt" || exit 1
   fi
   if [[ -n "$receipt_saved" && -f "$receipt_saved" ]]; then
-    rm -f -- "$receipt"
-    mv -- "$receipt_saved" "$receipt"
+    rm -f -- "$receipt" || exit 1
+    mv -- "$receipt_saved" "$receipt" || exit 1
   fi
   if [[ -L "$artifact" ]]; then
-    rm -- "$artifact"
+    rm -- "$artifact" || exit 1
   fi
   if [[ -n "$artifact_saved" && -f "$artifact_saved" ]]; then
-    rm -f -- "$artifact"
-    mv -- "$artifact_saved" "$artifact"
+    rm -f -- "$artifact" || exit 1
+    mv -- "$artifact_saved" "$artifact" || exit 1
   fi
   if [[ -n "$security_saved" && -f "$security_saved" ]]; then
-    rm -f -- "$security"
-    mv -- "$security_saved" "$security"
+    rm -f -- "$security" || exit 1
+    mv -- "$security_saved" "$security" || exit 1
   fi
   if [[ -n "$stale_saved" && -f "$stale_saved" ]]; then
-    rm -f -- "$stale_build"
-    mv -- "$stale_saved" "$stale_build"
+    rm -f -- "$stale_build" || exit 1
+    mv -- "$stale_saved" "$stale_build" || exit 1
   elif [[ "$stale_owned" == true && -f "$stale_build" ]]; then
-    rm -- "$stale_build"
+    rm -- "$stale_build" || exit 1
   fi
-  rm -rf -- "$hostile_root" "$external_target"
+  if [[ -n "$external_target" ]]; then
+    jeryu_test_scratch="$external_target" \
+      jeryu_test_scratch_identity="$external_target_identity" \
+      jeryu_remove_test_scratch || status=1
+  fi
+  jeryu_remove_test_scratch || status=1
+  exit "$status"
 }
 trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+trap 'exit 129' HUP
+external_target="$(mktemp -d "${TMPDIR:-/tmp}/jeryu-tool-finder-external-target.XXXXXX")"
+external_target_identity="$(
+  jeryu_record_test_scratch "$external_target" || exit 1
+  printf '%s\n' "${jeryu_test_scratch_identity:?}"
+)"
 
 fail() {
   printf 'artifact-support hostile test failed: %s\n' "$1" >&2

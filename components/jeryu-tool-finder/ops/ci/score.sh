@@ -16,15 +16,27 @@ die() {
 # verified file; it can never select another executable after verification.
 require_jankurai
 auditor_bin="$JERYU_GOVERNED_JANKURAI_BIN"
+score_auditor_version() {
+  if [[ "${JERYU_MONOREPO_CANDIDATE:-0}" == 1 ]]; then
+    jeryu_candidate_score_auditor --version
+  else
+    "$auditor_bin" --version
+  fi
+}
 if [[ -n "${JERYU_JANKURAI_BIN:-}" && "$JERYU_JANKURAI_BIN" != "$auditor_bin" ]]; then
   die "caller JERYU_JANKURAI_BIN differs from governed auditor: $JERYU_JANKURAI_BIN"
 fi
 auditor_sha="$(sha256sum -- "$auditor_bin" | awk '{print $1}')"
-auditor_version="$($auditor_bin --version)"
+auditor_version="$(score_auditor_version)"
 [[ "$auditor_sha" == "$JERYU_JANKURAI_SHA256" &&
    "$auditor_version" == "$JERYU_JANKURAI_VERSION" ]] ||
   die 'governed auditor moved after verification'
 auditor_mode=installation-receipt
+evidence_schema=jeryu.split.score/v1
+if [[ "${JERYU_MONOREPO_CANDIDATE:-0}" == 1 ]]; then
+  auditor_mode=public-candidate-installation
+  evidence_schema=jeryu.monorepo-candidate.score/v1
+fi
 auditor_receipt_path="${JERYU_JANKURAI_RECEIPT:-}"
 auditor_receipt_sha="${JERYU_JANKURAI_RECEIPT_SHA256:-}"
 if [[ "${JAIN_RELEASE_CI:-0}" == 1 ]]; then
@@ -42,6 +54,7 @@ jeryu_source_snapshot
 head_sha="$JERYU_SOURCE_HEAD"
 tree_sha="$JERYU_SOURCE_TREE"
 source_inputs_sha="$JERYU_SOURCE_INPUTS_SHA256"
+source_scope_json="$JERYU_SOURCE_SCOPE_JSON"
 
 prepare_dir() {
   local relative="$1"
@@ -95,9 +108,15 @@ require_output_slot target/jankurai/repo-score.json
 require_output_slot target/jankurai/repo-score.md
 # Spawn the governed auditor under the same scrubbed replacement-blind Git
 # authority used for source checks. Ambient GIT_* must not select a foreign head.
-jeryu_with_scrubbed_git "$auditor_bin" audit . --full --mode advisory \
-  --policy agent/audit-policy.toml \
-  --json .jankurai/repo-score.json --md .jankurai/repo-score.md
+if [[ "${JERYU_MONOREPO_CANDIDATE:-0}" == 1 ]]; then
+  jeryu_candidate_score_auditor audit . --full --mode advisory \
+    --policy agent/audit-policy.toml \
+    --json .jankurai/repo-score.json --md .jankurai/repo-score.md
+else
+  jeryu_with_scrubbed_git "$auditor_bin" audit . --full --mode advisory \
+    --policy agent/audit-policy.toml \
+    --json .jankurai/repo-score.json --md .jankurai/repo-score.md
+fi
 minimum_score="$(awk -F= '/^[[:space:]]*minimum_score[[:space:]]*=/ {
   gsub(/[[:space:]]/, "", $2); print $2; exit
 }' agent/audit-policy.toml)"
@@ -135,13 +154,13 @@ chmod 0600 "$report_tmp" "$report_md_tmp"
    "$(stat -c '%h' -- "$report_md_tmp")" -eq 1 ]] ||
   die 'candidate score outputs are multiply linked'
 
-jeryu_source_verify "$head_sha" "$tree_sha" "$source_inputs_sha"
+jeryu_source_verify "$head_sha" "$tree_sha" "$source_inputs_sha" "$source_scope_json"
 jeryu_require_score_report_matches_source "$report_tmp" "$head_sha" ||
   die 'candidate score report Git identity drifted'
 [[ "$(sha256sum -- "$auditor_bin" | awk '{print $1}')" == "$auditor_sha" &&
-   "$($auditor_bin --version)" == "$auditor_version" ]] ||
+   "$(score_auditor_version)" == "$auditor_version" ]] ||
   die 'governed auditor moved during scoring'
-if [[ "$auditor_mode" == installation-receipt ]]; then
+if [[ "$auditor_mode" != release-broker ]]; then
   [[ "$(sha256sum -- "$auditor_receipt_path" | awk '{print $1}')" == "$auditor_receipt_sha" ]] ||
     die 'governed auditor installation receipt moved during scoring'
 fi
@@ -159,12 +178,13 @@ policy_fingerprint="$(jq -er '.policy_fingerprint | select(test("^sha256:[0-9a-f
 
 evidence_tmp="$(mktemp "$repo_root/target/jankurai/.evidence.XXXXXX")"
 jq -nS \
-  --arg schema_version 'jeryu.split.score/v1' \
+  --arg schema_version "$evidence_schema" \
   --arg repo 'jeryu-tool-finder' \
   --arg status 'pass' \
   --arg head "$head_sha" \
   --arg tree "$tree_sha" \
   --arg source_inputs_sha "$source_inputs_sha" \
+  --argjson source_scope "$source_scope_json" \
   --arg auditor_path "$auditor_bin" \
   --arg auditor_sha "$auditor_sha" \
   --arg auditor_version "$auditor_version" \
@@ -187,7 +207,8 @@ jq -nS \
     status: $status,
     head: $head,
     tree: $tree,
-    source: {tracked_inputs_sha256: $source_inputs_sha},
+    source: ({tracked_inputs_sha256: $source_inputs_sha} +
+      (if $source_scope == null then {} else {scope:$source_scope} end)),
     auditor: {
       path: $auditor_path,
       sha256: $auditor_sha,
@@ -213,11 +234,11 @@ jq -nS \
     policy: {path: $policy_path, sha256: $policy_sha}
   }' > "$evidence_tmp"
 chmod 0600 "$evidence_tmp"
-jeryu_source_verify "$head_sha" "$tree_sha" "$source_inputs_sha"
+jeryu_source_verify "$head_sha" "$tree_sha" "$source_inputs_sha" "$source_scope_json"
 [[ "$(sha256sum -- "$auditor_bin" | awk '{print $1}')" == "$auditor_sha" &&
-   "$($auditor_bin --version)" == "$auditor_version" ]] ||
+   "$(score_auditor_version)" == "$auditor_version" ]] ||
   die 'governed auditor moved before score publication'
-if [[ "$auditor_mode" == installation-receipt ]]; then
+if [[ "$auditor_mode" != release-broker ]]; then
   [[ "$(sha256sum -- "$auditor_receipt_path" | awk '{print $1}')" == "$auditor_receipt_sha" ]] ||
     die 'governed auditor installation receipt moved before score publication'
 fi
@@ -230,6 +251,6 @@ mv -- "$report_md_tmp" target/jankurai/repo-score.md
 report_md_tmp=''
 mv -- "$evidence_tmp" target/jankurai/evidence.json
 evidence_tmp=''
-jeryu_source_verify "$head_sha" "$tree_sha" "$source_inputs_sha"
+jeryu_source_verify "$head_sha" "$tree_sha" "$source_inputs_sha" "$source_scope_json"
 trap - EXIT
 printf 'score ok\n'

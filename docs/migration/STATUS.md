@@ -33,6 +33,28 @@ and assertions, with identity/link/mount checks before cleanup. All eight
 Native and nine phase4 cases passed, along with formatting and warning-denied
 Clippy; the isolated test parent was empty afterward.
 
+The next cleanup preserved and restored 476 closed Work test databases, then
+unlinked only those individually inventoried files after repeated checks.
+Their 19,496,960 bytes remain in private custody. Work unit and property
+fixtures now own their database directory and sidecars; seven focused unit
+tests and four property-target tests passed, retaining 32 cases per property.
+Formatting, Clippy and an empty isolated scratch directory also passed.
+
+Finder now distinguishes its component directory from the shared monorepo
+Git root, binds every tracked monorepo input and requires the actual candidate
+auditor verifier. Its candidate dependency check requires one workspace
+identity for Finder, Codegraph and Rustjet and their exact resolved edges.
+Five pure boundary/cleanup/dependency suites and shell checks pass. Actual
+candidate score/security/artifact production and evidence-mutating hostile
+tests remain pending in a qualified disposable clone. Cleanup preserves
+the hostile tests' external-path topology; standalone exports retain their
+own scratch helper.
+
+A wider census retained 343 session Git checkouts and 5,034 Web test databases
+outside the source family pending lifetime and ownership review. The claim
+of one checkout per canonical source repository does not cover those runtime
+and test directories; their contents have not been discarded.
+
 The real installed auditor ran against exact `5fab2aea` and failed the root
 gate at 64 against 85, with eight caps and 32 high/critical findings. Root/Core
 gates now reject malformed policy/report data and count actual findings

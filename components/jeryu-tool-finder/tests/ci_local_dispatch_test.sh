@@ -4,7 +4,10 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 ci_script="$repo_root/scripts/ci-local.sh"
 real_bash="$(command -v bash)"
+# shellcheck source=/dev/null
+source "$repo_root/tests/scratch.sh"
 test_root="$(mktemp -d "${TMPDIR:-/tmp}/jeryu-tool-finder-ci-dispatch.XXXXXX")"
+jeryu_record_test_scratch "$test_root"
 shim_dir="$test_root/bin"
 foreign_cwd="$test_root/foreign-cwd"
 dispatch_log="$test_root/dispatch.log"
@@ -13,9 +16,14 @@ stderr_log="$test_root/stderr.log"
 injection_marker="$test_root/injection-ran"
 
 cleanup() {
-  rm -rf -- "$test_root"
+  local status=$?
+  jeryu_remove_test_scratch || status=1
+  exit "$status"
 }
 trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+trap 'exit 129' HUP
 
 mkdir -p -- "$shim_dir" "$foreign_cwd"
 

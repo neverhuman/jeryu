@@ -3,15 +3,23 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 authority="$repo_root/ops/ci/source-authority.sh"
+# shellcheck source=/dev/null
+source "$repo_root/tests/scratch.sh"
 test_root="$(mktemp -d "${TMPDIR:-/tmp}/jeryu-tool-finder-source-authority.XXXXXX")"
+jeryu_record_test_scratch "$test_root"
 fixture="$test_root/fixture"
 foreign="$test_root/foreign"
 stderr_log="$test_root/stderr.log"
 
 cleanup() {
-  rm -rf -- "$test_root"
+  local status=$?
+  jeryu_remove_test_scratch || status=1
+  exit "$status"
 }
 trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+trap 'exit 129' HUP
 
 fail() {
   printf 'source-authority hostile test failed: %s\n' "$1" >&2
@@ -38,6 +46,7 @@ init_repo() {
 
 snapshot() {
   (
+    export JERYU_MONOREPO_CANDIDATE=0
     repo_root="$fixture"
     # shellcheck source=../ops/ci/source-authority.sh
     source "$authority"
@@ -116,6 +125,7 @@ expect_rejected 'object alternate passed'
 rm -- "$fixture/.git/objects/info/alternates"
 
 (
+  export JERYU_MONOREPO_CANDIDATE=0
   repo_root="$fixture"
   # shellcheck source=../ops/ci/source-authority.sh
   source "$authority"

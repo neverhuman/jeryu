@@ -1,14 +1,17 @@
+mod support;
+
 use std::collections::BTreeSet;
 
 use jeryu_jira::{
     CreateWorkItemRequest, CreateWorkLinkRequest, WorkError, WorkIssueLink, WorkStore,
 };
 use proptest::prelude::*;
-use uuid::Uuid;
+use support::TestDatabase;
 
-fn store() -> WorkStore {
-    let path = std::env::temp_dir().join(format!("jeryu-jira-prop-{}.sqlite", Uuid::new_v4()));
-    WorkStore::open(path).expect("open store")
+fn store() -> (TestDatabase, WorkStore) {
+    let database = TestDatabase::temporary();
+    let store = WorkStore::open(database.path()).expect("open store");
+    (database, store)
 }
 
 proptest! {
@@ -16,7 +19,7 @@ proptest! {
 
     #[test]
     fn create_normalizes_labels(labels in prop::collection::vec("[a-zA-Z0-9 _-]{0,12}", 0..20)) {
-        let store = store();
+        let (_database, store) = store();
         let item = store
             .create(CreateWorkItemRequest {
                 title: "Normalize labels".to_string(),
@@ -36,7 +39,7 @@ proptest! {
 
     #[test]
     fn issue_links_require_positive_numbers(owner in "[a-z][a-z0-9_-]{0,12}", repo in "[a-z][a-z0-9_-]{0,12}") {
-        let store = store();
+        let (_database, store) = store();
         let item = store
             .create(CreateWorkItemRequest {
                 title: "Validate issue".to_string(),

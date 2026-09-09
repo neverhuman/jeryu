@@ -3,7 +3,10 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 score="$repo_root/ops/ci/score.sh"
+# shellcheck source=/dev/null
+source "$repo_root/tests/scratch.sh"
 test_root="$(mktemp -d "${TMPDIR:-/tmp}/jeryu-tool-finder-auditor.XXXXXX")"
+jeryu_record_test_scratch "$test_root"
 fake="$test_root/fake-jankurai"
 marker="$test_root/fake-executed"
 stderr_log="$test_root/stderr.log"
@@ -11,15 +14,20 @@ evidence="$repo_root/target/jankurai/evidence.json"
 saved=''
 
 cleanup() {
+  local status=$?
   if [[ -n "$saved" && -f "$saved" ]]; then
-    rm -f -- "$evidence"
-    mv -- "$saved" "$evidence"
+    rm -f -- "$evidence" || exit 1
+    mv -- "$saved" "$evidence" || exit 1
   elif [[ -f "$evidence" ]]; then
-    rm -- "$evidence"
+    rm -- "$evidence" || exit 1
   fi
-  rm -rf -- "$test_root"
+  jeryu_remove_test_scratch || status=1
+  exit "$status"
 }
 trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+trap 'exit 129' HUP
 
 mkdir -p -- "$repo_root/target/jankurai"
 if [[ -f "$evidence" && ! -L "$evidence" ]]; then
