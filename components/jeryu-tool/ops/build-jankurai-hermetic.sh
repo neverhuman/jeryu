@@ -104,6 +104,10 @@ scratch="$(mktemp -d "${tmp_parent}/jeryu-jankurai-build.XXXXXX")"
 scratch_identity="$(stat -c '%d:%i:%u' -- "${scratch}")"
 stage=""
 stage_identity=""
+create_attempted=0
+container_removed=0
+container_id=""
+docker_call_limit=5
 scratch_is_safe() {
   local mount_point links
   [[ -d "${scratch}" && ! -L "${scratch}" && -O "${scratch}" &&
@@ -119,6 +123,13 @@ scratch_is_safe() {
 }
 cleanup() {
   local status=$?
+  trap - EXIT
+  trap '' INT TERM HUP
+  if (( create_attempted )) && ! container_cleanup; then
+    printf 'retaining builder source/scratch: container closure unknown; control=%s name=%s\n' \
+      "${control}" "${container_name}" >&2
+    exit 1
+  fi
   if [[ -n "${stage}" ]]; then
     if [[ -f "${stage}" && ! -L "${stage}" && -O "${stage}" &&
       "$(stat -c '%d:%i:%u' -- "${stage}")" == "${stage_identity}" ]]; then
@@ -167,7 +178,8 @@ local_docker() {
   [[ -S "${docker_socket}" && ! -L "${docker_socket}" &&
     "$(stat -c '%d:%i:%u:%g:%a:%h' -- "${docker_socket}")" == "${docker_socket_identity}" ]] ||
     die "local Docker socket changed after admission"
-  env -i PATH=/usr/bin:/bin "${docker_bin}" \
+  env -i PATH=/usr/bin:/bin /usr/bin/timeout --foreground --signal=TERM --kill-after=2s \
+    "${docker_call_limit:-5}s" "${docker_bin}" \
     --host "unix://${docker_socket}" --config "${scratch}/docker-config" "$@"
 }
 actual_image_id="$(local_docker image inspect --format '{{.Id}}' \
@@ -230,9 +242,91 @@ context_sha="$(context_text | sha256sum | awk '{print $1}')"
 [[ "${context_sha}" == "${JANKURAI_BUILD_CONTEXT_SHA256}" ]] ||
   die "build context identity mismatch"
 
+# The control directory is outside all five bind mounts and never guest writable.
+container_control_valid() {
+  [[ -d "${control}" && ! -L "${control}" &&
+     "$(realpath -e -- "${control}")" == "${control}" &&
+     "$(stat -c '%d:%i:%u:%a' -- "${control}")" == "${control_identity}" &&
+     "$(stat -c '%d:%i:%u' -- "${scratch}")" == "${scratch_identity}" ]]
+}
+
+container_read_id() {
+  local fd identity held value size
+  container_control_valid || return 1
+  [[ -f "${control}/cid" && ! -L "${control}/cid" && -O "${control}/cid" &&
+     "$(stat -c '%a:%h' -- "${control}/cid")" == 600:1 ]] || return 1
+  size="$(stat -c %s -- "${control}/cid")" || return 1
+  [[ "${size}" == 64 || "${size}" == 65 ]] || return 1
+  exec {fd}<"${control}/cid" || return 1
+  held="/proc/${BASHPID}/fd/${fd}"
+  identity="$(stat -Lc '%d:%i:%u:%a:%h:%s:%y:%z' -- "${held}")" || return 1
+  value="$(cat "${held}")" || return 1
+  [[ "${value}" =~ ^[0-9a-f]{64}$ && ! -L "${control}/cid" &&
+     "$(stat -c '%d:%i:%u:%a:%h:%s:%y:%z' -- "${control}/cid")" == "${identity}" &&
+     "$(stat -Lc '%d:%i:%u:%a:%h:%s:%y:%z' -- "${held}")" == "${identity}" ]] || return 1
+  exec {fd}<&-
+  [[ -z "${container_id}" || "${container_id}" == "${value}" ]] || return 1
+  container_id="${value}"
+}
+
+container_inspect() {
+  container_read_id || return 1
+  local_docker container inspect --format '{{json .}}' "${container_id}" \
+    >"${control}/inspect.json" 2>"${control}/inspect.stderr" || return 1
+  jq -e --arg id "${container_id}" --arg name "${container_name}" \
+    --arg invocation "${invocation}" --arg image "${JANKURAI_BUILDER_IMAGE_ID}" \
+    --arg user "${build_uid}:${build_gid}" --arg source "${source_root}" --arg scratch "${scratch}" '
+    .Id == $id and .Name == ("/" + $name) and .Image == $image
+    and .Config.User == $user
+    and .Config.Labels["org.jeryu.builder.invocation"] == $invocation
+    and (.State.Running | type == "boolean")
+    and (.Mounts | all(.[]; .Type == "bind" or (.Type == "tmpfs" and .Destination == "/tmp")))
+    and (.Mounts | map(select(.Type == "bind") | {Source,Destination,RW}) | sort_by(.Destination)) == ([
+      {Source:$source,Destination:"/opt/jeryu/jankurai",RW:false},
+      {Source:($scratch+"/vendor"),Destination:"/opt/jeryu/vendor",RW:false},
+      {Source:($scratch+"/cargo-config.toml"),Destination:"/usr/local/cargo/config.toml",RW:false},
+      {Source:($scratch+"/target"),Destination:"/opt/jeryu/target",RW:true},
+      {Source:($scratch+"/out"),Destination:"/opt/jeryu/out",RW:true}
+    ] | sort_by(.Destination))
+  ' "${control}/inspect.json" >/dev/null || return 1
+  container_control_valid
+}
+
+container_cleanup() {
+  local docker_call_limit=5
+  (( create_attempted && ! container_removed )) || return 0
+  # A failed/interrupted create without its private CID is unknown closure.
+  # Never infer ownership from a name, image or global daemon inventory alone.
+  container_inspect || return 1
+  if jq -e '.State.Running' "${control}/inspect.json" >/dev/null; then
+    local_docker container stop --time 1 "${container_id}" >"${control}/stop.stdout" \
+      2>"${control}/stop.stderr" || return 1
+    container_inspect || return 1
+  fi
+  jq -e '.State.Running == false' "${control}/inspect.json" >/dev/null || return 1
+  local_docker container rm "${container_id}" >"${control}/remove.stdout" \
+    2>"${control}/remove.stderr" || return 1
+  local_docker container ls --all --no-trunc --filter "id=${container_id}" --format '{{.ID}}' \
+    >"${control}/absence.stdout" 2>"${control}/absence.stderr" || return 1
+  [[ ! -s "${control}/absence.stdout" && ! -s "${control}/absence.stderr" ]] || return 1
+  container_removed=1
+  printf 'hermetic container custody: id=%s name=%s removed=true\n' \
+    "${container_id}" "${container_name}" >&2
+}
+
+control="${scratch}/control"
+mkdir -m 700 -- "${control}"
+control_identity="$(stat -c '%d:%i:%u:%a' -- "${control}")"
+IFS= read -r invocation </proc/sys/kernel/random/uuid
+[[ "${invocation}" =~ ^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$ ]] || die "invocation identity unavailable"
+container_name="jeryu-jankurai-${invocation}"
+printf 'hermetic container custody: control=%s name=%s\n' "${control}" "${container_name}"
+create_attempted=1
+
 # The single-quoted script expands only inside the container.
 # shellcheck disable=SC2016
-local_docker run --rm --pull=never --user "${build_uid}:${build_gid}" \
+docker_call_limit=30 local_docker create --cidfile "${control}/cid" --name "${container_name}" \
+  --label "org.jeryu.builder.invocation=${invocation}" --pull=never --user "${build_uid}:${build_gid}" \
   --network none --read-only --cap-drop ALL --security-opt no-new-privileges \
   --pids-limit 1024 --memory 6g --cpus 2 --cpuset-cpus "${build_cpus}" \
   --tmpfs "/tmp:rw,nosuid,nodev,noexec,size=64m,uid=${build_uid},gid=${build_gid},mode=700" \
@@ -264,7 +358,17 @@ local_docker run --rm --pull=never --user "${build_uid}:${build_gid}" \
     test "$(/opt/jeryu/out/bin/jankurai --version)" = "${EXPECTED_VERSION}"
     printf "%s  %s\n" "${EXPECTED_BINARY_SHA256}" \
       /opt/jeryu/out/bin/jankurai | sha256sum --check --strict
-  '
+  ' >"${control}/create.stdout" 2>"${control}/create.stderr"
+container_inspect || die "created container ownership mismatch"
+[[ "$(cat "${control}/create.stdout")" == "${container_id}" ]] || die "created container ID output mismatch"
+jq -e '.State.Status == "created" and .State.Running == false' "${control}/inspect.json" >/dev/null ||
+  die "container was started before ownership admission"
+# The fixed attachment limit leaves a bounded owner cleanup after interruption.
+docker_call_limit=900 local_docker start --attach "${container_id}"
+container_inspect || die "completed container ownership mismatch"
+jq -e '.State.Status == "exited" and .State.Running == false and .State.ExitCode == 0' \
+  "${control}/inspect.json" >/dev/null || die "container did not exit successfully"
+container_cleanup || die "container removal could not be verified"
 
 candidate="${scratch}/out/bin/jankurai"
 [[ -f "${candidate}" && ! -L "${candidate}" && -x "${candidate}" ]] ||

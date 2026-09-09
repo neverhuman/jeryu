@@ -45,7 +45,15 @@ jankurai() {
   printf 'synthetic report\n' >.jankurai/repo-score.md
 }
 # Stop Python transport here; its actual policy code has a separate hostile suite.
-python3() { printf 'policy-transport-not-executed\n' >>calls; return 79; }
+python3() {
+  if [[ ${SCORE_TEST_FULL_POLICY:-0} == 1 ]]; then
+    printf 'policy\n' >>calls
+    command python3 "$@"
+  else
+    printf 'policy-transport-not-executed\n' >>calls
+    return 79
+  fi
+}
 LIB
 # Test Runner's actual floor helper without its unrelated hosted tool setup.
 sed -n '/^readonly JERYU_FLEET_MINIMUM_SCORE=/p;/^audit_effective_floor() {$/,/^}$/p' \
@@ -166,4 +174,69 @@ $valid"
     done
   fi
 done
-printf '%s report/producer cases passed, including Cache/Runner shell policies; Python policy transport was not executed\n' "$cases"
+
+# Exercise the actual Deploy PR audit-through-security dispatch. The earlier
+# build/web stages are outside this report-admission regression. Only auditor
+# transport and unrelated security/lock work are synthetic; the owning score
+# entrypoint and its jq/Python validators execute unchanged.
+pr_script="$root/components/jeryu-deploy/ops/ci/pr-ci.sh"
+printf '%s\n' '#!/usr/bin/env bash' 'set -euo pipefail' \
+  'source ops/ci/lib.sh' \
+  'jeryu_deploy_assert_workspace_lock_unchanged() { printf "lock\\n" >>calls; }' \
+  >"$scratch/pr-audit.sh"
+sed -n '/^echo "\[pr-ci\] jankurai audit /,$p' "$pr_script" >>"$scratch/pr-audit.sh"
+[[ $(rg -c '^echo "\[pr-ci\] jankurai audit ' "$scratch/pr-audit.sh") == 1 ]]
+cat >"$scratch/ops/ci/score.sh" <<'SCORE'
+printf 'score\n' >>calls
+exec bash "$SCORE_TEST_DEPLOY_SCORE"
+SCORE
+cat >"$scratch/ops/ci/security.sh" <<'SECURITY'
+[[ ${JERYU_SECURITY_NETWORK:-} == 1 ]] || exit 95
+printf 'security\n' >>calls
+exit "$SCORE_TEST_SECURITY_STATUS"
+SECURITY
+expect_pr() {
+  local expected=$1 report=$2 expected_calls=$3 policy=${4:-85}
+  local auditor_status=${5:-0} security_status=${6:-0} actual
+  printf 'minimum_score = %s\n' "$policy" >"$scratch/agent/audit-policy.toml"
+  printf '%s\n' "$report" >"$scratch/report-input.json"
+  : >"$scratch/calls"
+  if (cd "$scratch" && repo_root="$scratch" SCORE_TEST_FULL_POLICY=1 \
+      SCORE_TEST_DEPLOY_SCORE="$root/components/jeryu-deploy/ops/ci/score.sh" \
+      SCORE_TEST_SHELL_POLICY=0 SCORE_TEST_EXPECTED_FLOOR=85 \
+      SCORE_TEST_AUDITOR_STATUS=$auditor_status SCORE_TEST_SECURITY_STATUS=$security_status \
+      bash "$scratch/pr-audit.sh") >"$scratch/stdout" 2>"$scratch/stderr"; then
+    actual=0
+  else
+    actual=$?
+  fi
+  [[ $actual == "$expected" && $(<"$scratch/calls") == "$expected_calls" ]] || {
+    printf 'Deploy PR score case %s: unexpected exit/dispatch (wanted %s, got %s)\n' \
+      "$cases" "$expected" "$actual" >&2
+    return 1
+  }
+  if (( expected == 0 )); then
+    rg -q '^\[pr-ci\] PASS ' "$scratch/stderr"
+  elif rg -q '^\[pr-ci\] PASS ' "$scratch/stderr"; then
+    printf 'Deploy PR emitted PASS after a failed required command\n' >&2
+    return 1
+  fi
+  cases=$((cases + 1))
+}
+pr_audit=$'score\ngoverned-transport\naudit'
+pr_policy="$pr_audit"$'\npolicy'
+pr_success="$pr_policy"$'\nsecurity\nlock'
+expect_pr 0 "$template" "$pr_success"
+for mutation in '.findings=[{severity:"high",hardness:"hard"}]' \
+  '.findings=[{severity:"critical",hardness:"hard"}]' \
+  '.findings=[{severity:"low",hardness:"hard"}]' '.caps=["hidden cap"]' \
+  '.score="85"' 'del(.findings)'; do
+  expect_pr 1 "$(jq "$mutation" <<<"$template")" "$pr_audit"
+done
+expect_pr 1 "$template" "$pr_policy" 90
+expect_pr 1 "$template" "$pr_policy" true
+expect_pr 1 "$(jq '.score=84' <<<"$template")" "$pr_policy"
+expect_pr 23 "$template" "$pr_audit" 85 23
+expect_pr 29 "$template" "$pr_policy"$'\nsecurity' 85 0 29
+expect_pr 0 "$(jq '.score=90|.decision.minimum_score=90' <<<"$template")" "$pr_success" 90
+printf '%s report/producer and Deploy PR dispatch cases passed; real Python policy executed only for the PR cases\n' "$cases"

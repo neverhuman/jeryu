@@ -917,6 +917,7 @@ target_replaced=0
 receipt_published=0
 installed_target_identity=""
 success=0
+builder_in_flight=0
 
 rollback_target() {
   local restore_fd restore_leaf restore_identity restore_descriptor
@@ -994,7 +995,12 @@ finish() {
       keep_candidate_state=1
     fi
   fi
-  if [[ -n "${scratch}" ]]; then
+  if [[ "${builder_in_flight}" == 1 ]]; then
+    # Concurrent parent/child TERM traps must never remove a live builder bind.
+    printf 'install-jankurai: retaining source and candidate state after incomplete builder call: %s\n' "${scratch}" >&2
+    keep_candidate_state=1
+    status=1
+  elif [[ -n "${scratch}" ]]; then
     remove_owned_scratch "${scratch}" "${scratch_identity}" || {
       printf 'install-jankurai: retained changed or mounted build scratch\n' >&2
       status=1
@@ -1060,6 +1066,7 @@ else
     die "source checkout is dirty before build"
 
   mkdir -p "$(dirname "${candidate}")"
+  builder_in_flight=1
   if [[ "${public_candidate}" == 1 ]]; then
     candidate_recheck
     candidate_prepare_build_cache >"${candidate_state}/build.log" 2>&1
@@ -1073,10 +1080,11 @@ else
         JERYU_PIN_ENV="${candidate_state}/pin.env" /usr/bin/bash "${candidate_state}/builder.sh" \
         "${scratch}/source" "${candidate}"
     ) >>"${candidate_state}/build.log" 2>&1
-    tail -n 20 "${candidate_state}/build.log"
+    tail -n 20 "${candidate_state}/build.log" >&2
   else
     "${here}/build-jankurai-hermetic.sh" "${scratch}/source" "${candidate}"
   fi
+  builder_in_flight=0
   [[ -z "$(forge_git -C "${scratch}/source" status --porcelain --untracked-files=all)" ]] ||
     die "source checkout became dirty during build"
 fi

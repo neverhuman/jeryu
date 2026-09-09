@@ -6,12 +6,19 @@ use sha2::{Digest, Sha256};
 use std::{
     io::Read,
     net::TcpListener,
-    os::unix::fs::OpenOptionsExt,
+    os::unix::fs::{OpenOptionsExt, PermissionsExt},
     path::Path,
     process::{Child, Command, Stdio},
     time::{Duration, Instant},
 };
 use tempfile::TempDir;
+
+fn private_temp_dir() -> TempDir {
+    tempfile::Builder::new()
+        .permissions(std::fs::Permissions::from_mode(0o700))
+        .tempdir()
+        .unwrap()
+}
 
 struct Server(Child);
 
@@ -179,7 +186,7 @@ fn account_token(http: &Client, url: &str, login: &str, signup: bool) -> String 
 
 #[test]
 fn authenticated_protected_review_checks_merge_and_restart_preserve_exact_head() {
-    let temp = TempDir::new().unwrap();
+    let temp = private_temp_dir();
     let home = temp.path().join("home");
     let data = temp.path().join("data");
     let source = temp.path().join("git-client");
@@ -388,7 +395,7 @@ fn authenticated_protected_review_checks_merge_and_restart_preserve_exact_head()
 
 #[test]
 fn startup_cli_and_restart_use_durable_state_from_any_directory() {
-    let temp = TempDir::new().unwrap();
+    let temp = private_temp_dir();
     let home = temp.path().join("home");
     let data = temp.path().join("durable");
     std::fs::create_dir(&home).unwrap();
@@ -578,7 +585,7 @@ fn startup_cli_and_restart_use_durable_state_from_any_directory() {
 
 #[test]
 fn unreachable_api_and_unimplemented_operations_cannot_report_success() {
-    let temp = TempDir::new().unwrap();
+    let temp = private_temp_dir();
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let url = format!("http://{}", listener.local_addr().unwrap());
     drop(listener);
@@ -598,7 +605,7 @@ fn unreachable_api_and_unimplemented_operations_cannot_report_success() {
 
 #[test]
 fn store_selectors_use_sqlite_and_preserve_cli_state_across_restarts() {
-    let temp = TempDir::new().unwrap();
+    let temp = private_temp_dir();
     let home = temp.path().join("home");
     let data = temp.path().join("durable");
     std::fs::create_dir(&home).unwrap();
@@ -715,7 +722,7 @@ fn store_selectors_use_sqlite_and_preserve_cli_state_across_restarts() {
 
 #[test]
 fn unknown_store_exits_before_creating_any_state() {
-    let temp = TempDir::new().unwrap();
+    let temp = private_temp_dir();
     for (index, (flag, environment)) in [
         (Some("postgres"), None),
         (None, Some("postgres")),

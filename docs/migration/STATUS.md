@@ -5,8 +5,13 @@ authority, split publication, relocation, and the running service have not
 been cut over. `handover.status` remains `pending-protected-review`.
 
 The September 9 continuation audit does not establish a complete CI pass. The
-previous full-run process is unavailable and has no recovered final exit status;
-required sandbox, OCI, legacy and auxiliary coverage must be verified separately.
+latest completed ordinary run at `ea65912f` recorded every selected step and
+closed with a clean source tree and no remaining owned processes or CI locks.
+Nine of ten steps passed; Rust failed before tests because the auditor refused
+the shared, group-writable source ancestors. Those permissions allow another CI
+account to write and will remain intact. Rust needs a disposable exact-commit Git
+clone under a private directory, with the same custody checks and guarded cleanup.
+Sandbox, OCI, splits, legacy and auxiliary were outside this selected run.
 GitHub main contains the source through `4c93436a`, merged as PR 64 without an
 approving review. Its reduced aggregate and ignored host tests do not establish
 complete CI qualification. Branch protection now requires the aggregate and all
@@ -29,15 +34,45 @@ persistence. Rust passed formatting and Clippy but its complete test command
 reached the time limit. Web passed contracts, 180 unit tests, production and
 Storybook builds, seven backend browser tests, 70 UI tests and the action matrix,
 then timed out during Lighthouse. Security passed dependency, license, history
-and workflow checks, then timed out during SBOM generation. These three lanes
-remain incomplete and need longer runs on the successor.
+and workflow checks, then timed out during SBOM generation. These earlier
+failures remain preserved alongside the successor results.
+
+At `ea65912f`, the complete Web lane passed 180 unit tests, seven real-backend
+browser tests, 70 UI browser tests, all 110 action mappings, three Lighthouse
+runs and all nine UX collector checks. Security passed its dependency, license,
+source/history, workflow and SPDX inventory checks. Its existing high/critical
+npm threshold passed, with five low/moderate advisories still reported. Source,
+public-dependency and product checks, all 35 split-tool tests and warning-denied
+split-tool Clippy also passed. The actual source release build, 18 installer
+transaction scenarios, three installation destinations and all five installed
+server/CLI tests passed with no ignored tests. These include durable SQLite
+selection, authenticated Git and protected review/check/merge across restarts.
+Rust remains failed; these results do not qualify the full twelve-lane matrix,
+anonymous fresh-user installation, GitHub checks or a release.
+
+The next CI correction makes Deploy's required PR command use its owning strict
+score validator, including hard findings hidden by advisory summaries. All 527
+report and PR-dispatch regression cases passed. The shared auditor bootstrap
+now requires a clean committed source and fetches the locked root dependencies
+before offline rendering, so direct auditor, legacy and auxiliary lanes prepare
+their own prerequisites. All 12 synthetic ordering/failure cases passed; these
+do not replace an actual fresh-cache bootstrap. Pins, score floors, generated
+drift checks and receipt requirements remain unchanged. The reviewed Docker
+builder now verifies its private container ID, invocation, image and mounts
+before starting or removing it. Uncertain cleanup retains the source; the parent
+installer also retains source during an incomplete builder call. Actual Rust
+compilation and all seven builder tests passed. All five standalone process tests
+passed under umask `0002`, with no ignored or filtered cases, after their roots
+were given explicit owner-only permissions. The owning proof inventory check also
+passed. The controlled run verified unchanged source and process/lock closure;
+actual Docker and complete private-clone Rust qualification remain pending.
 
 The successor retains the public `--store` / `JERYU_STORE` interface: SQLite is
 the default, and Redline aliases visibly select that same durable engine. A
 reviewed sandbox probe correction rejects failed controller delegation before
 creating a child cgroup. Runner's auditor transport tests remain enabled and use
 the actual verified public candidate installation in portable CI. The installed
-governed receipt proof remains a separate mandatory handover command. These
+governed receipt proof remains a separate mandatory handover command. This
 successor passed both cgroup admission regressions and the two real store
 process tests. The latter exercised eight starts against one SQLite database,
 seven persisted CLI writes, flag/environment precedence, fallback notices and

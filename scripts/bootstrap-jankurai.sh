@@ -2,7 +2,7 @@
 # Source this file and call the function to retain the verified auditor descriptor.
 
 bootstrap_public_jankurai() {
-  local root expected toolchain install_root output receipt
+  local root expected source_status toolchain install_root output receipt
   root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)
   [[ ${JAIN_RELEASE_CI:-0} != 1 ]] || {
     printf 'public auditor bootstrap cannot run as a protected release broker\n' >&2
@@ -10,7 +10,17 @@ bootstrap_public_jankurai() {
   }
   expected=$(env -i PATH=/usr/bin:/bin GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 \
     /usr/bin/git -C "$root" rev-parse HEAD) || return 1
-  # The renderer validates this committed generated value before any install.
+  source_status=$(env -i PATH=/usr/bin:/bin GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 \
+    /usr/bin/git -C "$root" status --porcelain=v1 --untracked-files=all) || return 1
+  [[ $expected =~ ^[0-9a-f]{40}$ && -z $source_status ]] || {
+    printf 'public auditor bootstrap requires an exact clean committed source\n' >&2
+    return 1
+  }
+  # The renderer compiles and reads full locked metadata offline. Every direct
+  # lane must prepare the root graph first, including non-host target packages.
+  (cd "$root" && GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 \
+    cargo fetch --locked --manifest-path "$root/Cargo.toml") || return 1
+  # The renderer still verifies exact source and generated drift before install.
   bash "$root/components/jeryu-tool/ops/render-monorepo-candidate.sh" \
     --monorepo-root "$root" --check --expected-head "$expected" >/dev/null || return 1
   install_root=${JERYU_AUDITOR_INSTALL_ROOT:-${XDG_CACHE_HOME:-$HOME/.cache}/jeryu/auditor}
