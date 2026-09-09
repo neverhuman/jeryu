@@ -41,9 +41,9 @@ jobs:
         run: |
           if [ "$JERYU_CI_LANE" = sandbox ] || [ "$JERYU_CI_LANE" = oci ]; then
             sudo -n env PATH="$PATH" CARGO_HOME="$HOME/.cargo" RUSTUP_HOME="$HOME/.rustup" \
-              CARGO_BUILD_JOBS=2 JERYU_DISPOSABLE_SANDBOX=1 bash scripts/ci.sh "$JERYU_CI_LANE"
+              CARGO_BUILD_JOBS=2 JERYU_DISPOSABLE_SANDBOX=1 bash ops/ci/monorepo.sh "$JERYU_CI_LANE"
           else
-            ./scripts/ci.sh "$JERYU_CI_LANE"
+            bash ops/ci/monorepo.sh "$JERYU_CI_LANE"
           fi
 
   required:

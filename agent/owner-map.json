@@ -18,6 +18,7 @@
     ".dockerignore": "workspace",
     ".github/": "ops",
     ".github/**": "ops",
+    ".gitattributes": "workspace",
     ".gitignore": "workspace",
     ".jankurai/": "audit",
     ".jankurai/**": "audit",

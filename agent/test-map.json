@@ -55,6 +55,11 @@
       "lane": "ci",
       "purpose": "verify hosted workflows stay thin, pinned, and audit-visible"
     },
+    ".gitattributes": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify workspace metadata remains parseable"
+    },
     ".gitignore": {
       "command": "just check",
       "lane": "check",

@@ -215,40 +215,31 @@ pub fn native_class_required(plan: &SandboxPlan) -> RunnerResult<()> {
 }
 
 #[cfg(test)]
+#[path = "../../../tests/support/test_workspace.rs"]
+mod test_workspace;
+
+#[cfg(test)]
 mod tests {
+    use super::test_workspace::TestWorkspace;
     use super::*;
     use jeryu_runner_core::job::{NetworkPolicy, SecretPolicy, TokenPolicy};
     use jeryu_runner_core::policy::select_runner;
     use jeryu_runner_core::sandbox::SandboxPlan;
     use jeryu_runner_core::trust::TrustTier;
     use std::path::PathBuf;
-    use std::sync::{
-        Mutex,
-        atomic::{AtomicU64, Ordering},
-    };
-    use std::time::{SystemTime, UNIX_EPOCH};
+    use std::sync::Mutex;
 
     static EXECUTION_GUARD: Mutex<()> = Mutex::new(());
-
-    fn temp_dir() -> PathBuf {
-        static COUNTER: AtomicU64 = AtomicU64::new(0);
-        let stamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map(|duration| duration.as_nanos())
-            .unwrap_or(0);
-        let unique = COUNTER.fetch_add(1, Ordering::Relaxed);
-        std::env::temp_dir().join(format!("jeryu-native-test-{stamp}-{unique}"))
-    }
 
     #[test]
     fn executes_echo_and_receipts_pass() {
         let _guard = EXECUTION_GUARD.lock().unwrap();
-        let workspace = temp_dir();
+        let workspace = TestWorkspace::new("native");
         let job = JobRequest {
             job_id: "job".to_string(),
             repo_id: "repo".to_string(),
             commit_sha: "abc".to_string(),
-            workspace,
+            workspace: workspace.path().to_path_buf(),
             command: "/bin/echo".to_string(),
             args: vec!["ok".to_string()],
             env: Default::default(),
@@ -278,12 +269,12 @@ mod tests {
     #[test]
     fn ci_shell_steps_can_fork_when_cgroups_degrade() {
         let _guard = EXECUTION_GUARD.lock().unwrap();
-        let workspace = temp_dir();
+        let workspace = TestWorkspace::new("native");
         let job = JobRequest {
             job_id: "ci-shell".to_string(),
             repo_id: "repo".to_string(),
             commit_sha: "abc".to_string(),
-            workspace,
+            workspace: workspace.path().to_path_buf(),
             command: "/bin/sh".to_string(),
             args: vec!["-lc".to_string(), "/bin/echo ok >/dev/null".to_string()],
             env: Default::default(),
@@ -315,12 +306,12 @@ mod tests {
     #[test]
     fn watchdog_timeout_maps_to_timed_out_status() {
         let _guard = EXECUTION_GUARD.lock().unwrap();
-        let workspace = temp_dir();
+        let workspace = TestWorkspace::new("native");
         let job = JobRequest {
             job_id: "job".to_string(),
             repo_id: "repo".to_string(),
             commit_sha: "abc".to_string(),
-            workspace,
+            workspace: workspace.path().to_path_buf(),
             command: "/bin/sleep".to_string(),
             args: vec!["30".to_string()],
             env: Default::default(),
@@ -348,7 +339,7 @@ mod tests {
     #[test]
     fn native_runner_sanitizes_process_environment() {
         let _guard = EXECUTION_GUARD.lock().unwrap();
-        let workspace = temp_dir();
+        let workspace = TestWorkspace::new("native");
         let mut env = std::collections::BTreeMap::new();
         env.insert("SSH_AUTH_SOCK".to_string(), "/tmp/leaked-agent".to_string());
         env.insert("AWS_ACCESS_KEY_ID".to_string(), "leaked-key".to_string());
@@ -357,7 +348,7 @@ mod tests {
             job_id: "job".to_string(),
             repo_id: "repo".to_string(),
             commit_sha: "abc".to_string(),
-            workspace,
+            workspace: workspace.path().to_path_buf(),
             command: "/usr/bin/env".to_string(),
             args: vec!["-0".to_string()],
             env,
@@ -385,11 +376,12 @@ mod tests {
 
     #[test]
     fn execute_rejects_invalid_job_before_spawn() {
+        let workspace = TestWorkspace::new("native");
         let mut job = JobRequest {
             job_id: "job".to_string(),
             repo_id: "repo".to_string(),
             commit_sha: "abc".to_string(),
-            workspace: temp_dir(),
+            workspace: workspace.path().to_path_buf(),
             command: "/bin/echo".to_string(),
             args: vec!["ok".to_string()],
             env: Default::default(),
@@ -413,11 +405,12 @@ mod tests {
 
     #[test]
     fn plan_only_rejects_invalid_job_before_receipt() {
+        let workspace = TestWorkspace::new("native");
         let mut job = JobRequest {
             job_id: "job".to_string(),
             repo_id: "repo".to_string(),
             commit_sha: "abc".to_string(),
-            workspace: temp_dir(),
+            workspace: workspace.path().to_path_buf(),
             command: "/bin/echo".to_string(),
             args: vec!["ok".to_string()],
             env: Default::default(),

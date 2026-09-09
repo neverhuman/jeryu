@@ -28,6 +28,19 @@ handle checks. The archive retains all 40 Cache fixture files. Cache tests now
 own a private outer fixture directory and clean it on every exit; ten tests
 and Clippy pass. Portal hostile tests also guard their scratch, and simulated
 security scanners write only inside an isolated synthetic test repository.
+Runner Native/phase4 tests now retain private fixture owners through dispatch
+and assertions, with identity/link/mount checks before cleanup. All eight
+Native and nine phase4 cases passed, along with formatting and warning-denied
+Clippy; the isolated test parent was empty afterward.
+
+The real installed auditor ran against exact `5fab2aea` and failed the root
+gate at 64 against 85, with eight caps and 32 high/critical findings. Root/Core
+gates now reject malformed policy/report data and count actual findings
+independently of advisory decision summaries. Sixty in-memory refusal and
+threshold cases pass. Hosted CI uses a thin `ops/ci/monorepo.sh` delegate to
+the existing shared root command, and root attribute metadata has ownership
+and test routes. Component context and complete text coverage still require
+auditor repair; these checks do not qualify the full audit or CI matrix.
 
 `import-updates.json` records later source deltas without replacing the
 original import mappings. Deploy's two-commit update through `b388edc5` was

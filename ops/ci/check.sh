@@ -38,6 +38,7 @@ for script in scripts/*.sh ops/ci/*.sh tools/*.sh tests/*.sh; do
   [[ -e "$script" ]] || continue
   bash -n "$script"
 done
+bash tests/score-policy-hostiles.sh
 bash tests/scratch-hostiles.sh
 bash tests/clone-family-hostiles.sh
 bash tests/security-lane-hostiles.sh
