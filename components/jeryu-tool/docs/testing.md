@@ -1,5 +1,12 @@
 # Testing
 
+Run `bash scripts/ci-local.sh` without arguments for the existing
+`just fast` then `just check` loop. Exactly
+`bash scripts/ci-local.sh required` runs `ops/ci/pr-ci.sh` from this
+component root and preserves its exit status. Unknown or extra arguments fail
+before any lane runs. Required dispatch does not itself qualify every retained
+proof; the full wrapper and separate capability lanes must actually pass.
+
 `jeryu-tool` is validated by unit and integration tests for its Rust registry
 and renderer plus deterministic gates over the manifest and generated output.
 
@@ -31,7 +38,7 @@ Or run the lanes individually (same scripts CI runs — see `agent/proof-lanes.t
 - `just repair-receipt-contract` — hostile create-once receipt custody tests.
 - `just required` — the complete merge-blocking local contract.
 
-`scripts/ci-local.sh` runs `fast` + `check`; `scripts/ci-doctor.sh` runs `score`;
+`scripts/ci-doctor.sh` runs `score`;
 `ops/git-hooks/pre-push` runs `fast` + `check` + `score` before any push.
 
 ## Repair receipts

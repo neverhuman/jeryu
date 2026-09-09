@@ -73,6 +73,10 @@ assert_cargo_lock_unchanged() {
   fi
 }
 
+# Retain the local metadata, map, shell, phase and coverage regression checks.
+# fast.sh delegates to check.sh, so one invocation covers both local recipes.
+bash ops/ci/check.sh
+
 echo "[pr-ci] (jobs=$JOBS) cargo fmt --all --check" >&2
 cargo fmt --all --check
 

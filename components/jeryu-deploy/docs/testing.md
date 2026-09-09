@@ -1,5 +1,17 @@
 # Testing
 
+Run `bash scripts/ci-local.sh` without arguments for the existing
+`just fast` then `just check` loop. Exactly
+`bash scripts/ci-local.sh required` runs `ops/ci/pr-ci.sh` from this
+component root and preserves its exit status. Unknown or extra arguments fail
+before any lane runs. Required dispatch does not itself qualify every retained
+proof; the full wrapper and separate capability lanes must actually pass.
+
+The full PR wrapper also runs `ops/ci/check.sh`, preserving the
+metadata, agent-map, shell syntax, phase-dispatch and coverage-evidence
+regressions formerly reachable only through the quick recipes. Its fast recipe
+already delegates to that same check, so no unique quick assertion is dropped.
+
 Repository scripts define the reproducible commands. Local runs are developer
 evidence; the protected hosted `jeryu-deploy/required` result at the exact head
 is merge authority. Neither side may replace a failed command with a silent

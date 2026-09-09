@@ -1,5 +1,12 @@
 # Testing
 
+Run `bash scripts/ci-local.sh` without arguments for the existing
+`just fast` then `just check` loop. Exactly
+`bash scripts/ci-local.sh required` runs `ops/ci/pr-ci.sh` from this
+component root and preserves its exit status. Unknown or extra arguments fail
+before any lane runs. Required dispatch does not itself qualify every retained
+proof; the full wrapper and separate capability lanes must actually pass.
+
 Use the local CI entrypoints before pushing changes:
 
 - `just fast`
@@ -10,8 +17,8 @@ Use the local CI entrypoints before pushing changes:
 - `just artifact-support`
 
 `ops/ci/pr-ci.sh` is the canonical source gate for the protected hosted
-`jeryu-ci-runner/required` context. `scripts/ci-local.sh` delegates to its narrow
-host-reproducible lanes; `scripts/ci-doctor.sh` checks the required local tools.
+`jeryu-ci-runner/required` context. `scripts/ci-doctor.sh` checks the
+required local tools.
 The compatibility workflow must never be treated as a substitute for a genuine
 hosted runner result.
 

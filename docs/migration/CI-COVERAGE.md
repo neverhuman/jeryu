@@ -35,11 +35,23 @@ requirements remain separate; this separation does not waive those proofs.
 | Shell/governance contracts | **Pending portable command** | Installer/root seal/renderer/auditor substitution/source authority/receipt custody; dispatch injection/order; repair receipts; ShellCheck at warning severity; closed schemas and complete owner/test routing. Component Git-root and package-count assumptions require explicit monorepo scope. |
 | Signed central releases | **Pending portable command** | Signed source and matching PR publication metadata; binary route smoke; SPDX/CycloneDX/provenance/hash identities; previous signed rollback identity; SignRail local/dev-canary/prod receipt contracts with 100% signature coverage and matching source/rollback/artifact digests. Validate contracts without activating production. |
 
-The `legacy` lane stays required while these pending gates are ported. Its
-historical wrappers alone are insufficient: Core, Runner, Deploy,
-Intelligence and Tool compatibility `ci-local.sh` scripts ignore `required`
-and execute only their smaller `just` subsets. Separate proof/release
-workflows must each receive a root command.
+The `legacy` lane stays required while these pending gates are ported.
+Core, Runner, Deploy, Intelligence and Tool now accept exactly `required`
+in `scripts/ci-local.sh` and delegate to their existing full
+`ops/ci/pr-ci.sh`; no arguments retain `just fast` then `just check`.
+Invalid or extra arguments fail before dispatch. Each full wrapper includes
+the original quick assertions: Core, Runner, Intelligence and Tool already
+invoke fast/check directly; Deploy now invokes check, which also covers its
+fast recipe and includes agent maps, script syntax and phase/coverage tests.
+Runner contract/sandbox commands and Intelligence oracle/tool-build commands
+remain in their full wrappers; their actual execution still needs proof.
+
+`bash tests/component-ci-dispatch.sh`, also called by the root check,
+uses only synthetic command responses to verify selection, ordering, component
+root, argument refusal and nonzero status propagation. It neither runs nor
+qualifies component CI. The existing full wrappers still require portable
+proof admission and the separate proof/release workflows still need root
+commands; the dispatcher repair alone cannot make the required union pass.
 
 Do not port false success behavior. Core/Intelligence/Release Ops/Web now
 delegate independent auxiliary producers to one root implementation; their

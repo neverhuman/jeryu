@@ -1,5 +1,12 @@
 # Testing
 
+Run `bash scripts/ci-local.sh` without arguments for the existing
+`just fast` then `just check` loop. Exactly
+`bash scripts/ci-local.sh required` runs `ops/ci/pr-ci.sh` from this
+component root and preserves its exit status. Unknown or extra arguments fail
+before any lane runs. Required dispatch does not itself qualify every retained
+proof; the full wrapper and separate capability lanes must actually pass.
+
 Local CI is the source of truth. Hosted CI mirrors these commands, but it must
 not replace them or make a local gate silently green.
 
