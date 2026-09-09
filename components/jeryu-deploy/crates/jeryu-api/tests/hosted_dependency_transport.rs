@@ -67,7 +67,13 @@ fn jeryu_packages_have_one_workspace_identity_and_redline_stays_immutable() {
         .iter()
         .filter(|p| p["name"].as_str().unwrap().starts_with("redlinedb"))
         .collect();
-    assert!(!redline.is_empty());
+    if expected_external.is_some() {
+        // Redline is an Obs dev-dependency. Cargo does not inherit the tests
+        // of an external package into Deploy's standalone dependency closure.
+        assert!(redline.is_empty());
+        return;
+    }
+    assert_eq!(redline.len(), 4);
     let mut sources = std::collections::BTreeSet::new();
     for package in redline {
         let source = package["source"].as_str().expect("Redline is external");

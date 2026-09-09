@@ -245,7 +245,14 @@ fn cargo_identity_and_effective_transport_are_exact() {
     } else {
         None
     };
-    for name in ["jeryu-core", "jeryu-gitd"] {
+    // Runner consumes Core; Gitd is an additional witness in the full monorepo
+    // and is correctly absent from Runner's standalone dependency closure.
+    let witnesses: &[&str] = if expected_source.is_some() {
+        &["jeryu-core"]
+    } else {
+        &["jeryu-core", "jeryu-gitd"]
+    };
+    for name in witnesses {
         let packages: Vec<_> = lock
             .split("[[package]]")
             .filter(|record| {

@@ -8,6 +8,8 @@ It is licensed under Apache-2.0.
 release qualification are incomplete.** See
 [migration status](docs/migration/STATUS.md) for the remaining gates. The
 currently installed service and existing release tags have not changed.
+The [migration plan](docs/migration/PLAN.md) accounts for every original
+repository and support directory, CI qualification, mirrors and relocation.
 
 The intended public source installation is:
 

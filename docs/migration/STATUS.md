@@ -11,6 +11,14 @@ untracked files, runtime/support material and build output are preserved in
 private custody. Historical active manifests and lockfiles are retained under
 `original-manifests/`; Cargo and npm use only the new root files.
 
+`import-updates.json` records later source deltas without replacing the
+original import mappings. Deploy's two-commit update through `b388edc5` was
+preserved, restored, scanned and integrated at `bdd6c04a`. It preserves the
+reviewed main commit during push callbacks and verifies a restarted service's
+actual executable digest. All 13 bridge tests and 11 activation scenarios
+passed locally, as did warning-denied Clippy. Importing candidate source does
+not claim the original protected PR has merged or that a service was restarted.
+
 The duplicate Redline repositories remain in private custody at their original
 locations. Their shallow bundles require the preserved shallow-boundary files
 for restoration; a bundle alone is insufficient. All six restore with those
@@ -34,10 +42,12 @@ Remaining release gates include:
   Git transport override; it is not anonymous build evidence. The public
   preflight independently reads tags without credentials or personal Git
   configuration and still fails until publication.
-  GitHub rejected the attempted exact Redline tag mirror because the current
-  OAuth connection lacks `workflow` scope. Anonymous readback proved that no
-  public ref changed. That permission and independent reviewer/merger
-  identities remain unresolved; no alternate credential was used.
+  GitHub rejected the initial exact Redline tag mirror because that OAuth
+  connection lacked `workflow` scope. Anonymous readback proved no public ref
+  changed. The owner subsequently supplied a separate workflow-capable
+  credential explicitly; the independent dependency publisher has the scoped
+  mirror task. Publication still requires exact anonymous readback. Independent
+  reviewer and merger identities remain unresolved.
 - Complete portable CI and split-export implementation, proof-lane mapping,
   full source/history/license audit, dependency advisory repair, and every
   ordinary and privileged local proof. Missing capabilities must fail closed.
@@ -111,9 +121,13 @@ dependency was local or that the complete 65-package monorepo was present.
 The updated tests retain those monorepo assertions and require external split
 dependencies to bind the provenance commit. Deploy also builds its embedded
 web dependency from that exact public source commit in a disposable clone.
-Those fixes passed targeted tests and warning-denied Clippy; independent
-verification of the resulting commit remains required. No component mirror
-has been published or marked qualified.
+At `075134c0`, eight exports passed; Runner and Deploy exposed two remaining
+test assumptions. Runner's standalone closure does not consume Gitd, and
+Deploy does not inherit the external Obs package's Redline dev-dependency.
+The repaired tests retain the full monorepo assertions and verify those
+standalone closures. Targeted tests and warning-denied Clippy passed;
+independent verification of the resulting commit remains required. No
+component mirror has been published or marked qualified.
 
 All six duplicate Redline tips and their reflog commits are reachable from
 their full canonical repositories, with no missing commit objects or

@@ -1,0 +1,11 @@
+[
+  {
+    "component": "jeryu-deploy",
+    "integration_commit": "bdd6c04a2ff6322242c227179f15377d9573ee7b",
+    "integration_method": "linear-git-patch-with-root-rust-formatting",
+    "previous_source_commit": "a6a76519c623d43b13ab4389fedc41d3fba4a610",
+    "publication_audit": "pending-complete-qualification",
+    "source_commit": "b388edc512bb29eb67709efd63c7f557b97df305",
+    "source_tree": "040424101f2407df59050221318593ed3fe4a9da"
+  }
+]
