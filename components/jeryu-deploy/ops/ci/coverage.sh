@@ -50,7 +50,7 @@ LLVM_COV_CRATES=(
 
 # Crates whose TOTAL src line coverage is ratcheted against a committed baseline
 # (ops/ci/coverage-baseline.tsv): coverage may not drop below the recorded
-# floor, and a green run that improves it rewrites the floor upward. This is the
+# floor; an explicit JERYU_COVERAGE_UPDATE_BASELINE=1 can raise that floor.
 # "record baseline / fail-on-drop / ratchet-up" gate for the owned API surface.
 # The standalone floor was rebound once from 0.8411 to 0.8044 after an exact
 # protected-main measurement produced 0.7981 and this candidate produced
@@ -79,8 +79,6 @@ MUTANTS_JOBS="${JERYU_MUTANTS_JOBS:-8}"
 
 LLVM_COV_OUT="target/llvm-cov/lcov.info"
 MUTANTS_OUT_DIR="target/mutants"
-MUTANTS_OUTCOMES="${MUTANTS_OUT_DIR}/mutants.out/outcomes.json"
-MUTANTS_OUTCOMES_MIRROR="${MUTANTS_OUT_DIR}/outcomes.json"
 
 RECEIPT_DIR="target/coverage"
 RECEIPT="${RECEIPT_DIR}/skip-receipt.txt"
@@ -193,31 +191,12 @@ if ! JERYU_COVERAGE_EPSILON="${COVERAGE_EPSILON}" \
   exit 1
 fi
 
-# --- 3. Mutation testing (cargo-mutants), SCOPED ---------------------------
-# Scoped to one critical crate with a per-mutant timeout: mutation testing the
-# whole 50-crate workspace is far too slow for a gate. cargo-mutants exits
-# non-zero when surviving mutants are found; that is a *result*, not a tool
-# error, so we keep going and let the jankurai audit's hard-threshold decide.
-mkdir -p "${MUTANTS_OUT_DIR}"
-log "cargo mutants (scoped) package=${MUTANTS_PACKAGE} timeout=${MUTANTS_TIMEOUT}s -> ${MUTANTS_OUTCOMES}"
-mutants_rc=0
-cargo mutants \
-  -p "${MUTANTS_PACKAGE}" \
-  --cargo-arg=--locked \
-  --output "${MUTANTS_OUT_DIR}" \
-  --timeout "${MUTANTS_TIMEOUT}" \
-  --build-timeout "${MUTANTS_BUILD_TIMEOUT}" \
-  --jobs "${MUTANTS_JOBS}" \
-  --no-times || mutants_rc=$?
-log "cargo mutants exited rc=${mutants_rc} (non-zero just means surviving mutants; audit decides)"
-
-if [ ! -s "${MUTANTS_OUTCOMES}" ]; then
-  echo "[coverage] FAIL: ${MUTANTS_OUTCOMES} was not produced (mutants did not run)" >&2
-  exit 1
-fi
-# Mirror to the alternate path the config also accepts.
-cp -f "${MUTANTS_OUTCOMES}" "${MUTANTS_OUTCOMES_MIRROR}"
-log "mutation artifact ready: ${MUTANTS_OUTCOMES} (+ mirror ${MUTANTS_OUTCOMES_MIRROR})"
+# --- 3. Complete, fresh mutation evidence ---------------------------------
+# The producer accepts only completed v25.3.1 runs (0 or 2), verifies every
+# selected mutant and its baseline, and publishes validated audit inputs.
+# Missed mutants are evidence for the unchanged changed-path audit policy.
+bash ops/ci/coverage-mutants.sh "${MUTANTS_OUT_DIR}" "${MUTANTS_PACKAGE}" \
+  "${MUTANTS_TIMEOUT}" "${MUTANTS_BUILD_TIMEOUT}" "${MUTANTS_JOBS}"
 
 # --- 4. jankurai coverage audit + hard==0 assertion ------------------------
 mkdir -p target/jankurai/coverage

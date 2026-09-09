@@ -29,4 +29,5 @@ for script in scripts/*.sh ops/ci/*.sh ops/deploy/*.sh; do
 done
 bash scripts/check-agent-maps.sh
 bash scripts/test-ci-phases.sh
+bash scripts/test-coverage-evidence.sh
 printf 'check ok: %s\n' "$(pwd)"

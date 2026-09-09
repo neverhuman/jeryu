@@ -1,100 +1,113 @@
 #!/usr/bin/env bash
-# Per-crate src line-coverage ratchet for the workcell stack.
-#
-# Pure bash + awk (no Python) to match the repo's Rust-core + bash-tooling
-# polyglot rule — Python is confined to python/ai-service. Reads an lcov.info,
-# computes each gated crate's `crates/<crate>/src/**` line coverage (LH/LF), and
-# compares it to a committed baseline (TSV lines: "<crate>\t<coverage>"):
-#
-#   * GATE (default): fail if any gated crate is below its baseline minus
-#     JERYU_COVERAGE_EPSILON. A missing baseline file is treated as
-#     "establish, don't fail" so a first run cannot false-fail.
-#   * UPDATE (JERYU_COVERAGE_UPDATE_BASELINE=1): rewrite the baseline to
-#     max(existing, current) per crate — the floor only ratchets UP.
-#
-# Usage: coverage_ratchet.sh <lcov.info> <baseline.tsv> <crate>...
-# Only `crates/<crate>/src/**` lines count (test code under `tests/` is excluded
-# so the floor reflects production-code coverage).
-set -uo pipefail
-
-LCOV="${1:?lcov path required}"
-BASELINE="${2:?baseline path required}"
+# Validate LLVM LCOV line records and the committed per-crate coverage floors.
+# Required checks never create missing baselines. An explicit
+# JERYU_COVERAGE_UPDATE_BASELINE=1 may establish or raise floors, never lower them.
+set -euo pipefail
+[[ $# -ge 3 ]] || { echo 'usage: coverage_ratchet.sh LCOV BASELINE CRATE...' >&2; exit 2; }
+lcov=$1 baseline=$2
 shift 2
-CRATES="$*"
-EPS="${JERYU_COVERAGE_EPSILON:-0.005}"
-UPDATE="${JERYU_COVERAGE_UPDATE_BASELINE:-0}"
-
-if [ ! -s "${LCOV}" ]; then
-  echo "[coverage-ratchet] FAIL: lcov artifact missing or empty: ${LCOV}" >&2
-  exit 1
+update=${JERYU_COVERAGE_UPDATE_BASELINE:-0}
+epsilon=${JERYU_COVERAGE_EPSILON:-0.005}
+[[ $update == 0 || $update == 1 ]] || { echo 'invalid baseline update mode' >&2; exit 1; }
+[[ -f $lcov && -s $lcov && ! -L $lcov ]] || { echo 'missing regular LCOV file' >&2; exit 1; }
+baseline_input=$baseline
+if [[ -e $baseline || -L $baseline ]]; then
+  [[ -f $baseline && ! -L $baseline && $(stat -c '%h' -- "$baseline") == 1 ]] || exit 1
+else
+  [[ $update == 1 ]] || { echo 'required committed coverage baseline is missing' >&2; exit 1; }
+  baseline_input=/dev/null
 fi
-
-# Per-crate src coverage -> "<crate>\t<coverage>" (sorted, deterministic).
-current="$(
-  awk -v want="${CRATES}" '
-    BEGIN { n = split(want, a, " "); for (i = 1; i <= n; i++) keep[a[i]] = 1 }
-    /^SF:/ {
-      cur = ""
-      p = substr($0, 4)
-      # cargo-llvm-cov writes ABSOLUTE SF paths (e.g.
-      # /home/.../crates/<name>/src/...), so locate the "crates/" segment
-      # anywhere in the path rather than anchoring at the start.
-      pos = index(p, "crates/")
-      if (pos > 0) {
-        rest = substr(p, pos + 7)
-        slash = index(rest, "/")
-        if (slash > 1 && substr(rest, slash, 5) == "/src/") {
-          name = substr(rest, 1, slash - 1)
-          if (name in keep) cur = name
-        }
-      }
+for crate in "$@"; do
+  [[ $crate =~ ^[A-Za-z0-9_-]+$ ]] || { echo 'invalid requested crate' >&2; exit 1; }
+done
+# One parser validates both inputs before emitting a result or allowing a write.
+result=$(LC_ALL=C awk -v want="$*" -v eps="$epsilon" -v update="$update" '
+  function fail(message) {
+    print "[coverage-ratchet] FAIL: " message > "/dev/stderr"
+    bad = 1
+    exit 1
+  }
+  function integer(value) { return value ~ /^(0|[1-9][0-9]*)$/ }
+  function fraction(value) { return value ~ /^(0([.][0-9]+)?|1([.]0+)?)$/ }
+  BEGIN {
+    if (!fraction(eps) || eps + 0 > 0.005) fail("epsilon must be within 0..0.005")
+    n = split(want, requested, " ")
+    for (i = 1; i <= n; i++) {
+      if (requested[i] in keep) fail("duplicate requested crate")
+      keep[requested[i]] = 1
     }
-    /^LF:/ { if (cur != "") lf[cur] += substr($0, 4) }
-    /^LH:/ { if (cur != "") lh[cur] += substr($0, 4) }
-    /^end_of_record$/ { cur = "" }
-    END { for (c in lf) if (lf[c] > 0) printf "%s\t%.4f\n", c, lh[c] / lf[c] }
-  ' "${LCOV}" | sort
-)"
-
-echo "[coverage-ratchet] measured src coverage:"
-printf '%s\n' "${current}" | sed 's/^/  /'
-
-if [ "${UPDATE}" = "1" ] || [ ! -f "${BASELINE}" ]; then
-  printf '%s\n' "${current}" > "${BASELINE}.cur"
-  : > "${BASELINE}.prev"
-  [ -f "${BASELINE}" ] && cp "${BASELINE}" "${BASELINE}.prev"
-  # Merge: floor = max(existing, current) per crate (ratchet up only).
-  awk '
-    FNR == NR { base[$1] = $2; next }
-    { cur[$1] = $2 }
-    END {
-      for (c in base) if (c != "") m[c] = base[c]
-      for (c in cur) if (c != "" && (!(c in m) || cur[c] + 0 > m[c] + 0)) m[c] = cur[c]
-      for (c in m) printf "%s\t%s\n", c, m[c]
+  }
+  FILENAME == ARGV[1] {
+    if (split($0, fields, "\t") != 2 || fields[1] !~ /^[A-Za-z0-9_-]+$/ || !fraction(fields[2]))
+      fail("malformed baseline row " FNR)
+    if (fields[1] in base) fail("duplicate baseline crate")
+    base[fields[1]] = fields[2]
+    next
+  }
+  /^TN:/ { if (active) fail("test name inside source record"); next }
+  /^SF:/ {
+    if (active) fail("unterminated source record")
+    path = substr($0, 4)
+    if (path == "" || path ~ /(^|\/)\.\.?($|\/)/ || path ~ /\/\// || path ~ /[[:cntrl:]]/)
+      fail("invalid source path")
+    if (path in files) fail("duplicate source record")
+    files[path] = 1
+    active = 1; current = ""; lf = -1; lh = -1; lines = 0; hit = 0
+    delete line_seen; delete metric_seen
+    count = split(path, segments, "/")
+    for (i = 1; i + 2 <= count; i++)
+      if (segments[i] == "crates" && segments[i+2] == "src" && segments[i+1] in keep)
+        current = segments[i+1]
+    next
+  }
+  /^DA:/ {
+    if (!active) fail("line data outside source record")
+    count = split(substr($0, 4), fields, ",")
+    if ((count != 2 && count != 3) || !integer(fields[1]) || fields[1] + 0 == 0 ||
+        !integer(fields[2]) || (count == 3 && fields[3] == "")) fail("malformed line data")
+    if (fields[1] in line_seen) fail("duplicate line data")
+    line_seen[fields[1]] = 1; lines++; if (fields[2] + 0 > 0) hit++
+    next
+  }
+  /^(LF|LH|FNF|FNH|BRF|BRH):/ {
+    count = split($0, fields, ":")
+    if (!active || count != 2 || !integer(fields[2]) || fields[1] in metric_seen) fail("invalid or duplicate metric")
+    metric_seen[fields[1]] = 1
+    if (fields[1] == "LF") lf = fields[2] + 0
+    if (fields[1] == "LH") lh = fields[2] + 0
+    next
+  }
+  /^FN:[0-9]+,(.+)$/ { if (!active) fail("function outside source record"); next }
+  /^FNDA:[0-9]+,.+$/ { if (!active) fail("function hits outside source record"); next }
+  /^BRDA:[0-9]+,[0-9]+,[0-9]+,(-|[0-9]+)$/ { if (!active) fail("branch outside source record"); next }
+  /^end_of_record$/ {
+    if (!active || lf < 0 || lh < 0 || lf != lines || lh != hit) fail("inconsistent or incomplete line totals")
+    if (current != "") { total[current] += lf; hits[current] += lh }
+    active = 0
+    next
+  }
+  { fail("unrecognized or malformed LCOV record at line " FNR) }
+  END {
+    if (bad) exit 1
+    if (active) fail("unterminated final source record")
+    for (crate in keep) {
+      if (!(crate in total) || total[crate] <= 0) fail("requested crate has no measured lines: " crate)
+      if (!(crate in base) && update != 1) fail("requested crate has no committed baseline: " crate)
+      ratio = hits[crate] / total[crate]
+      measured = sprintf("%.4f", ratio)
+      if (update != 1 && ratio < base[crate] - eps) fail("coverage dropped below floor for " crate)
+      if (update == 1 && (!(crate in base) || measured + 0 > base[crate] + 0)) base[crate] = measured
+      print "[coverage-ratchet] " crate "=" measured " floor=" base[crate] " epsilon=" eps > "/dev/stderr"
     }
-  ' "${BASELINE}.prev" "${BASELINE}.cur" | sort > "${BASELINE}"
-  rm -f "${BASELINE}.cur" "${BASELINE}.prev"
-  echo "[coverage-ratchet] baseline $([ "${UPDATE}" = 1 ] && echo updated || echo established):"
-  sed 's/^/  /' "${BASELINE}"
-  exit 0
+    if (update == 1) for (crate in base) printf "%s\t%s\n", crate, base[crate]
+  }
+' "$baseline_input" "$lcov")
+if [[ $update == 1 ]]; then
+  parent=$(dirname -- "$baseline")
+  [[ $(realpath -e -- "$parent") == "$(realpath -m -s -- "$parent")" ]] || exit 1
+  temporary=$(umask 077; mktemp "$parent/.coverage-baseline.XXXXXXXX")
+  # Keep a failed publication for diagnosis rather than deleting an unknown path.
+  printf '%s\n' "$result" | LC_ALL=C sort >"$temporary"
+  mv -T -- "$temporary" "$baseline"
+  printf '[coverage-ratchet] explicitly updated baseline: %s\n' "$baseline"
 fi
-
-# GATE mode: fail if any gated crate dropped below its floor.
-rc=0
-while IFS=$'\t' read -r crate cov; do
-  [ -z "${crate}" ] && continue
-  base="$(awk -F'\t' -v c="${crate}" '$1 == c { print $2 }' "${BASELINE}")"
-  if [ -z "${base}" ]; then
-    echo "[coverage-ratchet] (no baseline yet for ${crate} — skipping its gate)"
-    continue
-  fi
-  if awk -v cv="${cov}" -v bv="${base}" -v e="${EPS}" 'BEGIN { exit !(cv + 0 < bv - e) }'; then
-    echo "[coverage-ratchet] FAIL: ${crate} ${cov} dropped below baseline ${base} (eps ${EPS})" >&2
-    rc=1
-  else
-    echo "[coverage-ratchet] OK: ${crate} ${cov} >= baseline ${base} (eps ${EPS})"
-  fi
-done <<EOF
-${current}
-EOF
-exit ${rc}

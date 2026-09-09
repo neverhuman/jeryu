@@ -98,6 +98,11 @@ required=(
 for path in "${required[@]}"; do
   [[ -s "$path" ]] || { printf 'missing split metadata: %s\n' "$path" >&2; exit 1; }
 done
+minimum_score="$(awk -F= '/^[[:space:]]*minimum_score[[:space:]]*=/ {
+  gsub(/[[:space:]]/, "", $2); print $2; exit
+}' agent/audit-policy.toml)"
+[[ "$minimum_score" =~ ^[0-9]+$ && $minimum_score -ge 75 && $minimum_score -le 100 ]] ||
+  die 'minimum_score must be an integer from 75 through 100'
 prepare_dir .jankurai
 prepare_dir target
 prepare_dir target/jankurai
@@ -109,35 +114,16 @@ require_output_slot target/jankurai/repo-score.md
 # Spawn the governed auditor under the same scrubbed replacement-blind Git
 # authority used for source checks. Ambient GIT_* must not select a foreign head.
 if [[ "${JERYU_MONOREPO_CANDIDATE:-0}" == 1 ]]; then
-  jeryu_candidate_score_auditor audit . --full --mode advisory \
-    --policy agent/audit-policy.toml \
+  jeryu_candidate_score_auditor audit . --full --mode standard --no-score-history \
+    --fail-under "$minimum_score" --fail-on critical,high \
     --json .jankurai/repo-score.json --md .jankurai/repo-score.md
 else
-  jeryu_with_scrubbed_git "$auditor_bin" audit . --full --mode advisory \
-    --policy agent/audit-policy.toml \
+  jeryu_with_scrubbed_git "$auditor_bin" audit . --full --mode standard --no-score-history \
+    --fail-under "$minimum_score" --fail-on critical,high \
     --json .jankurai/repo-score.json --md .jankurai/repo-score.md
 fi
-minimum_score="$(awk -F= '/^[[:space:]]*minimum_score[[:space:]]*=/ {
-  gsub(/[[:space:]]/, "", $2); print $2; exit
-}' agent/audit-policy.toml)"
-[[ "$minimum_score" =~ ^[0-9]+$ ]] || die 'minimum_score is not an integer'
-score_value="$(jq -er '.score | numbers' .jankurai/repo-score.json)" ||
-  die 'score report has no numeric score'
-caps_count="$(jq -er '
-  (.caps_applied // .caps // [])
-  | if type == "array" then length else error("caps are not an array") end
-' .jankurai/repo-score.json)" || die 'score report has malformed caps'
-hard_count="$(jq -er '
-  (if ((.decision // null) | type) == "object" and (.decision | has("hard_findings"))
-   then .decision.hard_findings else (.hard_findings // 0) end)
-  | if type == "array" then length
-    elif type == "number" then .
-    else error("hard findings are neither an array nor a number") end
-' .jankurai/repo-score.json)" || die 'score report has malformed hard findings'
-(( score_value >= minimum_score )) ||
-  die "score ${score_value} is below ${minimum_score}"
-(( caps_count == 0 )) || die "caps present: ${caps_count}"
-(( hard_count == 0 )) || die "hard findings present: ${hard_count}"
+jq -es --argjson minimum "$minimum_score" -f "$repo_root/ops/ci/score-report.jq" \
+  .jankurai/repo-score.json >/dev/null || die 'full standard score report did not pass'
 jeryu_require_score_report_matches_source .jankurai/repo-score.json "$head_sha" ||
   die 'score report Git identity does not match bound source'
 report_tmp="$(mktemp "$repo_root/target/jankurai/.repo-score.json.XXXXXX")"

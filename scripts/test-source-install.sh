@@ -4,20 +4,21 @@ set -euo pipefail
 root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)
 [[ $# == 0 ]] || { printf 'usage: scripts/test-source-install.sh\n' >&2; exit 2; }
 umask 077
-scratch=$(mktemp -d)
-fixture="$root/.source-install-fixture-$$"
-artifact="$root/target/release/jeryu"
-receipt="$root/target/release/jeryu.source-build"
-[[ ! -e "$fixture" && ! -L "$fixture" ]] || exit 1
+bash "$root/tests/source-install-transaction-hostiles.sh"
+# shellcheck source=tests/source-install-transaction.sh
+source "$root/tests/source-install-transaction.sh"
 cleanup() {
-  if [[ -f "$scratch/artifact" ]]; then install -m 0755 "$scratch/artifact" "$artifact"; fi
-  if [[ -f "$scratch/receipt" ]]; then install -m 0600 "$scratch/receipt" "$receipt"; fi
-  rm -f -- "$fixture"
-  rm -rf -- "$scratch"
+  local status=$?
+  trap - EXIT
+  jeryu_install_finish "$status" || { if [[ $status == 0 ]]; then status=1; fi; }
+  exit "$status"
 }
 trap cleanup EXIT
-cp -- "$artifact" "$scratch/artifact"
-cp -- "$receipt" "$scratch/receipt"
+trap 'exit 130' INT
+trap 'exit 143' TERM
+trap 'exit 129' HUP
+jeryu_install_begin "$root"
+: "${scratch:?}" "${artifact:?}"
 mkdir "$scratch/home"
 cd "$scratch"
 env -i PATH=/usr/bin:/bin HOME="$scratch/home" GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null \
@@ -37,18 +38,20 @@ must_reject() {
   fi
   cmp -- "$scratch/artifact" "$scratch/explicit-bin/jeryu"
 }
-printf 'tampered\n' >> "$artifact"
+jeryu_install_change artifact-tamper
 must_reject artifact-checksum
-install -m 0755 "$scratch/artifact" "$artifact"
-printf 'source changed\n' > "$fixture"
+jeryu_install_restore artifact
+jeryu_install_change fixture-create
 must_reject changed-source
-rm -- "$fixture"
-printf 'invalid receipt\n' > "$receipt"
+jeryu_install_change fixture-remove
+jeryu_install_change receipt-corrupt
 must_reject malformed-receipt
-rm -- "$receipt"
+jeryu_install_change receipt-remove
 must_reject missing-receipt
-install -m 0600 "$scratch/receipt" "$receipt"
+jeryu_install_restore receipt
 
 cd "$root"
 JERYU_TEST_BINARY="$installed" cargo test --locked -p jeryu-cli --test standalone
+if ! jeryu_install_finish 0; then trap - EXIT; exit 1; fi
+trap - EXIT
 printf 'Source installation, tamper refusal, installed Git/CLI operations and restart persistence passed.\n'

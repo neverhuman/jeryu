@@ -5,6 +5,21 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 cd "$repo_root"
 source "$repo_root/ops/ci/lib.sh"
 source "$repo_root/ops/ci/source-authority.sh"
+source "$repo_root/tests/scratch.sh"
+source "$repo_root/ops/ci/candidate-artifact.sh"
+source "$repo_root/ops/ci/candidate-dependencies.sh"
+score_schema='jeryu.split.score/v1'
+security_schema='jeryu.split.security/v1'
+artifact_schema='jeryu.split.artifact-support/v2'
+artifact_status='ready'
+score_report_predicate="$repo_root/ops/ci/score-report.jq"
+candidate_cargo_configuration=null
+if [[ ${JERYU_MONOREPO_CANDIDATE:-0} == 1 ]]; then
+  score_schema='jeryu.monorepo-candidate.score/v1'
+  security_schema='jeryu.monorepo-candidate.security/v1'
+  artifact_schema='jeryu.monorepo-candidate.artifact-support/v1'
+  artifact_status='candidate-ready'
+fi
 
 receipt_rel='target/artifact-support/jeryu-tool-finder.json'
 receipt="$repo_root/$receipt_rel"
@@ -12,6 +27,8 @@ artifact_rel='target/artifact-support/jeryu-tool-finder'
 artifact="$repo_root/$artifact_rel"
 binary_name='jeryu-tool-finder'
 private_target=''
+private_target_identity=''
+artifact_tmp_identity=''
 private_target_parent=''
 artifact_tmp=''
 artifact_tmp_dir=''
@@ -27,26 +44,33 @@ die() {
 }
 
 sha_file() {
-  sha256sum -- "$1" | awk '{print $1}'
+  sha256sum <"$1" | awk '{print $1}'
 }
 
 cleanup() {
-  rm -f -- "${artifact_tmp:-}" "${receipt_tmp:-}" \
-    "${help_stdout:-}" "${help_stderr:-}" \
-    "${version_stdout:-}" "${version_stderr:-}"
-  if [[ -n "${private_target:-}" && -n "${private_target_parent:-}" &&
-        "$private_target" == "$private_target_parent"/.jeryu-tool-finder.* &&
-        -d "$private_target" && ! -L "$private_target" &&
-        "$(realpath -e -- "$private_target" 2>/dev/null || true)" == "$private_target" ]]; then
-    rm -rf -- "$private_target"
+  local status=${1:-0}
+  if [[ -n ${artifact_tmp_dir:-} ]]; then
+    if jeryu_test_scratch="$artifact_tmp_dir" \
+      jeryu_test_scratch_identity="$artifact_tmp_identity" jeryu_remove_test_scratch; then
+      artifact_tmp_dir=''
+    else
+      status=1
+    fi
   fi
-  if [[ -n "${artifact_tmp_dir:-}" &&
-        "$artifact_tmp_dir" == "$repo_root/target/artifact-support"/.candidate.* &&
-        -d "$artifact_tmp_dir" && ! -L "$artifact_tmp_dir" ]]; then
-    rmdir -- "$artifact_tmp_dir" 2>/dev/null || true
+  if [[ -n ${private_target:-} ]]; then
+    if jeryu_test_scratch="$private_target" \
+      jeryu_test_scratch_identity="$private_target_identity" jeryu_remove_test_scratch; then
+      private_target=''
+    else
+      status=1
+    fi
   fi
+  return "$status"
 }
-trap cleanup EXIT
+trap 'status=$?; cleanup "$status" || status=$?; exit "$status"' EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+trap 'exit 129' HUP
 
 require_dir() {
   local relative="$1"
@@ -122,6 +146,11 @@ validate_build_environment() {
   if [[ -n "${JERYU_CI_JOBS:-}" && -n "${CARGO_BUILD_JOBS:-}" ]]; then
     [[ "$JERYU_CI_JOBS" == "$CARGO_BUILD_JOBS" ]] ||
       die 'JERYU_CI_JOBS and CARGO_BUILD_JOBS disagree'
+  fi
+
+  if [[ ${JERYU_MONOREPO_CANDIDATE:-0} == 1 ]]; then
+    jeryu_candidate_artifact_build_environment
+    return
   fi
 
   toolchain_channel="$(awk -F'"' '/^[[:space:]]*channel[[:space:]]*=/ {print $2; exit}' \
@@ -208,6 +237,10 @@ validate_build_environment() {
 
   private_target="$(mktemp -d "$private_target_parent/.jeryu-tool-finder.XXXXXX")"
   chmod 0700 "$private_target"
+  private_target_identity=$(
+    jeryu_record_test_scratch "$private_target" || exit 1
+    printf '%s\n' "${jeryu_test_scratch_identity:?}"
+  )
   require_physical_dir "$private_target" 'fresh private Cargo target'
   [[ "$(stat -c '%u:%a' -- "$private_target")" == "$(id -u):700" &&
      -z "$(find "$private_target" -mindepth 1 -maxdepth 1 -print -quit)" ]] ||
@@ -250,6 +283,10 @@ run_cargo() {
 }
 
 verify_build_authority() {
+  if [[ ${JERYU_MONOREPO_CANDIDATE:-0} == 1 ]]; then
+    jeryu_candidate_verify_artifact_build_authority
+    return
+  fi
   [[ "$(sha_file "$cargo_bin")" == "$cargo_sha" &&
      "$(sha_file "$rustc_bin")" == "$rustc_sha" &&
      "$(sha_file "$cargo_home_config")" == "$cargo_home_config_sha" &&
@@ -267,7 +304,11 @@ resolve_auditor_authority() {
   fi
   require_physical_file "$expected_auditor_path" 'governed Jankurai binary'
   expected_auditor_sha="$(sha_file "$expected_auditor_path")"
-  expected_auditor_version="$(run_clean_tool "$expected_auditor_path" --version)"
+  if [[ ${JERYU_MONOREPO_CANDIDATE:-0} == 1 ]]; then
+    expected_auditor_version="$(jeryu_candidate_score_auditor --version)"
+  else
+    expected_auditor_version="$(run_clean_tool "$expected_auditor_path" --version)"
+  fi
   [[ "$expected_auditor_sha" == "$JERYU_JANKURAI_SHA256" &&
      "$expected_auditor_version" == "$JERYU_JANKURAI_VERSION" ]] ||
     die 'governed Jankurai identity differs from the rendered pin'
@@ -277,6 +318,9 @@ resolve_auditor_authority() {
     expected_auditor_receipt_sha=''
   else
     expected_auditor_mode='installation-receipt'
+    if [[ ${JERYU_MONOREPO_CANDIDATE:-0} == 1 ]]; then
+      expected_auditor_mode='public-candidate-installation'
+    fi
     expected_auditor_receipt="${JERYU_JANKURAI_RECEIPT:-}"
     expected_auditor_receipt_sha="${JERYU_JANKURAI_RECEIPT_SHA256:-}"
     require_physical_file "$expected_auditor_receipt" 'governed Jankurai installation receipt'
@@ -305,9 +349,15 @@ validate_score() {
   floor="$(awk -F= '/^[[:space:]]*minimum_score[[:space:]]*=/ {
     gsub(/[[:space:]]/, "", $2); print $2; exit
   }' "$policy")"
-  [[ "$floor" =~ ^[0-9]+$ ]] || die 'score policy floor is not an integer'
+  [[ "$floor" =~ ^[0-9]+$ && $floor -ge 75 && $floor -le 100 ]] ||
+    die 'score policy floor must be an integer from 75 through 100'
 
-  jq -e --slurpfile raw "$report" --arg head "$head" --arg tree "$tree" \
+  if [[ ${JERYU_MONOREPO_CANDIDATE:-0} == 1 ]]; then
+    jeryu_require_score_report_matches_source "$report" "$head" ||
+      die 'candidate score report Git identity differs'
+  fi
+  jq -e --arg schema "$score_schema" --argjson source "$current_source_json" \
+    --slurpfile raw "$report" --arg head "$head" --arg tree "$tree" \
     --arg source_sha "$source_sha" --arg report_sha "$report_sha" \
     --arg policy_sha "$policy_sha" --arg auditor_path "$expected_auditor_path" \
     --arg auditor_sha "$expected_auditor_sha" \
@@ -316,10 +366,10 @@ validate_score() {
     --arg auditor_receipt "$expected_auditor_receipt" \
     --arg auditor_receipt_sha "$expected_auditor_receipt_sha" --argjson floor "$floor" '
       keys == ["auditor", "head", "policy", "repo", "report", "schema_version", "source", "status", "tree"] and
-      .schema_version == "jeryu.split.score/v1" and
+      .schema_version == $schema and
       .repo == "jeryu-tool-finder" and .status == "pass" and
       .head == $head and .tree == $tree and
-      .source == {tracked_inputs_sha256: $source_sha} and
+      .source == $source and
       .auditor == {
         path: $auditor_path,
         sha256: $auditor_sha,
@@ -342,13 +392,8 @@ validate_score() {
       (.report.policy_fingerprint | test("^sha256:[0-9a-f]{64}$"))
     ' "$evidence" >/dev/null || die 'score evidence contract is not satisfied'
 
-  jq -e --argjson floor "$floor" '
-      (.score | type == "number") and .score >= $floor and
-      ((.caps_applied // .caps // []) | length) == 0 and
-      (((.decision // {}).hard_findings // .hard_findings // 0) as $hard |
-        if ($hard | type) == "array" then ($hard | length) == 0 else $hard == 0 end) and
-      ((.decision // {}).passed // true) == true
-    ' "$report" >/dev/null || die 'raw score report is not release-ready'
+  jq -es --argjson minimum "$floor" -f "$score_report_predicate" "$report" \
+    >/dev/null || die 'raw score report is not release-ready'
   verify_score_evidence
 }
 
@@ -377,13 +422,14 @@ validate_security() {
   security_audit_sha="$(sha_file "$audit")"
   security_sbom_sha="$(sha_file "$sbom")"
 
-  jq -e --arg head "$head" --arg tree "$tree" --arg source_sha "$source_sha" \
+  jq -e --arg schema "$security_schema" --argjson source "$current_source_json" \
+    --arg head "$head" --arg tree "$tree" --arg source_sha "$source_sha" \
     --arg audit_sha "$security_audit_sha" --arg sbom_sha "$security_sbom_sha" '
       keys == ["artifacts", "cargo_audit", "checks", "head", "repo", "sbom", "schema_version", "source", "status", "tree"] and
-      .schema_version == "jeryu.split.security/v1" and
+      .schema_version == $schema and
       .repo == "jeryu-tool-finder" and .status == "pass" and
       .head == $head and .tree == $tree and
-      .source == {tracked_inputs_sha256: $source_sha} and
+      .source == $source and
       .checks == [
         "gitleaks-detect", "actionlint", "env-file", "cargo-metadata",
         "cargo-deny-locked-policy", "cargo-audit-no-fetch", "syft-sbom"
@@ -413,8 +459,20 @@ verify_security_evidence() {
 validate_release_identity() {
   local version_last_byte metadata
   require_file Cargo.toml
-  require_file Cargo.lock
-  require_file rust-toolchain.toml
+  cargo_lock_path="$repo_root/Cargo.lock"
+  rust_toolchain_path="$repo_root/rust-toolchain.toml"
+  workspace_manifest_sha=''
+  input_prefix=''
+  if [[ ${JERYU_MONOREPO_CANDIDATE:-0} == 1 ]]; then
+    candidate_root="$(jeryu_candidate_source_root)"
+    cargo_lock_path="$candidate_root/Cargo.lock"
+    rust_toolchain_path="$candidate_root/rust-toolchain.toml"
+    require_physical_file "$candidate_root/Cargo.toml" 'candidate workspace manifest'
+    workspace_manifest_sha="$(sha_file "$candidate_root/Cargo.toml")"
+    input_prefix='components/jeryu-tool-finder/'
+  fi
+  require_physical_file "$cargo_lock_path" 'Cargo lockfile'
+  require_physical_file "$rust_toolchain_path" 'Rust toolchain'
   require_file VERSION
   require_file contracts/cli-help.txt
 
@@ -427,32 +485,58 @@ validate_release_identity() {
   version_semver="${BASH_REMATCH[1]}"
   split_revision="${BASH_REMATCH[2]}"
 
-  metadata="$(run_cargo metadata --locked --offline --format-version 1 --no-deps)" ||
-    die 'locked Cargo metadata failed'
-  package_version="$(jq -er --arg root "$repo_root/Cargo.toml" '
-    select((.packages | length) == 1) |
-    .packages[0] |
-    select(.name == "jeryu-tool-finder" and .manifest_path == $root) |
-    .version
-  ' <<<"$metadata")" || die 'Cargo metadata does not describe exactly Tool Finder'
+  if [[ ${JERYU_MONOREPO_CANDIDATE:-0} == 1 ]]; then
+    metadata="$(run_cargo metadata --locked --offline --format-version 1)"
+    jeryu_candidate_require_intelligence_graph "$candidate_root" <<<"$metadata" ||
+      die 'candidate artifact dependency graph differs from the verified workspace'
+    package_version="$(jq -er --arg root "$repo_root/Cargo.toml" '
+      [.packages[] | select(.name == "jeryu-tool-finder" and .manifest_path == $root)]
+      | select(length == 1) | .[0].version
+    ' <<<"$metadata")"
+  else
+    metadata="$(run_cargo metadata --locked --offline --format-version 1 --no-deps)" ||
+      die 'locked Cargo metadata failed'
+    package_version="$(jq -er --arg root "$repo_root/Cargo.toml" '
+      select((.packages | length) == 1) |
+      .packages[0] |
+      select(.name == "jeryu-tool-finder" and .manifest_path == $root) |
+      .version
+    ' <<<"$metadata")" || die 'Cargo metadata does not describe exactly Tool Finder'
+  fi
   [[ "$package_version" == "$version_semver" ]] ||
     die 'Cargo package version differs from VERSION'
   binary_version_output="$binary_name $package_version"
 
   cargo_toml_sha="$(sha_file Cargo.toml)"
-  cargo_lock_sha="$(sha_file Cargo.lock)"
-  rust_toolchain_sha="$(sha_file rust-toolchain.toml)"
+  cargo_lock_sha="$(sha_file "$cargo_lock_path")"
+  rust_toolchain_sha="$(sha_file "$rust_toolchain_path")"
   version_file_sha="$(sha_file VERSION)"
   cli_help_sha="$(sha_file contracts/cli-help.txt)"
+  receipt_inputs_json="$(jq -cnS --arg prefix "$input_prefix" \
+    --arg manifest "$cargo_toml_sha" --arg workspace "$workspace_manifest_sha" \
+    --arg lock "$cargo_lock_sha" --arg toolchain "$rust_toolchain_sha" \
+    --arg version "$version_file_sha" --arg help "$cli_help_sha" '
+    {cargo_manifest:{path:($prefix+"Cargo.toml"),sha256:$manifest},
+     cargo_lock:{path:"Cargo.lock",sha256:$lock},
+     rust_toolchain:{path:"rust-toolchain.toml",sha256:$toolchain},
+     version:{path:($prefix+"VERSION"),sha256:$version},
+     cli_help_contract:{path:($prefix+"contracts/cli-help.txt"),sha256:$help}} +
+    (if $prefix == "" then {} else
+      {workspace_manifest:{path:"Cargo.toml",sha256:$workspace}} end)
+  ')"
 }
 
 verify_release_inputs() {
   [[ "$(sha_file Cargo.toml)" == "$cargo_toml_sha" &&
-     "$(sha_file Cargo.lock)" == "$cargo_lock_sha" &&
-     "$(sha_file rust-toolchain.toml)" == "$rust_toolchain_sha" &&
+     "$(sha_file "$cargo_lock_path")" == "$cargo_lock_sha" &&
+     "$(sha_file "$rust_toolchain_path")" == "$rust_toolchain_sha" &&
      "$(sha_file VERSION)" == "$version_file_sha" &&
      "$(sha_file contracts/cli-help.txt)" == "$cli_help_sha" ]] ||
     die 'release identity input moved during artifact processing'
+  if [[ ${JERYU_MONOREPO_CANDIDATE:-0} == 1 ]]; then
+    [[ "$(sha_file "$candidate_root/Cargo.toml")" == "$workspace_manifest_sha" ]] ||
+      die 'candidate workspace manifest moved during artifact processing'
+  fi
 }
 
 validate_binary_contract() {
@@ -514,7 +598,9 @@ receipt_matches() {
   binary_sha="$(sha_file "$binary_path")"
   binary_size="$(stat -c '%s' -- "$binary_path")"
   command_prefix="cargo build --locked --offline --release --bin $binary_name --jobs "
-  jq -e \
+  jq -e --arg schema "$artifact_schema" --arg status "$artifact_status" \
+    --argjson source "$current_source_json" --argjson inputs "$receipt_inputs_json" \
+    --argjson configuration "$candidate_cargo_configuration" \
     --arg head "$current_head" --arg tree "$current_tree" \
     --arg source_sha "$current_source_sha" --arg binary_sha "$binary_sha" \
     --argjson binary_size "$binary_size" --arg release_tag "$release_tag" \
@@ -531,10 +617,10 @@ receipt_matches() {
     --arg cargo_config_sha "$cargo_home_config_sha" \
     --arg git_config_sha "$git_global_config_sha" --argjson expected_jobs "$expected_jobs" '
       keys == ["artifact", "build", "evidence", "head", "inputs", "release", "repo", "schema_version", "source", "status", "tree"] and
-      .schema_version == "jeryu.split.artifact-support/v2" and
-      .repo == "jeryu-tool-finder" and .status == "ready" and
+      .schema_version == $schema and
+      .repo == "jeryu-tool-finder" and .status == $status and
       .head == $head and .tree == $tree and
-      .source == {tracked_inputs_sha256: $source_sha} and
+      .source == $source and
       .release == {
         tag: $release_tag,
         package_version: $package_version,
@@ -548,22 +634,16 @@ receipt_matches() {
         size: $binary_size,
         mode: "0555"
       } and
-      .inputs == {
-        cargo_manifest: {path: "Cargo.toml", sha256: $cargo_toml_sha},
-        cargo_lock: {path: "Cargo.lock", sha256: $cargo_lock_sha},
-        rust_toolchain: {path: "rust-toolchain.toml", sha256: $rust_toolchain_sha},
-        version: {path: "VERSION", sha256: $version_sha},
-        cli_help_contract: {path: "contracts/cli-help.txt", sha256: $cli_help_sha}
-      } and
+      .inputs == $inputs and
       .evidence == {
         score: {path: "target/jankurai/evidence.json", sha256: $score_sha},
         security: {path: "target/security/evidence.json", sha256: $security_sha}
       } and
       (.build.jobs as $receipt_jobs |
         ($receipt_jobs |
-          if type == "number" then . >= 1 and . <= 256 and . == floor else false end) and
+          if type == "number" then . >= 1 and . <= (if $configuration == null then 256 else 2 end) and . == floor else false end) and
         ($expected_jobs == null or $receipt_jobs == $expected_jobs) and
-        .build == {
+        .build == ({
           authority_mode: $authority_mode,
           command: ($command_prefix + ($receipt_jobs | tostring)),
           profile: "release",
@@ -573,7 +653,8 @@ receipt_matches() {
           rustc: {path: $rustc_path, sha256: $rustc_sha, version_output: $rustc_version},
           cargo_home_config_sha256: $cargo_config_sha,
           git_global_config_sha256: $git_config_sha
-        })
+        } | if $configuration == null then . else
+          del(.cargo_home_config_sha256) + {cargo_configuration:$configuration} end))
     ' "$receipt_path" >/dev/null
 }
 
@@ -582,6 +663,11 @@ set_current_source() {
   current_head="$JERYU_SOURCE_HEAD"
   current_tree="$JERYU_SOURCE_TREE"
   current_source_sha="$JERYU_SOURCE_INPUTS_SHA256"
+  current_source_json="$(jq -cnS --arg sha "$current_source_sha" \
+    --argjson scope "$JERYU_SOURCE_SCOPE_JSON" '
+    {tracked_inputs_sha256:$sha} +
+      (if $scope == null then {} else {scope:$scope} end)
+  ')"
 }
 
 validate_prerequisites() {
@@ -646,6 +732,10 @@ produce_receipt() {
 
   artifact_tmp_dir="$(mktemp -d "$repo_root/target/artifact-support/.candidate.XXXXXX")"
   chmod 0700 "$artifact_tmp_dir"
+  artifact_tmp_identity=$(
+    jeryu_record_test_scratch "$artifact_tmp_dir" || exit 1
+    printf '%s\n' "${jeryu_test_scratch_identity:?}"
+  )
   artifact_tmp="$artifact_tmp_dir/$binary_name"
   cp --reflink=never -- "$build" "$artifact_tmp"
   chmod 0555 "$artifact_tmp"
@@ -659,10 +749,12 @@ produce_receipt() {
   binary_sha="$(sha_file "$artifact_tmp")"
   binary_size="$(stat -c '%s' -- "$artifact_tmp")"
   command="cargo build --locked --offline --release --bin $binary_name --jobs $build_jobs"
-  receipt_tmp="$(mktemp "$repo_root/target/artifact-support/.receipt.XXXXXX")"
+  receipt_tmp="$(mktemp "$artifact_tmp_dir/receipt.XXXXXX")"
   jq -nS \
-    --arg schema_version 'jeryu.split.artifact-support/v2' \
-    --arg repo 'jeryu-tool-finder' --arg status 'ready' \
+    --arg schema_version "$artifact_schema" \
+    --arg repo 'jeryu-tool-finder' --arg status "$artifact_status" \
+    --argjson source "$current_source_json" --argjson inputs "$receipt_inputs_json" \
+    --argjson configuration "$candidate_cargo_configuration" \
     --arg head "$current_head" --arg tree "$current_tree" \
     --arg source_sha "$current_source_sha" --arg binary_sha "$binary_sha" \
     --argjson binary_size "$binary_size" --arg release_tag "$release_tag" \
@@ -683,7 +775,7 @@ produce_receipt() {
       status: $status,
       head: $head,
       tree: $tree,
-      source: {tracked_inputs_sha256: $source_sha},
+      source: $source,
       release: {
         tag: $release_tag,
         package_version: $package_version,
@@ -697,18 +789,12 @@ produce_receipt() {
         size: $binary_size,
         mode: "0555"
       },
-      inputs: {
-        cargo_manifest: {path: "Cargo.toml", sha256: $cargo_toml_sha},
-        cargo_lock: {path: "Cargo.lock", sha256: $cargo_lock_sha},
-        rust_toolchain: {path: "rust-toolchain.toml", sha256: $rust_toolchain_sha},
-        version: {path: "VERSION", sha256: $version_sha},
-        cli_help_contract: {path: "contracts/cli-help.txt", sha256: $cli_help_sha}
-      },
+      inputs: $inputs,
       evidence: {
         score: {path: "target/jankurai/evidence.json", sha256: $score_sha},
         security: {path: "target/security/evidence.json", sha256: $security_sha}
       },
-      build: {
+      build: ({
         authority_mode: $authority_mode,
         command: $command,
         profile: "release",
@@ -718,7 +804,8 @@ produce_receipt() {
         rustc: {path: $rustc_path, sha256: $rustc_sha, version_output: $rustc_version},
         cargo_home_config_sha256: $cargo_config_sha,
         git_global_config_sha256: $git_config_sha
-      }
+      } | if $configuration == null then . else
+        del(.cargo_home_config_sha256) + {cargo_configuration:$configuration} end)
     }
   ' >"$receipt_tmp"
   chmod 0600 "$receipt_tmp"
@@ -740,12 +827,15 @@ produce_receipt() {
   # new complete pair; no early failure can destroy a prior valid receipt.
   mv -- "$artifact_tmp" "$artifact"
   artifact_tmp=''
-  rmdir -- "$artifact_tmp_dir"
-  artifact_tmp_dir=''
   mv -- "$receipt_tmp" "$receipt"
   receipt_tmp=''
+  jeryu_test_scratch="$artifact_tmp_dir" \
+    jeryu_test_scratch_identity="$artifact_tmp_identity" jeryu_remove_test_scratch ||
+    die 'published artifact temporary directory changed custody'
+  artifact_tmp_dir=''
   validate_receipt
-  printf 'artifact-support ready: %s\n' "$receipt_rel"
+  cleanup 0 || die 'artifact build scratch cleanup failed'
+  printf 'artifact-support %s: %s\n' "$artifact_status" "$receipt_rel"
 }
 
 prepare_output_dirs
@@ -757,6 +847,7 @@ case "$#:${1-}" in
     ;;
   1:--validate-receipt)
     validate_receipt
+    cleanup 0 || die 'artifact validation scratch cleanup failed'
     printf 'artifact-support receipt valid: %s\n' "$receipt_rel"
     ;;
   *)

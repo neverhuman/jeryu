@@ -27,10 +27,12 @@ shellcheck -S warning "${shell_scripts[@]}"
 
 bash tests/scratch_test.sh
 bash tests/candidate_dependencies_test.sh
+bash tests/score_report_test.sh
 bash tests/ci_local_dispatch_test.sh
 bash tests/source_authority_test.sh
 if [[ "${JERYU_MONOREPO_CANDIDATE:-0}" == 1 ]]; then
   bash tests/source_candidate_test.sh
+  bash tests/candidate_artifact_test.sh
 fi
 bash tests/score_auditor_test.sh
 bash tests/score_auditor_git_env_test.sh

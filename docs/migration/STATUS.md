@@ -44,9 +44,16 @@ Finder now distinguishes its component directory from the shared monorepo
 Git root, binds every tracked monorepo input and requires the actual candidate
 auditor verifier. Its candidate dependency check requires one workspace
 identity for Finder, Codegraph and Rustjet and their exact resolved edges.
-Five pure boundary/cleanup/dependency suites and shell checks pass. Actual
-candidate score/security/artifact production and evidence-mutating hostile
-tests remain pending in a qualified disposable clone. Cleanup preserves
+Its candidate artifact producer binds the shared lock, toolchain and manifests,
+records the complete Cargo configuration chain and refuses credential files
+and unsupported build overrides. It uses a fresh private build target and
+empty Git configuration, with pending candidate provenance. Sixty-five pure
+score cases and candidate artifact/configuration/provenance/cleanup contracts
+pass. Score publication and artifact consumption both require full standard
+audits and independently reject hard findings, contradictory copy-code results,
+caps and malformed data. Five earlier boundary/cleanup/dependency suites and
+shell checks also pass. Actual candidate score/security/artifact production and
+evidence-mutating hostile tests remain pending in a qualified disposable clone. Cleanup preserves
 the hostile tests' external-path topology; standalone exports retain their
 own scratch helper.
 
@@ -71,6 +78,33 @@ followed by a failed exit cannot qualify. Missing coverage tools preserve a
 nonzero failure. Nineteen isolated dispatcher cases and shell checks passed;
 they do not produce actual coverage or mutation evidence.
 
+Coverage validation now requires a valid baseline and complete LCOV measurements
+for every requested crate. It compares the unrounded ratio with the existing
+floor. Mutation evidence must come from a fresh completed run, with a passing
+baseline and one consistent terminal result for every selected mutant. Aborted,
+partial, stale or empty results fail. All 63 synthetic evidence cases and shell
+checks pass; the existing coverage floors, upward-only baseline update policy
+and final mutation audit requirements remain. Real producer qualification is
+still pending.
+
+Source-install tests now preserve verified original artifacts before deliberate
+tampering, detach Cargo hardlinks, and restore through held directory and file
+descriptors. Failed tests or uncertain cleanup retain recovery copies and
+return failure. Eighteen synthetic transaction scenarios and shell checks
+passed; a new exact-source installation run remains required.
+
+Exact `22535202884b423e041a23adbcbc927d94eab179` passed a source build and
+installation under a fresh unprivileged Linux identity with empty Cargo, npm,
+HOME and XDG caches. The isolated filesystem hid the host home, neighboring
+repositories and service sockets; private host-forge connections were refused.
+Public npm and immutable Redline access passed. The web/release build, source
+installer, stale/tampered artifact refusals and all three installed-binary
+standalone tests passed, including protected PR review/check/merge and durable
+restart. Source, artifact and compiler hashes matched afterward. The disposable
+clone was removed after mount and symlink inspection. This proves the preserved
+local commit with anonymous dependencies; it does not establish public GitHub
+origin availability or qualify the complete CI matrix or subsequent changes.
+
 The real installed auditor ran against exact `5fab2aea` and failed the root
 gate at 64 against 85, with eight caps and 32 high/critical findings. Root/Core
 gates now reject malformed policy/report data and count actual findings
@@ -79,6 +113,9 @@ threshold cases pass. Hosted CI uses a thin `ops/ci/monorepo.sh` delegate to
 the existing shared root command, and root attribute metadata has ownership
 and test routes. Component context and complete text coverage still require
 auditor repair; these checks do not qualify the full audit or CI matrix.
+The Jankurai maintainer confirmed that released `v1.7.0` still has these
+component-classification and full-text inventory defects. The existing
+immutable consumer pin remains unchanged pending the required producer fixes.
 
 `import-updates.json` records later source deltas without replacing the
 original import mappings. Deploy's two-commit update through `b388edc5` was
