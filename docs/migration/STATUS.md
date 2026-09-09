@@ -94,9 +94,17 @@ Deploy's full PR wrapper now discovers the API member's Cargo workspace and
 checks its actual root lock, preserving standalone exports and the monorepo
 layout. It rejects missing, linked, replaced or modified inputs and retains
 both existing recheck points. All 39 synthetic cases and actual read-only
-workspace discovery pass; this does not qualify the full wrapper. The separate
-Core, Runner, Deploy and Intelligence metadata guards still assume a local
-component manifest and require repair before complete legacy qualification.
+workspace discovery pass; this does not qualify the full wrapper.
+
+Core, Runner, Deploy and Intelligence now discover the workspace through an
+owned member manifest and validate their complete package sets: 10, 20, three
+and six respectively. Locked metadata must match the physical Git root;
+optional full checks select every owned package in the monorepo and retain
+`--workspace` in standalone exports. Runner's existing 5.0.0 assertion applies
+only to its packages, preserving other components' 5.1.0 versions. Independent
+review and all 77 synthetic cases pass, as do real locked offline metadata
+checks for the four owning sets. The complete owning commands and exported
+builds remain unqualified; existing side assertions and proof thresholds remain.
 
 Legacy cleanup accounts for 214 partial merge files and all 107 declared dirty
 patch outputs in restored private Git histories and a path-by-path disposition

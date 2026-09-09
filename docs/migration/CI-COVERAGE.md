@@ -56,10 +56,13 @@ commands; the dispatcher repair alone cannot make the required union pass.
 Deploy's lock guard now binds Cargo's actual workspace manifest and root lock
 for both standalone exports and the monorepo. Its 39 synthetic cases and
 read-only workspace discovery pass. Core, Runner, Deploy and Intelligence
-still guard metadata checks on a component-local `Cargo.toml` that is absent
-in the monorepo. Those checks need explicit component package selection;
-Runner's version assertion must preserve other components' 5.1.0 packages.
-This remaining omission is not covered by the lock or dispatcher repairs.
+now require locked metadata from an owning member manifest and compare their
+complete manifest/name sets with the actual workspace: 10, 20, three and six
+packages. Full checks select all owned packages in the monorepo and keep
+`--workspace` for standalone exports. Runner's version assertion covers only
+its packages, preserving other components' 5.1.0 versions. All 77 synthetic
+cases and real offline metadata checks pass; actual complete owning commands,
+their side assertions and independently built exports still require execution.
 
 Do not port false success behavior. Core/Intelligence/Release Ops/Web now
 delegate independent auxiliary producers to one root implementation; their
