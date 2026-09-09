@@ -53,7 +53,7 @@ fn physical(path: &Path) -> Result<PathBuf> {
     Ok(path.to_owned())
 }
 
-fn validate_exit(code: Option<i32>, state: &Value, expected: i32) -> Result<()> {
+fn validate_container_status(code: Option<i32>, state: &Value, expected: i32) -> Result<()> {
     ensure!(
         !matches!(code, Some(125..=127)),
         "engine/entrypoint error is not a sandbox verdict"
@@ -368,7 +368,7 @@ impl Engine {
         );
         let output = self.docker(&strings(&["start", "--attach", &id]), 45)?;
         let after = self.json(&strings(&["inspect", &id]))?;
-        validate_exit(output.code, &after[0]["State"], expected)?;
+        validate_container_status(output.code, &after[0]["State"], expected)?;
         if expected == 137 {
             ensure!(
                 after[0]["State"]["OOMKilled"] == true,
@@ -882,19 +882,19 @@ fn hardened_oci_profile_enforces_required_matrix() -> Result<()> {
 fn engine_failures_never_count_as_sandbox_success() {
     let state =
         json!({"Status":"exited","ExitCode":125,"Error":"","StartedAt":"2026-09-09T00:00:00Z"});
-    assert!(validate_exit(Some(125), &state, 125).is_err());
-    assert!(validate_exit(Some(127), &state, 127).is_err());
-    assert!(validate_exit(None, &state, 0).is_err());
+    assert!(validate_container_status(Some(125), &state, 125).is_err());
+    assert!(validate_container_status(Some(127), &state, 127).is_err());
+    assert!(validate_container_status(None, &state, 0).is_err());
     assert!(records("{}", "memory").is_err());
     assert!(records("{\"probe\":\"sockets\"}", "memory").is_err());
     assert!(records("", "memory").is_err());
     assert!(records("[]", "memory").is_err());
     let mut success = json!({"Status":"exited","ExitCode":0,"Error":"","StartedAt":"2026-09-09T00:00:00Z","OOMKilled":false});
-    assert!(validate_exit(Some(0), &success, 0).is_ok());
+    assert!(validate_container_status(Some(0), &success, 0).is_ok());
     success["ExitCode"] = json!(137);
-    assert!(validate_exit(Some(137), &success, 137).is_err());
+    assert!(validate_container_status(Some(137), &success, 137).is_err());
     success["OOMKilled"] = json!(true);
-    assert!(validate_exit(Some(137), &success, 137).is_ok());
+    assert!(validate_container_status(Some(137), &success, 137).is_ok());
 }
 
 #[test]
