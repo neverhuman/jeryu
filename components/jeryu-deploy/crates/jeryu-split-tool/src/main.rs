@@ -364,6 +364,10 @@ fn validate_manifest_value(value: &Value, check_paths: bool) -> Result<()> {
 
 fn manifest_command(path: &Path, json: bool, check_paths: bool) -> Result<()> {
     let value = read_toml(path)?;
+    let required = string_array(table(&value, "manifest")?, "required_repos", "manifest")?;
+    if !required.iter().any(|name| name == "jeryu") {
+        bail!("manifest.required_repos must include the public portal repo jeryu");
+    }
     validate_manifest_value(&value, check_paths)?;
     let repos = repositories(&value)?;
     if json {

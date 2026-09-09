@@ -58,3 +58,131 @@ fn flag_consumed_as_manifest_path_preserves_legacy_unreadable_error() {
         b"manifest error: manifest not readable: --json\n"
     );
 }
+
+fn portal_manifest_fixtures() -> [(&'static str, toml::Value); 2] {
+    use toml::Value;
+    let historical: Value = toml::from_str(
+        r#"
+required_repos = ["jeryu"]
+[[repo]]
+name = "jeryu"
+path = "/tmp/jeryu"
+github_slug = "neverhuman/jeryu"
+jeryu_slug = "jeryu/jeryu"
+profile = "portal"
+default_branch = "main"
+current_tag = "jeryu-v5.0.0-split.0"
+required_check = "jeryu/required"
+has_jeryu_std = true
+"#,
+    )
+    .unwrap();
+    let mut candidate: Value = toml::from_str(
+        r#"
+schema_version = "jeryu.monorepo/v1"
+required_repos = ["jeryu"]
+repo_family = "jeryu-split"
+release_lineage = "v5"
+status = "candidate"
+formal_ga = false
+[handover]
+status = "pending-protected-review"
+[storage]
+default_backend = "sqlite"
+bundled_sqlite = true
+[redline]
+role = "optional-compatibility-proof"
+required_for_release = false
+contract_manifest = "components/jeryu-release-ops/tests/redline/Cargo.toml"
+two_consumer_proof_required = true
+"#,
+    )
+    .unwrap();
+    let names = [
+        "jeryu",
+        "jeryu-cache",
+        "jeryu-ci-runner",
+        "jeryu-core",
+        "jeryu-deploy",
+        "jeryu-intelligence",
+        "jeryu-jira",
+        "jeryu-release-ops",
+        "jeryu-tool",
+        "jeryu-tool-finder",
+        "jeryu-web",
+    ];
+    let repos = names
+        .into_iter()
+        .map(|name| {
+            let mut repo = historical["repo"][0].clone();
+            repo["name"] = Value::String(name.into());
+            repo["path"] = Value::String(if name == "jeryu" {
+                ".".into()
+            } else {
+                format!("components/{name}")
+            });
+            repo.as_table_mut()
+                .unwrap()
+                .insert("mirror_github_main".into(), Value::Boolean(false));
+            repo
+        })
+        .collect();
+    candidate
+        .as_table_mut()
+        .unwrap()
+        .insert("repo".into(), Value::Array(repos));
+
+    [("historical", historical), ("candidate", candidate)]
+}
+
+#[test]
+fn manifest_command_requires_portal_membership_for_both_schemas() {
+    use toml::Value;
+
+    let temporary = tempfile::tempdir().unwrap();
+    for (schema, valid) in portal_manifest_fixtures() {
+        let path = temporary.path().join(format!("{schema}.toml"));
+        let path_argument = path.to_str().unwrap();
+        std::fs::write(&path, toml::to_string(&valid).unwrap()).unwrap();
+        let output = run_manifest(&["--manifest", path_argument]);
+        assert!(
+            output.status.success(),
+            "{schema}: {}",
+            String::from_utf8_lossy(&output.stderr),
+        );
+        assert!(!output.stdout.is_empty(), "{schema}: valid manifest output");
+
+        let mut missing = valid.clone();
+        missing.as_table_mut().unwrap().remove("required_repos");
+        let mut invalid_manifests = vec![missing];
+        for required in [
+            Value::Array(Vec::new()),
+            Value::Array(vec![Value::String("another-repo".into())]),
+            Value::String("jeryu".into()),
+            Value::Integer(1),
+            Value::Array(vec![Value::Boolean(true)]),
+        ] {
+            let mut invalid = valid.clone();
+            invalid["required_repos"] = required;
+            invalid_manifests.push(invalid);
+        }
+        for invalid in invalid_manifests {
+            std::fs::write(&path, toml::to_string(&invalid).unwrap()).unwrap();
+            let output = run_manifest(&["--manifest", path_argument]);
+            assert_eq!(output.status.code(), Some(1), "{schema}");
+            assert!(output.stdout.is_empty(), "{schema}");
+            assert!(
+                String::from_utf8_lossy(&output.stderr).contains("required_repos"),
+                "{schema}: {}",
+                String::from_utf8_lossy(&output.stderr),
+            );
+        }
+
+        let mut empty = valid;
+        empty["repo"] = Value::Array(Vec::new());
+        std::fs::write(&path, toml::to_string(&empty).unwrap()).unwrap();
+        let output = run_manifest(&["--manifest", path_argument]);
+        assert_eq!(output.status.code(), Some(1), "{schema}: empty inventory");
+        assert!(output.stdout.is_empty(), "{schema}: empty inventory");
+    }
+}

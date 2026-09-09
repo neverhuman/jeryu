@@ -28,8 +28,20 @@ CLI contracts), the API dependency identity test, all five Obs integration
 tests, affected warning-denied Clippy, candidate manifest routing and CI
 dispatch checks pass. The separate Redline harness passes formatting, Clippy,
 the original transaction/reopen test and immutable four-package identity test.
-An empty-cache build and installed runtime at the committed successor remain
-the next proof; these local checks do not qualify publication or all CI.
+At exact `f5fb699bf6e74e2d95a9c2480345131c34e443ff`, an empty-cache source
+build and installation passed under a fresh unprivileged Linux identity.
+HOME, Cargo, npm and XDG started empty; the isolated filesystem hid the host
+home and service sockets, and host-forge probes were refused. The release
+build used anonymous registries with Git dependency transport disabled. Its
+locked all-feature graph contained 65 members, 459 packages, no Git or Redline
+dependencies and one bundled SQLite identity. All 18 installer transaction
+scenarios and three installed server/CLI tests passed, including authenticated
+Git, protected review/check/merge and restart persistence. Source, compiler and
+artifact digests matched afterward. The run completed in 427 seconds, and
+its scratch was removed after process, link, mount and identity checks.
+Independent review verified all 50 retained evidence files and clean source.
+This used an exact local Git clone with anonymous dependencies; public GitHub
+source availability and complete CI remain separate requirements.
 
 At exact `7b9781b1`, the complete ordinary Rust lane passed formatting,
 warning-denied Clippy and 2,202 tests with zero failures. Two ignored cases
@@ -68,8 +80,9 @@ accounts for all 405 historical/current third-party source-map entries and
 their exact locked archives. It distributes 24 upstream notice texts, with
 explicit provenance for packages whose archives omit licenses and separate
 build-producer attribution. See [the record and its limits](../notices/web-bundles.md).
-The added served notice has an HTTP MIME/hash assertion; its production build
-and runtime verification remain pending. Publication review remains separate.
+The added served notice's HTTP MIME/hash assertion passed in the fresh
+`f5fb699b` installation above. The separate complete source-map digest wrapper
+and publication review remain pending.
 
 Split qualification now rejects unreadable/empty component inventories,
 requires exact clean source and exports before/after execution, and uses fresh
@@ -105,6 +118,23 @@ only to its packages, preserving other components' 5.1.0 versions. Independent
 review and all 77 synthetic cases pass, as do real locked offline metadata
 checks for the four owning sets. The complete owning commands and exported
 builds remain unqualified; existing side assertions and proof thresholds remain.
+
+Core, Runner and Intelligence now reuse that owning metadata immediately
+before nextest, selecting their 10, 19 ordinary and six packages explicitly.
+Runner's sandbox package remains in the separate privileged proof. Locked
+selection prevents other components and privileged tests from entering these
+ordinary component suites. All 66 synthetic wrapper cases pass; real nextest
+execution is pending. Runner's inherited sandbox-skip environment override
+still needs reconciliation and cannot qualify a skipped required proof.
+
+The root manifest check now calls the existing Rust manifest command, which
+requires a typed `required_repos` array containing `jeryu`. This requirement
+applies at the portal command boundary; generic fleet subset validation remains
+unchanged. Its new CLI scenarios still require compilation and execution.
+CI tool bootstrap now reuses the existing scratch guard, removes scratch only
+after success and inspection, and retains failed downloads with their original
+failure status. Three synthetic cleanup cases pass; real bootstrap execution
+at this successor remains pending.
 
 Legacy cleanup accounts for 214 partial merge files and all 107 declared dirty
 patch outputs in restored private Git histories and a path-by-path disposition

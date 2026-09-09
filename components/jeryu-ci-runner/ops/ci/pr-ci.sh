@@ -77,7 +77,17 @@ JERYU_SECURITY_NETWORK=1 bash ops/ci/security.sh
 bash ops/ci/artifact_support.sh
 
 echo "[pr-ci] workspace test suite (sandbox runtime tests need real namespaces; see deploy pr-ci precedent)" >&2
-cargo nextest run --locked --workspace --exclude jeryu-sandbox-linux --build-jobs "$JOBS" --test-threads "$JOBS"
+# Re-admit owning metadata after the preceding lanes before selecting tests.
+# shellcheck source=ops/ci/cargo-scope.sh
+source ops/ci/cargo-scope.sh
+nextest_scope=()
+for package in "${owned_packages[@]}"; do
+  # Runtime sandbox tests remain in the separate escape matrix below.
+  [[ $package != jeryu-sandbox-linux ]] || continue
+  nextest_scope+=(--package "$package")
+done
+cargo nextest run --locked --manifest-path "$member_manifest" "${nextest_scope[@]}" \
+  --build-jobs "$JOBS" --test-threads "$JOBS"
 if [ "${JERYU_SKIP_SANDBOX_MATRIX:-0}" != "1" ]; then
   echo "[pr-ci] sandbox escape matrix (docker)" >&2
   bash tests/sandbox_escape_matrix.sh

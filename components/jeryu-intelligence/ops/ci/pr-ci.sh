@@ -70,7 +70,15 @@ bash ops/ci/security.sh
 bash ops/ci/artifact_support.sh
 
 echo "[pr-ci] workspace test suite" >&2
-cargo nextest run --workspace --build-jobs "$JOBS" --test-threads "$JOBS"
+# Re-admit owning metadata after the preceding lanes before selecting tests.
+# shellcheck source=ops/ci/cargo-scope.sh
+source ops/ci/cargo-scope.sh
+nextest_scope=()
+for package in "${owned_packages[@]}"; do
+  nextest_scope+=(--package "$package")
+done
+cargo nextest run --locked --manifest-path "$member_manifest" "${nextest_scope[@]}" \
+  --build-jobs "$JOBS" --test-threads "$JOBS"
 echo "[pr-ci] codegraph oracle + tool-build lanes" >&2
 bash ops/ci/codegraph-oracle.sh
 bash ops/ci/codegraph-tool-build.sh

@@ -14,8 +14,29 @@ mkdir -p "$tool_root/bin"
 [[ ! -L "$root/target" && ! -L "$tool_root" && ! -L "$tool_root/bin" ]] || {
   printf 'CI tools require physical directories\n' >&2; exit 1;
 }
+# shellcheck source=/dev/null
+source "$root/tests/scratch.sh"
 scratch=$(mktemp -d "$tool_root/bootstrap.XXXXXXXX")
-trap 'rm -rf -- "$scratch"' EXIT
+jeryu_record_test_scratch "$scratch" || {
+  printf 'Retaining unadmitted CI tool scratch: %s\n' "$scratch" >&2; exit 1;
+}
+cleanup() {
+  local result=$?
+  trap - EXIT
+  if (( result == 0 )); then
+    jeryu_remove_test_scratch || {
+      printf 'Retaining changed, linked, or mounted CI tool scratch: %s\n' "$scratch" >&2
+      result=1
+    }
+  else
+    printf 'Retaining failed CI tool scratch: %s\n' "$scratch" >&2
+  fi
+  exit "$result"
+}
+trap cleanup EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
 while read -r name version member digest url extra; do
   [[ -n "$name" && $name != \#* ]] || continue
   [[ -z "${extra:-}" && $name =~ ^[a-z][a-z-]*$ && $digest =~ ^[0-9a-f]{64}$ && $url == https://github.com/* ]] || {

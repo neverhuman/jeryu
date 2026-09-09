@@ -15,6 +15,14 @@ assert that even their all-feature graph uses bundled SQLite without Redline.
 The protected Redline consumer-evidence producer and original-retirement
 requirements remain separate; this separation does not waive those proofs.
 
+Exact `f5fb699bf6e74e2d95a9c2480345131c34e443ff` passed an empty-cache
+unprivileged source build/install with Git dependency transports disabled,
+all 18 installer scenarios and three installed server/CLI process tests.
+Independent review verified the 65-member, 459-package bundled SQLite graph
+with no Git or Redline dependencies and the retained evidence. This qualifies
+that local exact-source runtime path; public source-origin availability and
+the complete matrix at the final reviewed commit remain required.
+
 | Required proof | Root command | Preserved acceptance and remaining work |
 | --- | --- | --- |
 | Rust product/protocol/property/migrations/docs | `bash scripts/ci.sh rust` | Formatting; warning-denied Clippy on all targets/features; workspace tests. Includes Work properties/SQLite migrations, Runner schema contracts, Finder CLI contracts, Git differential oracle, CI IR/proof/workcell/agentbridge and API tests. The paid external-model smoke is optional. Native sandbox and real Docker execution need separate lanes; a silent early return in the historical Docker smoke is not execution evidence. |
@@ -63,6 +71,19 @@ packages. Full checks select all owned packages in the monorepo and keep
 its packages, preserving other components' 5.1.0 versions. All 77 synthetic
 cases and real offline metadata checks pass; actual complete owning commands,
 their side assertions and independently built exports still require execution.
+
+Core, Runner and Intelligence share their owning admission between check and
+nextest. The latter rechecks metadata after preceding lanes and explicitly
+selects 10, 19 ordinary and six packages in both layouts, preserving jobs,
+threads, features and side proofs. The separately tested Runner sandbox
+package remains excluded from ordinary nextest. All 66 synthetic wrapper cases
+pass; real owning nextest and privileged execution remain pending. The inherited
+`JERYU_SKIP_SANDBOX_MATRIX` override cannot qualify a skipped required proof.
+Root manifest admission delegates to the existing Rust command and retains
+the portal-membership assertion without tightening generic fleet subsets;
+new CLI cases are awaiting execution. Bootstrap cleanup retains failed
+downloads and checks successful scratch before removal; three synthetic cases
+pass without changing tool pins or installation checks.
 
 Do not port false success behavior. Core/Intelligence/Release Ops/Web now
 delegate independent auxiliary producers to one root implementation; their
