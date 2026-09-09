@@ -6,5 +6,5 @@ Do not edit generated TypeScript files by hand.
 Regenerate with:
 
 ```bash
-rtk cargo run -p jeryu-jira --bin export_contracts
+rtk cargo run -p jeryu-jira --bin jeryu-jira-export-contracts
 ```

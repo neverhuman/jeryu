@@ -4,30 +4,37 @@ set -euo pipefail
 root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)
 cd "$root"
 umask 077
+commit=$(git rev-parse HEAD)
+tree=$(git rev-parse 'HEAD^{tree}')
+source_status=$(git status --porcelain=v1 --untracked-files=all) || {
+  printf 'could not inspect product proof source state\n' >&2; exit 1;
+}
+[[ -z $source_status ]] || {
+  printf 'product proof requires a clean source tree\n' >&2; exit 1;
+}
+for directory in "$root/target" "$root/target/ci" "$root/target/ci/product"; do
+  if [[ ! -e $directory && ! -L $directory ]]; then mkdir -m 0700 -- "$directory"; fi
+  [[ -d $directory && ! -L $directory && -O $directory &&
+     $(realpath -e -- "$directory") == "$directory" ]] || {
+    printf 'product evidence directory is not physical and owned\n' >&2; exit 1;
+  }
+done
+evidence=$(mktemp -d "$root/target/ci/product/attempt.XXXXXXXX")
+evidence_identity=$(stat -c '%d:%i:%u:%g:%a' -- "$evidence")
+# shellcheck source=tests/scratch.sh
+source "$root/tests/scratch.sh"
 scratch=$(mktemp -d -t jeryu-product-proof.XXXXXXXX)
-scratch_identity=$(stat -c '%d:%i' -- "$scratch")
+jeryu_record_test_scratch "$scratch"
 cleanup() {
   local result=$?
-  # Inspect links before deletion. Unlinking a link inside this owned scratch
-  # never follows its target; a replaced root or nested mount is retained.
-  if [[ -L "$scratch" || ! -d "$scratch" || $(realpath -e -- "$scratch") != "$scratch" \
-        || $(stat -c '%d:%i' -- "$scratch") != "$scratch_identity" ]] \
-      || findmnt -rn -o TARGET | awk -v root="$scratch" '$0 == root || index($0, root "/") == 1 {found=1} END {exit !found}'; then
-    printf 'retaining changed or mounted proof scratch: %s\n' "$scratch" >&2
-    exit 1
-  fi
-  find "$scratch" -xdev -type l -print > "$scratch/symlinks-before-cleanup.txt"
-  rm -rf --one-file-system --preserve-root=all -- "$scratch"
+  jeryu_remove_test_scratch || result=1
   exit "$result"
 }
 trap cleanup EXIT
-mkdir -p target/ci/product
-evidence="$root/target/ci/product"
-commit=$(git rev-parse HEAD)
-source_state=clean
-if ! git diff --quiet || ! git diff --cached --quiet || [[ -n $(git ls-files --others --exclude-standard) ]]; then
-  source_state=working-tree
-fi
+trap 'exit 130' INT
+trap 'exit 143' TERM
+jq -n --arg commit "$commit" --arg tree "$tree" \
+  '{source_commit:$commit,source_tree:$tree,source_state:"clean"}' >"$evidence/source.json"
 cargo run --locked -p jeryu-cache --bin jeryu-cache -- self-test "$scratch/cache" | tee "$evidence/cache.log"
 for assertion in \
   'ok: fork PR cannot write trusted cache' \
@@ -51,4 +58,17 @@ jq -e --arg commit "$commit" '.repo_id == "local/jeryu" and .commit_sha == $comm
 jq -e -s '.[0].clusters | sort_by(.cluster_id)' "$evidence/codegraph-scan.json" > "$scratch/expected.json"
 jq -e 'sort_by(.cluster_id)' "$evidence/codegraph-clusters.json" > "$scratch/actual.json"
 cmp "$scratch/expected.json" "$scratch/actual.json"
-printf 'Cache poisoning (7 scenarios) and Codegraph CLI persistence passed: base=%s source=%s.\n' "$commit" "$source_state"
+source_status=$(git status --porcelain=v1 --untracked-files=all) || {
+  printf 'could not recheck product proof source state\n' >&2; exit 1;
+}
+[[ $(git rev-parse HEAD) == "$commit" && $(git rev-parse 'HEAD^{tree}') == "$tree" &&
+   -z $source_status ]] || {
+  printf 'source changed during product proof\n' >&2; exit 1;
+}
+[[ -d $evidence && ! -L $evidence && $(realpath -e -- "$evidence") == "$evidence" &&
+   $(stat -c '%d:%i:%u:%g:%a' -- "$evidence") == "$evidence_identity" ]] || {
+  printf 'product evidence directory changed during execution\n' >&2; exit 1;
+}
+jeryu_remove_test_scratch
+trap - EXIT
+printf 'Cache poisoning (7 scenarios) and Codegraph CLI persistence passed: source=%s evidence=%s.\n' "$commit" "$evidence"

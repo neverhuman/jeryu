@@ -5,7 +5,7 @@
 Rust contracts are the source of truth. Regenerate TypeScript with:
 
 ```bash
-rtk cargo run -p jeryu-jira --bin export_contracts
+rtk cargo run -p jeryu-jira --bin jeryu-jira-export-contracts
 rtk just contract-drift
 ```
 

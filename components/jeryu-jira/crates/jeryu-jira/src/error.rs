@@ -124,7 +124,7 @@ impl WorkError {
                 purpose: "repair Work row decoding",
                 reason: "stored JSON, timestamps, or enum strings no longer match the Work contract",
                 common_fixes: &[
-                    "regenerate contracts with `rtk cargo run -p jeryu-jira --bin export_contracts`",
+                    "regenerate contracts with `rtk cargo run -p jeryu-jira --bin jeryu-jira-export-contracts`",
                     "rerun `rtk just contract-drift`",
                     "repair malformed rows through a reviewed migration, not ad hoc SQL",
                 ],

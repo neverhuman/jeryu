@@ -91,9 +91,9 @@ Source-install tests now preserve verified original artifacts before deliberate
 tampering, detach Cargo hardlinks, and restore through held directory and file
 descriptors. Failed tests or uncertain cleanup retain recovery copies and
 return failure. Eighteen synthetic transaction scenarios and shell checks
-passed; a new exact-source installation run remains required.
+passed, followed by the real fresh-identity installation proof below.
 
-Exact `22535202884b423e041a23adbcbc927d94eab179` passed a source build and
+Exact `f7d92039f0e84b7ed6f87a9f1657820b985ccaba` passed a source build and
 installation under a fresh unprivileged Linux identity with empty Cargo, npm,
 HOME and XDG caches. The isolated filesystem hid the host home, neighboring
 repositories and service sockets; private host-forge connections were refused.
@@ -104,6 +104,22 @@ restart. Source, artifact and compiler hashes matched afterward. The disposable
 clone was removed after mount and symlink inspection. This proves the preserved
 local commit with anonymous dependencies; it does not establish public GitHub
 origin availability or qualify the complete CI matrix or subsequent changes.
+
+The ordinary Rust lane at the same commit passed formatting, warning-denied
+all-target/all-feature Clippy and 2,196 tests across 257 test/doc-test suites.
+Two cases were ignored there: optional paid model API smoke and the required
+separate Docker lane. Native sandbox is also a separate required lane.
+The isolated test scratch was removed and source remained clean.
+
+Work's contract generator now has the unique binary name
+`jeryu-jira-export-contracts`; Core retains `export_contracts`. This removes
+their shared output collision while preserving package identities and all
+97 generated contracts. The combined contract drift check, affected Clippy,
+19 Work tests including properties/doc-tests, and scratch guards passed.
+Root contract and product commands use the shared scratch cleanup guard.
+Product proof now requires readable clean source state and a fresh evidence
+directory, and reports success only after cleanup. Its actual next-commit
+execution remains pending; dirty-source and failed Git-read refusals passed.
 
 The real installed auditor ran against exact `5fab2aea` and failed the root
 gate at 64 against 85, with eight caps and 32 high/critical findings. Root/Core

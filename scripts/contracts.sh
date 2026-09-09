@@ -7,11 +7,28 @@ mode=${1:---check}
 [[ $# -le 1 && ( $mode == --check || $mode == --write ) ]] || {
   printf 'usage: scripts/contracts.sh [--check|--write]\n' >&2; exit 2;
 }
-temporary=$(mktemp -d)
-trap 'rm -rf -- "$temporary"' EXIT
+umask 077
+# shellcheck source=tests/scratch.sh
+source "$root/tests/scratch.sh"
+temporary=$(mktemp -d -t jeryu-contracts.XXXXXXXX)
+jeryu_record_test_scratch "$temporary"
+cleanup() {
+  local result=$?
+  jeryu_remove_test_scratch || result=1
+  exit "$result"
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 mkdir -p "$temporary/core" "$temporary/work" "$temporary/web"
 generate() {
-  TS_RS_EXPORT_DIR="$2" cargo run --locked -p "$1" --bin export_contracts
+  local binary
+  case $1 in
+    jeryu-readmodel) binary=export_contracts ;;
+    jeryu-jira) binary=jeryu-jira-export-contracts ;;
+    *) printf 'unknown contract owner: %s\n' "$1" >&2; return 1 ;;
+  esac
+  TS_RS_EXPORT_DIR="$2" cargo run --locked -p "$1" --bin "$binary"
 }
 generate jeryu-readmodel "$temporary/core"
 generate jeryu-jira "$temporary/work"
@@ -30,4 +47,6 @@ fi
 compare "$temporary/core" components/jeryu-core/contracts/generated
 compare "$temporary/work" components/jeryu-jira/contracts/generated
 compare "$temporary/web" components/jeryu-web/contracts/generated
+jeryu_remove_test_scratch
+trap - EXIT
 printf 'Rust owners and browser contracts match generated output\n'
