@@ -6,10 +6,8 @@
 # We capture that line, tally results, and print a summary table.
 #
 # Exit policy:
-#   - exit 1 if ANY gate FAILs (or a gate produced no recognizable GATE line).
-#   - PENDING gates do NOT fail the run, but are reported distinctly and are
-#     never hidden.
-#   - exit 0 only when every gate is PASS or PENDING.
+#   - exit 1 for any failed, pending, or unrecognized gate result.
+#   - exit 0 only when every gate exits zero and its final line is its own PASS.
 #
 # Modes:
 #   ci-phases.sh           run all gates, print summary.
@@ -19,6 +17,9 @@ set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "${HERE}/.." && pwd)"
 GATES_DIR="${ROOT}/ops/ci/gates"
+[[ $# == 0 || ( $# == 1 && $1 == --list ) ]] || {
+  echo 'usage: scripts/ci-phases.sh [--list]' >&2; exit 2;
+}
 
 discover_gates() {
   # Newline-delimited, sorted, *.sh only (README.md is skipped naturally).
@@ -27,6 +28,7 @@ discover_gates() {
   fi
 }
 
+gate_paths="$(discover_gates)" || exit 1
 if [ "${1:-}" = "--list" ]; then
   echo "Discovered phase gates in ops/ci/gates/:"
   found=0
@@ -35,7 +37,7 @@ if [ "${1:-}" = "--list" ]; then
     found=1
     printf '  - %s\n' "$(basename "${g}" .sh)"
   done <<EOF
-$(discover_gates)
+${gate_paths}
 EOF
   [ "${found}" -eq 0 ] && echo "  (none found)"
   exit 0
@@ -47,7 +49,7 @@ while IFS= read -r g; do
   [ -z "${g}" ] && continue
   gates+=("${g}")
 done <<EOF
-$(discover_gates)
+${gate_paths}
 EOF
 
 if [ "${#gates[@]}" -eq 0 ]; then
@@ -69,15 +71,25 @@ for g in "${gates[@]}"; do
   echo ">>> running gate: ${name}"
   echo "============================================================"
 
-  # Run the gate, streaming its output to the console while also capturing it
-  # so we can parse the final GATE line. We tolerate a nonzero exit (FAIL).
+  # Capture the complete result so an earlier or nested PASS cannot qualify it.
   out="$(bash "${g}" 2>&1)"
   rc=$?
   printf '%s\n' "${out}"
 
-  # Extract the last line that starts with "GATE <name>:".
-  gate_line="$(printf '%s\n' "${out}" | grep -E '^GATE ' | tail -n 1)"
-  status="$(printf '%s\n' "${gate_line}" | sed -nE 's/^GATE [^:]+: ([A-Z]+).*/\1/p')"
+  gate_line="${out##*$'\n'}"
+  status=""
+  if [[ $gate_line == "GATE ${name}: "* ]]; then
+    result="${gate_line#"GATE ${name}: "}"
+    case "$result" in
+      PASS|PASS[[:space:]]*) status=PASS ;;
+      FAIL|FAIL[[:space:]]*) status=FAIL ;;
+      PENDING|PENDING[[:space:]]*) status=PENDING ;;
+    esac
+  fi
+  if [[ $status == PASS && $rc != 0 ]]; then
+    echo "ci-phases: ${name} reported PASS but exited ${rc}" >&2
+    status=FAIL
+  fi
 
   case "${status}" in
     PASS)
@@ -119,14 +131,13 @@ printf '  totals: PASS=%d  PENDING=%d  FAIL=%d  UNKNOWN=%d  (of %d gates)\n' \
 echo "============================================================"
 
 if [ "${n_pending}" -gt 0 ]; then
-  echo "NOTE: ${n_pending} gate(s) PENDING -- live capability still to be built."
-  echo "      PENDING does not fail the run, but is reported above, not hidden."
+  echo "${n_pending} gate(s) PENDING: required proof did not complete."
 fi
 
-if [ "${n_fail}" -gt 0 ] || [ "${n_unknown}" -gt 0 ]; then
-  echo "RESULT: FAIL ($((n_fail + n_unknown)) gate(s) failed/unknown)."
+if [ "${n_fail}" -gt 0 ] || [ "${n_unknown}" -gt 0 ] || [ "${n_pending}" -gt 0 ]; then
+  echo "RESULT: FAIL ($((n_fail + n_unknown + n_pending)) gate(s) failed/pending/unknown)."
   exit 1
 fi
 
-echo "RESULT: OK (no FAIL gates; PENDING acknowledged)."
+echo "RESULT: OK (every gate passed)."
 exit 0

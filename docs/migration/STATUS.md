@@ -50,10 +50,26 @@ tests remain pending in a qualified disposable clone. Cleanup preserves
 the hostile tests' external-path topology; standalone exports retain their
 own scratch helper.
 
-A wider census retained 343 session Git checkouts and 5,034 Web test databases
-outside the source family pending lifetime and ownership review. The claim
-of one checkout per canonical source repository does not cover those runtime
-and test directories; their contents have not been discarded.
+A wider census identified 5,034 Web test databases outside the source family.
+Their 278,851,584 bytes were privately archived, restored and compared before
+individual removal, with repeated metadata, link, mount, open-handle and held-
+descriptor checks. Test WebState clones now share a fixture owner that removes
+both auxiliary databases and sidecars when the last state drops. Three lifetime
+and cleanup-refusal tests, two Codegraph route tests, one Work route test,
+formatting and warning-denied API Clippy passed; isolated scratch was empty.
+The production database paths and session workspace behavior are unchanged.
+
+All 343 dirty session Git checkouts remain retained. The live agent-run API
+returned no overlapping references, but its registry does not expose private
+WarmPool leases. Complete preservation and live-reference disposition remain
+required before removal. One checkout per canonical source repository does
+not imply that these runtime and test directories have been retired.
+
+Deploy phase aggregation now requires each command to exit zero and print its
+own final PASS result. Pending, missing or mismatched results and a PASS line
+followed by a failed exit cannot qualify. Missing coverage tools preserve a
+nonzero failure. Nineteen isolated dispatcher cases and shell checks passed;
+they do not produce actual coverage or mutation evidence.
 
 The real installed auditor ran against exact `5fab2aea` and failed the root
 gate at 64 against 85, with eight caps and 32 high/critical findings. Root/Core

@@ -37,8 +37,11 @@ workflows must each receive a root command.
 Do not port false success behavior. Core/Intelligence/Release Ops/Web carry
 identical auxiliary proof templates that swallow producer failures and
 generate substitute artifacts. Tool creates a ratchet baseline from its own
-candidate, and one Deploy coverage wrapper translates missing-tool exit 3
-into success. The stricter Cache/Runner/Work/Deploy assertions above are the
+candidate. Deploy's phase wrapper now preserves missing-tool exit 3 as failure;
+its aggregate rejects pending results, nonzero exits and mismatched or nonfinal
+PASS lines. Nineteen isolated shell cases cover these reporting failures;
+actual coverage and mutation execution remains required. The stricter
+Cache/Runner/Work/Deploy assertions above are the
 equivalence requirements. Required aggregate success remains unavailable
 until every required proof has a functioning command and exact-source
 execution evidence.

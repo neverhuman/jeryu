@@ -10,7 +10,7 @@
 #   1. Install (pinned) cargo-llvm-cov + cargo-mutants if missing. If an install
 #      genuinely fails in this environment we DO NOT fake green: we write a
 #      skip-with-receipt under target/coverage/ and exit non-zero with code 3 so
-#      the gate wrapper can render PENDING (never silent PASS).
+#      the gate wrapper reports missing required proof as a failure.
 #   2. cargo llvm-cov over the three Deploy-owned crates -> target/llvm-cov/lcov.info
 #      (line_coverage source `rust-lcov` in agent/coverage-sources.toml).
 #   3. cargo-mutants SCOPED to a single critical crate with a hard --timeout
@@ -24,7 +24,7 @@
 #   0  -> artifacts produced, audit ran, hard==0.
 #   1  -> a real failure (artifact produced but hard>0, or audit/parse error).
 #   3  -> a required external tool could not be installed here; skip-with-receipt
-#         was written. The gate wrapper maps this to PENDING, not FAIL.
+#         was written. The gate wrapper preserves this nonzero failure.
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -88,7 +88,7 @@ RECEIPT="${RECEIPT_DIR}/skip-receipt.txt"
 log() { printf '[coverage] %s\n' "$*"; }
 
 # skip_with_receipt <reason...>
-# Record an honest skip and exit 3 (PENDING for the gate wrapper). Never green.
+# Record unavailable tooling and exit 3. Required proof remains incomplete.
 skip_with_receipt() {
   mkdir -p "${RECEIPT_DIR}"
   {

@@ -10,9 +10,9 @@
 #
 # Result policy (never silently green):
 #   coverage.sh exit 0 -> GATE PASS  (artifacts produced; audit hard==0).
-#   coverage.sh exit 3 -> GATE PENDING (a required external tool genuinely could
+#   coverage.sh exit 3 -> GATE FAIL (a required external tool genuinely could
 #                         not be installed on this host; skip-with-receipt was
-#                         written). PENDING does not fail the run but is reported.
+#                         written). Required proof remains incomplete.
 #   any other exit     -> GATE FAIL  (real failure: audit error or hard>0).
 set -uo pipefail
 
@@ -31,8 +31,8 @@ case "${rc}" in
     exit 0
     ;;
   3)
-    echo "GATE ${GATE_NAME}: PENDING (coverage/mutation tooling unavailable on this host; skip-with-receipt at target/coverage/skip-receipt.txt)"
-    exit 0
+    echo "GATE ${GATE_NAME}: FAIL (coverage/mutation tooling unavailable on this host; skip-with-receipt at target/coverage/skip-receipt.txt)"
+    exit 3
     ;;
   *)
     echo "GATE ${GATE_NAME}: FAIL (coverage lane failed; see output above, rc=${rc})"

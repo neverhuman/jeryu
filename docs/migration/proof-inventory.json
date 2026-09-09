@@ -2919,7 +2919,7 @@
       "kind": "proof-implementation-or-input",
       "path": "components/jeryu-deploy/ops/ci/check.sh",
       "port_status": "pending-equivalence-proof",
-      "sha256": "778478f29bb7453f82ec6a743c5e308a930b47e9080d56ce2210416e4896d4d8"
+      "sha256": "4fe29b195ae83deccb17bf94f2c5c9d22f0e69bda36b13f6fb614d23b2f89c88"
     },
     {
       "component": "jeryu-deploy",
@@ -2975,7 +2975,7 @@
       "kind": "proof-implementation-or-input",
       "path": "components/jeryu-deploy/ops/ci/coverage.sh",
       "port_status": "pending-equivalence-proof",
-      "sha256": "50892aec0d39dde0ea60f7dec2c8a0c1c6f513c8a13d131f0bb6ec9f559b34a3"
+      "sha256": "fb0c3aeb7d40d3f47fa9b3aef3a982ab3041efaf905da9186794093a201ccdd0"
     },
     {
       "component": "jeryu-deploy",
@@ -3023,7 +3023,7 @@
       "kind": "proof-implementation-or-input",
       "path": "components/jeryu-deploy/ops/ci/gates/README.md",
       "port_status": "pending-equivalence-proof",
-      "sha256": "0e72b889b23b4876fef3b4a4a64bf5e81ea652fc36a00a958f8fd7ecb2159155"
+      "sha256": "b38c347df0ca0165fb2fd04beafc313b6ff364e406f53ec636ac3acc027841db"
     },
     {
       "component": "jeryu-deploy",
@@ -3047,7 +3047,7 @@
       "kind": "proof-implementation-or-input",
       "path": "components/jeryu-deploy/ops/ci/gates/coverage.sh",
       "port_status": "pending-equivalence-proof",
-      "sha256": "8286a6b026e0d76510711c395fd515fa7a53d879771ec1fbe61b9e28dc21e1c7"
+      "sha256": "af6bfb682f7d8f274fefeffd238d0b87910439481515f3542953d84ff9f4c275"
     },
     {
       "component": "jeryu-deploy",
@@ -3535,7 +3535,7 @@
       "kind": "proof-implementation-or-input",
       "path": "components/jeryu-deploy/scripts/ci-phases.sh",
       "port_status": "pending-equivalence-proof",
-      "sha256": "3751c3d2d82d74b20a8b73cd3ab874c6098610ab29a398214bcf16b0d319f615"
+      "sha256": "196fe6dddb0374fb6b152e1d084beb9d127ec06ec81777f5044f36b4a5ee9d00"
     },
     {
       "component": "jeryu-deploy",
@@ -3568,6 +3568,14 @@
       "path": "components/jeryu-deploy/scripts/stage-web-dist.sh",
       "port_status": "pending-equivalence-proof",
       "sha256": "35a8d47ca88636bf6414a62c1599760e387216dd53152d7e541fc63b93d8409e"
+    },
+    {
+      "component": "jeryu-deploy",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-deploy/scripts/test-ci-phases.sh",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "25938d60620f51d2ba9438bd71ee5bf78f481061637972dadc4506fe06408963"
     },
     {
       "component": "jeryu-deploy",

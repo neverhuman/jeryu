@@ -7,20 +7,20 @@ phase. A gate prints exactly one final line:
 GATE <name>: PASS | FAIL | PENDING
 ```
 
-and exits `0` only when the result is `PASS` or an acknowledged `PENDING`.
+and exits `0` only when the result is `PASS`.
 A gate never reports green for a capability that has not been built yet.
 
 Run all gates and get a summary table:
 
 ```bash
 bash ops/ci/gates/agent-substrate.sh  # direct in-cell agent substrate gate
-bash scripts/ci-phases.sh          # run every gate, print summary, exit 1 on any FAIL
+bash scripts/ci-phases.sh          # run every gate; require every result to pass
 bash scripts/ci-phases.sh --list   # just list the discovered gates
 ```
 
-The aggregator exits nonzero if **any** gate `FAIL`s (or emits no recognizable
-`GATE` line). `PENDING` does **not** fail the run but is always reported
-distinctly in the summary, never hidden.
+The aggregator requires every gate to exit zero with its own `PASS` on the final
+output line. A failed command, mismatched or missing result, or `PENDING` result
+fails the aggregate. An earlier or nested gate's `PASS` cannot qualify a run.
 
 ## What "PENDING" means
 
@@ -28,7 +28,7 @@ distinctly in the summary, never hidden.
 capability is not yet wired in this environment (it needs a daemon, a sandbox
 runtime, or an adversarial service). The runnable tests must still pass; only
 the not-yet-buildable live portion is held at `PENDING`. The live portion is
-**never** reported as `PASS`.
+**never** reported as `PASS`, and the aggregate remains failed until it executes.
 
 ## Gate -> phase map
 
@@ -42,7 +42,7 @@ the not-yet-buildable live portion is held at `PENDING`. The live portion is
 | `git-oracle.sh` | gitd as a stock-git-compatible oracle | `cargo test -p jeryu-gitd` plus a local differential oracle comparing a gitd-managed repo with stock bare Git for refs, object types/content, clone, fetch, and push behavior. | none for the local gate; daemon HTTP/SSH transport oracle remains future hardening |
 | `runner-sandbox.sh` | Isolated job runners (native + OCI) | Pinned `jeryu-runnerd` tests, Deploy-owned API integration tests, and the live Docker escape matrix. | none; inability to execute the live matrix is a failure, not a cosmetic pass |
 | `cache-safety.sh` | Content-addressed cache client boundary | The owned CLI dispatch/self-test contract. Cache implementation and poisoning tests remain release gates of the standalone `jeryu-cache` repository. | none |
-| `coverage.sh` | Coverage + mutation evidence for the jankurai coverage audit | Delegates to `ops/ci/coverage.sh`: `cargo llvm-cov` over the three Deploy-owned crates, an API source ratchet, `cargo-mutants` scoped to `jeryu-split-tool`, then `jankurai coverage audit` asserting `hard=0`. | `PENDING` (not `FAIL`) only when pinned coverage/mutation tooling genuinely cannot be installed; a receipt is mandatory |
+| `coverage.sh` | Coverage + mutation evidence for the jankurai coverage audit | Delegates to `ops/ci/coverage.sh`: `cargo llvm-cov` over the three Deploy-owned crates, an API source ratchet, `cargo-mutants` scoped to `jeryu-split-tool`, then `jankurai coverage audit` asserting `hard=0`. | Missing tooling fails with a diagnostic receipt and nonzero exit. |
 
 ## Conventions
 

@@ -1,5 +1,8 @@
 //! Axum HTTP/WebSocket edge for the local live Jeryu API.
 
+#[cfg(test)]
+mod test_databases;
+
 mod agent_runs;
 pub(crate) mod auth;
 mod ci_evidence;
@@ -145,6 +148,8 @@ pub(crate) struct WebState {
     pub(crate) trust_local_dev: bool,
     pub(crate) secure_cookies: bool,
     pub(crate) auth_rate_limits: Arc<Mutex<BTreeMap<String, auth::RateLimitBucket>>>,
+    #[cfg(test)]
+    _test_databases: Arc<test_databases::TestDatabases>,
 }
 
 impl WebState {
@@ -160,21 +165,13 @@ impl WebState {
         let tui = crate::read_model::assemble_read_model(&core);
         // ForgeCore is Arc-backed, so this handle shares state with `github`.
         let core_handle = core.clone();
+        #[cfg(test)]
+        let test_databases = Arc::new(test_databases::TestDatabases::temporary());
         let codegraph_path = {
             #[cfg(test)]
             {
-                // The durable data_dir is only consulted outside tests. The
-                // path carries a process-wide counter on top of the timestamp:
-                // parallel tests constructing WebStates in the same millisecond
-                // must NOT share one sqlite file (locked-database flakes).
                 let _ = &data_dir;
-                static TEST_DB_SEQ: std::sync::atomic::AtomicU64 =
-                    std::sync::atomic::AtomicU64::new(0);
-                std::env::temp_dir().join(format!(
-                    "jeryu-web-codegraph-{}-{}.sqlite",
-                    jeryu_runner_core::receipt::now_ms(),
-                    TEST_DB_SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
-                ))
+                test_databases.codegraph_path()
             }
             #[cfg(not(test))]
             {
@@ -185,14 +182,7 @@ impl WebState {
         let work_path = {
             #[cfg(test)]
             {
-                let _ = &data_dir;
-                static TEST_WORK_DB_SEQ: std::sync::atomic::AtomicU64 =
-                    std::sync::atomic::AtomicU64::new(0);
-                std::env::temp_dir().join(format!(
-                    "jeryu-web-work-{}-{}.sqlite",
-                    jeryu_runner_core::receipt::now_ms(),
-                    TEST_WORK_DB_SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
-                ))
+                test_databases.work_path().to_path_buf()
             }
             #[cfg(not(test))]
             {
@@ -230,6 +220,8 @@ impl WebState {
             trust_local_dev: true,
             secure_cookies: false,
             auth_rate_limits: Arc::new(Mutex::new(BTreeMap::new())),
+            #[cfg(test)]
+            _test_databases: test_databases,
         }
     }
 
