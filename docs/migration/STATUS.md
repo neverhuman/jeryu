@@ -11,6 +11,16 @@ untracked files, runtime/support material and build output are preserved in
 private custody. Historical active manifests and lockfiles are retained under
 `original-manifests/`; Cargo and npm use only the new root files.
 
+Legacy cleanup accounts for 214 partial merge files and all 107 declared dirty
+patch outputs in restored private Git histories and a path-by-path disposition
+index. All 52 partial `.merged` files contain conflicts; static review found
+their product behavior retained or deliberately superseded in current source.
+The seven partial source copies, 72 abandoned test directories, empty support
+directories and the remaining six-file `dirty/` artifact directory were retired
+after verified preservation and link/mount/identity checks. Raw patches and
+reports remain in owner-only archives. This source accounting does not replace
+execution or release qualification; original canonical repositories remain.
+
 `import-updates.json` records later source deltas without replacing the
 original import mappings. Deploy's two-commit update through `b388edc5` was
 preserved, restored, scanned and integrated at `bdd6c04a`. It preserves the
