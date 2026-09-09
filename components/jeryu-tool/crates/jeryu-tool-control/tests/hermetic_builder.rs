@@ -239,13 +239,252 @@ rm "${docker_socket}"
         root
     );
     let mounts = fs::read_to_string("/proc/self/mountinfo").expect("mount inventory");
-    assert!(
-        !mounts
-            .lines()
-            .filter_map(|line| line.split_whitespace().nth(4))
-            .any(|mount| Path::new(mount).starts_with(&root))
-    );
+    assert!(!mounts
+        .lines()
+        .filter_map(|line| line.split_whitespace().nth(4))
+        .any(|mount| Path::new(mount).starts_with(&root)));
     fs::remove_file(&socket).expect("remove owned socket fixture");
     fs::remove_dir(root).expect("remove empty socket directory");
     check(output);
+}
+
+const LIFECYCLE: &str = r#"
+# Extract the actual production functions and launch sequence. Docker transport
+# alone is synthetic; no daemon, image, container, vendor or compiler is used.
+sed -n '/^container_control_valid() {$/,/^control=/p' "${builder_file}" | sed '$d' >"${test_root}/lifecycle.sh"
+sed -n '/^create_attempted=1$/,/^container_cleanup || die /p' "${builder_file}" >"${test_root}/launch.sh"
+test -s "${test_root}/lifecycle.sh" && test -s "${test_root}/launch.sh"
+source "${test_root}/lifecycle.sh"
+scratch="${test_root}/temporary/owned"
+mkdir -m 700 "${scratch}" "${scratch}/control"
+scratch_identity="$(stat -c '%d:%i:%u' "${scratch}")"
+control="${scratch}/control"
+control_identity="$(stat -c '%d:%i:%u:%a' "${control}")"
+invocation=01234567-89ab-cdef-0123-456789abcdef
+container_name="jeryu-jankurai-${invocation}"
+build_uid="$(id -u)" build_gid="$(id -g)" build_cpus=0,1
+fixture_id=$(printf 'a%.0s' {1..64})
+create_attempted=1 container_removed=0 container_id= docker_call_limit=5
+fixture_mode=ok
+reset_container() {
+  container_removed=0 container_id= fixture_mode=ok
+  printf '%s' "${fixture_id}" >"${control}/cid"
+  : >"${test_root}/engine.calls"
+  jq -n --arg id "${fixture_id}" --arg name "${container_name}" --arg invocation "${invocation}" \
+    --arg image "${JANKURAI_BUILDER_IMAGE_ID}" --arg user "${build_uid}:${build_gid}" \
+    --arg source "${source_root}" --arg scratch "${scratch}" '{
+    Id:$id,Name:("/"+$name),Image:$image,Config:{User:$user,Labels:{"org.jeryu.builder.invocation":$invocation}},
+    State:{Running:false,Status:"created",ExitCode:0},Mounts:[
+      {Type:"bind",Source:$source,Destination:"/opt/jeryu/jankurai",RW:false},
+      {Type:"bind",Source:($scratch+"/vendor"),Destination:"/opt/jeryu/vendor",RW:false},
+      {Type:"bind",Source:($scratch+"/cargo-config.toml"),Destination:"/usr/local/cargo/config.toml",RW:false},
+      {Type:"bind",Source:($scratch+"/target"),Destination:"/opt/jeryu/target",RW:true},
+      {Type:"bind",Source:($scratch+"/out"),Destination:"/opt/jeryu/out",RW:true}
+    ]}' >"${control}/backend.json"
+}
+change_container() {
+  jq "$1" "${control}/backend.json" >"${control}/next.json"
+  mv "${control}/next.json" "${control}/backend.json"
+}
+local_docker() {
+  local verb=$1
+  [[ "$1" != container ]] || { verb=$2; shift; }
+  shift
+  printf '%s\n' "${verb}" >>"${test_root}/engine.calls"
+  case "${verb}" in
+    create)
+      [[ "$*" == *"--cidfile ${control}/cid --name ${container_name}"* &&
+         "$*" == *"--label org.jeryu.builder.invocation=${invocation}"* &&
+         "$*" == *"--network none --read-only --cap-drop ALL"* ]] || return 90
+      [[ "${docker_call_limit}" == 30 ]] || return 91
+      case "${fixture_mode}" in
+        create-no-id) return 23 ;;
+        create-partial) printf '%s' "${fixture_id}" >"${control}/cid"; return 23 ;;
+        create-wrong-label) change_container '.Config.Labels["org.jeryu.builder.invocation"]="foreign"' ;;
+      esac
+      printf '%s' "${fixture_id}" >"${control}/cid"
+      printf '%s\n' "${fixture_id}"
+      ;;
+    start)
+      [[ "$*" == "--attach ${fixture_id}" && "${docker_call_limit}" == 900 ]] || return 92
+      [[ "${fixture_mode}" != start-fail ]] || return 24
+      change_container '.State.Status="exited"'
+      [[ "${fixture_mode}" != nonzero-exit ]] || change_container '.State.ExitCode=17'
+      ;;
+    inspect)
+      [[ "${docker_call_limit}" == 5 && "${@: -1}" == "${fixture_id}" ]] || return 93
+      [[ "${fixture_mode}" != inspect-fail ]] || return 25
+      cat "${control}/backend.json"
+      ;;
+    stop)
+      [[ "$*" == "--time 1 ${fixture_id}" && "${docker_call_limit}" == 5 ]] || return 94
+      [[ "${fixture_mode}" != stop-fail ]] || return 26
+      change_container '.State.Running=false | .State.Status="exited"'
+      ;;
+    rm)
+      [[ "$*" == "${fixture_id}" && "${docker_call_limit}" == 5 ]] || return 95
+      [[ "${fixture_mode}" != remove-fail ]] || return 27
+      ;;
+    ls)
+      [[ "$*" == "--all --no-trunc --filter id=${fixture_id} --format {{.ID}}" &&
+         "${docker_call_limit}" == 5 ]] || return 96
+      [[ "${fixture_mode}" != absence-fail ]] || return 28
+      [[ "${fixture_mode}" != still-present ]] || printf '%s\n' "${fixture_id}"
+      ;;
+    *) return 97 ;;
+  esac
+}
+die() { printf '%s\n' "$*" >&2; exit 1; }
+launch_fixture() {
+  # A separate shell preserves production errexit even when this helper is an if condition.
+  {
+    printf 'set -euo pipefail\n'
+    declare -p build_uid build_gid build_cpus source_root scratch control invocation container_name \
+      container_id create_attempted container_removed docker_call_limit fixture_id fixture_mode \
+      test_root control_identity scratch_identity "${!JANKURAI_@}"
+    declare -f local_docker change_container die
+    printf 'source %q\nsource %q\n' "${test_root}/lifecycle.sh" "${test_root}/launch.sh"
+  } >"${test_root}/launch-driver.sh"
+  bash "${test_root}/launch-driver.sh"
+}
+reset_container
+"#;
+
+fn lifecycle(script: &str) {
+    run(&format!("{LIFECYCLE}\n{script}"));
+}
+
+#[test]
+fn builder_admits_before_start_and_verifies_successful_exit_and_removal() {
+    lifecycle(
+        r#"
+rm "${control}/cid"
+change_container '.Mounts += [{Type:"tmpfs",Destination:"/tmp",RW:true}]'
+launch_fixture
+test "$(cat "${test_root}/engine.calls")" = $'create\ninspect\nstart\ninspect\ninspect\nrm\nls'
+for mode in create-no-id create-partial create-wrong-label start-fail nonzero-exit; do
+  reset_container
+  rm "${control}/cid"
+  fixture_mode="${mode}"
+  if launch_fixture >"${test_root}/launch.log" 2>&1; then exit 1; fi
+  if [[ "${mode}" == create-* ]]; then
+    ! grep -qx start "${test_root}/engine.calls"
+  fi
+  ! grep -qx rm "${test_root}/engine.calls"
+done
+# A failed create may have written its CID. Only that admitted identity is retired.
+reset_container
+rm "${control}/cid"
+fixture_mode=create-partial
+if launch_fixture >"${test_root}/launch.log" 2>&1; then exit 1; fi
+fixture_mode=ok
+container_cleanup
+test "${container_removed}" = 1
+test "$(cat "${test_root}/engine.calls")" = $'create\ninspect\nrm\nls'
+"#,
+    );
+}
+
+#[test]
+fn builder_cleanup_rejects_foreign_identity_and_unsafe_cid_without_mutation() {
+    lifecycle(
+        r#"
+for mutation in '.Id="foreign"' '.Name="/foreign"' '.Image="foreign"' \
+  '.Config.User="0:0"' '.Config.Labels["org.jeryu.builder.invocation"]="foreign"' \
+  '.Mounts[0].Source="/foreign"' '.Mounts[0].RW=true' \
+  '.Mounts += [{Type:"bind",Source:"/private",Destination:"/control",RW:true}]'; do
+  reset_container
+  change_container "${mutation}"
+  if container_cleanup; then exit 1; fi
+  test "${container_removed}" = 0
+  test "$(cat "${test_root}/engine.calls")" = inspect
+done
+for mode in missing malformed hardlink symlink; do
+  reset_container
+  case "${mode}" in
+    missing) rm "${control}/cid" ;;
+    malformed) printf 'short\n' >"${control}/cid" ;;
+    hardlink) ln "${control}/cid" "${test_root}/cid-alias" ;;
+    symlink) mv "${control}/cid" "${test_root}/cid-alias"; ln -s "${test_root}/cid-alias" "${control}/cid" ;;
+  esac
+  if container_cleanup; then exit 1; fi
+  test ! -s "${test_root}/engine.calls"
+  test "${container_removed}" = 0
+  [[ ! -e "${control}/cid" && ! -L "${control}/cid" ]] || rm "${control}/cid"
+  [[ ! -e "${test_root}/cid-alias" ]] || rm "${test_root}/cid-alias"
+done
+reset_container
+container_read_id
+printf 'b%.0s' {1..64} >"${control}/cid"
+if container_cleanup; then exit 1; fi
+test ! -s "${test_root}/engine.calls"
+reset_container
+mv "${control}" "${scratch}/retained-control"
+mkdir -m 700 "${control}"
+if container_cleanup; then exit 1; fi
+test ! -s "${test_root}/engine.calls"
+rmdir "${control}"
+mv "${scratch}/retained-control" "${control}"
+"#,
+    );
+}
+
+#[test]
+fn builder_cleanup_is_bounded_and_keeps_unknown_daemon_closure_failed() {
+    lifecycle(
+        r#"
+printf '%s\n' "${fixture_id}" >"${control}/cid"
+change_container '.State.Running=true | .State.Status="running"'
+# A TERM trap can run while the start call's dynamic900s limit remains active.
+docker_call_limit=900 container_cleanup 2>"${test_root}/cleanup.stderr"
+printf 'hermetic container custody: id=%s name=%s removed=true\n' \
+  "${fixture_id}" "${container_name}" >"${test_root}/expected-marker"
+cmp "${test_root}/cleanup.stderr" "${test_root}/expected-marker"
+container_cleanup 2>"${test_root}/repeated-cleanup.stderr"
+test ! -s "${test_root}/repeated-cleanup.stderr"
+test "${container_removed}" = 1
+test "$(cat "${test_root}/engine.calls")" = $'inspect\nstop\ninspect\nrm\nls'
+for mode in inspect-fail stop-fail remove-fail absence-fail still-present; do
+  reset_container
+  fixture_mode="${mode}"
+  if [[ "${mode}" == stop-fail ]]; then change_container '.State.Running=true'; fi
+  if container_cleanup 2>"${test_root}/cleanup.stderr"; then exit 1; fi
+  ! grep -F 'removed=true' "${test_root}/cleanup.stderr"
+  test "${container_removed}" = 0
+  test -d "${scratch}" && test -d "${source_root}"
+done
+"#,
+    );
+}
+
+#[test]
+fn installer_retains_source_while_builder_completion_is_unknown() {
+    run(r#"
+sed -n '/^  if \[\[ "${builder_in_flight}" == 1 \]\]; then$/,/^  if \[\[ -n "${candidate_state}"/p' \
+  "${tool_root}/ops/install-jankurai.sh" | sed '$d' >"${test_root}/installer-cleanup.sh"
+test -s "${test_root}/installer-cleanup.sh"
+remove_owned_scratch() { printf 'removed\n' >>"${test_root}/cleanup.calls"; }
+for code in 0 1 130 143; do
+  : >"${test_root}/cleanup.calls"
+  builder_in_flight=1 status="${code}" keep_candidate_state=0 scratch="${source_root}"
+  source "${test_root}/installer-cleanup.sh"
+  test "${keep_candidate_state}" = 1 && test "${status}" = 1
+  test ! -s "${test_root}/cleanup.calls"
+  test -d "${source_root}"
+done
+builder_in_flight=0 scratch_identity=fixture
+source "${test_root}/installer-cleanup.sh"
+test "$(cat "${test_root}/cleanup.calls")" = removed
+# Execute the actual public installer tail. Stdout-only command substitution is
+# the bootstrap transport: diagnostics must survive on stderr, leaving JSON alone.
+candidate_state="${test_root}/candidate-state"
+mkdir -m 700 "${candidate_state}"
+printf 'hermetic container custody: id=%064d name=fixture removed=true\n' 0 >"${candidate_state}/build.log"
+line=$(sed -n '/^    tail -n 20 "${candidate_state}\/build.log"/p' "${tool_root}/ops/install-jankurai.sh")
+test "$(printf '%s\n' "${line}" | wc -l)" = 1 && test -n "${line}"
+emit_installer_result() { eval "${line}"; printf '{"receipt":"synthetic-fixture"}\n'; }
+{ output=$(emit_installer_result); } 2>"${test_root}/transport.stderr"
+test "${output}" = '{"receipt":"synthetic-fixture"}'
+cmp "${test_root}/transport.stderr" "${candidate_state}/build.log"
+"#);
 }

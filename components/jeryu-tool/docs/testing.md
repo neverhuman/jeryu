@@ -95,7 +95,17 @@ The portable hermetic builder has Linux integration tests in
 `cargo test --locked -p jeryu-tool-control --test hermetic_builder` from the
 monorepo root or standalone Tool workspace. These exercise path and output
 refusals, two-CPU admission, offline vendor failure, guarded scratch cleanup,
-and Docker dispatch without ambient credentials or configuration. Synthetic
+and Docker dispatch without ambient credentials or configuration. The container
+lifecycle tests require a private full container ID, invocation label, pinned
+image and exact mounts before start or cleanup; they reject foreign identity,
+failed control calls and uncertain removal. Interrupted builder calls retain
+installer source until separate verified cleanup. Docker controls allow five
+seconds plus two seconds of kill grace each; outer supervisors must allow at
+least sixty seconds before hard-killing a builder during cleanup. Verified removal logs the
+validated full ID and invocation name to stderr; installer diagnostics also use
+stderr so the bootstrap retains them without polluting its JSON result. This
+marker proves only container cleanup, including cleanup after a failed build;
+installation and source qualification still require their own successful results. Synthetic
 fixtures cannot qualify the auditor binary; the real network-disabled build
 must reproduce the manifest's unchanged binary digest separately.
 

@@ -115,13 +115,8 @@ bash "${repo_root}/ops/ci/web.sh"
 
 jeryu_deploy_assert_workspace_lock_unchanged
 echo "[pr-ci] jankurai audit (>= 85)" >&2
-run_governed_jankurai audit . --full --mode advisory --policy agent/audit-policy.toml \
-  --json .jankurai/repo-score.json --md .jankurai/repo-score.md
-score="$(jq -r '.score // 0' .jankurai/repo-score.json)"
-caps="$(jq -c '.caps_applied // []' .jankurai/repo-score.json)"
-echo "[pr-ci] jankurai score=${score} caps=${caps}" >&2
-jq -e '(.score // 0) >= 85 and ((.caps_applied // []) | length == 0)' \
-  .jankurai/repo-score.json >/dev/null
+# The owning gate validates policy, caps and each finding, including advisory reports.
+bash "${repo_root}/ops/ci/score.sh"
 
 echo "[pr-ci] security lane"
 JERYU_SECURITY_NETWORK=1 bash "${repo_root}/ops/ci/security.sh"
