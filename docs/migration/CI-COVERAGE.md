@@ -4,7 +4,8 @@ Local and GitHub CI invoke `bash scripts/ci.sh LANE`. A successful inventory
 check proves source accounting, not proof execution. `proof-inventory.json`
 hashes retained entrypoints, their implementation/input trees, hostile tests,
 policies, release validators and the root commands. Regenerate it with
-`cargo run --locked -p jeryu-split-tool --bin jeryu-split -- proof-inventory`.
+`cargo run --locked -p jeryu-split-tool --bin jeryu-split -- proof-inventory
+> docs/migration/proof-inventory.json`.
 Every command below must pass at the final reviewed source commit; earlier
 commit results do not qualify later changes.
 
