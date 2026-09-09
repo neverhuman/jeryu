@@ -5,7 +5,7 @@ authority, split publication, relocation, and the running service have not
 been cut over. `handover.status` remains `pending-protected-review`.
 
 The September 9 continuation audit does not establish a complete CI pass. The
-latest completed ordinary run at `ea65912f` recorded every selected step and
+ten-step ordinary run at `ea65912f` recorded every selected step and
 closed with a clean source tree and no remaining owned processes or CI locks.
 Nine of ten steps passed; Rust failed before tests because the auditor refused
 the shared, group-writable source ancestors. Those permissions allow another CI
@@ -65,7 +65,14 @@ compilation and all seven builder tests passed. All five standalone process test
 passed under umask `0002`, with no ignored or filtered cases, after their roots
 were given explicit owner-only permissions. The owning proof inventory check also
 passed. The controlled run verified unchanged source and process/lock closure;
-actual Docker and complete private-clone Rust qualification remain pending.
+At `04ab74cd`, the real Docker build reproduced the pinned auditor digest,
+verified its exact container removal, and produced a verified candidate receipt.
+All four Runner transport tests then passed with no ignored or filtered cases.
+The complete root Rust command built Web but failed its formatting check on the
+builder test assertion; the successor restores the owning workspace style. Full
+Rust qualification is still required. The actual standard root audit reported
+64 against the unchanged minimum 85, eight caps and 71 hard findings among 94
+findings. That failure remains open; producer classification is under review.
 
 The successor retains the public `--store` / `JERYU_STORE` interface: SQLite is
 the default, and Redline aliases visibly select that same durable engine. A

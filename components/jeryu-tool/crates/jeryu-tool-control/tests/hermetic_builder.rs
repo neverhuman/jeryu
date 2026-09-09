@@ -239,10 +239,12 @@ rm "${docker_socket}"
         root
     );
     let mounts = fs::read_to_string("/proc/self/mountinfo").expect("mount inventory");
-    assert!(!mounts
-        .lines()
-        .filter_map(|line| line.split_whitespace().nth(4))
-        .any(|mount| Path::new(mount).starts_with(&root)));
+    assert!(
+        !mounts
+            .lines()
+            .filter_map(|line| line.split_whitespace().nth(4))
+            .any(|mount| Path::new(mount).starts_with(&root))
+    );
     fs::remove_file(&socket).expect("remove owned socket fixture");
     fs::remove_dir(root).expect("remove empty socket directory");
     check(output);
