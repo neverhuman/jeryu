@@ -29,6 +29,7 @@ fn source_kind(relative: &str) -> Option<&'static str> {
     .iter()
     .any(|prefix| relative.starts_with(prefix))
         || relative.contains("/tests/")
+        || relative.contains("/examples/")
         || relative.ends_with(".sh")
         || relative.ends_with("package.json")
         || relative.contains("playwright.config.")
@@ -144,6 +145,7 @@ mod tests {
         ] {
             assert!(source_kind(path).is_some(), "missing proof source: {path}");
         }
+        assert!(source_kind("crates/jeryu-runner-oci/examples/oci_probe.rs").is_some());
         assert_eq!(source_kind("docs/migration/proof-inventory.json"), None);
         assert_eq!(source_kind("target/ci/evidence.json"), None);
     }

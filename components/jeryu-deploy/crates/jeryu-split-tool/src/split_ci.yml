@@ -25,16 +25,22 @@ jobs:
           node-version: '26.1.0'
       - run: bash scripts/split-ci.sh ordinary
   sandbox:
-    if: ${{ @SANDBOX@ }}
+    if: @SANDBOX@
     runs-on: ubuntu-24.04
     timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        lane: [sandbox, oci]
     steps:
       - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
         with:
           persist-credentials: false
-      - run: |
+      - env:
+          JERYU_CI_LANE: ${{ matrix.lane }}
+        run: |
           sudo -n env PATH="$PATH" CARGO_HOME="$HOME/.cargo" RUSTUP_HOME="$HOME/.rustup" \
-            CARGO_BUILD_JOBS=2 JERYU_DISPOSABLE_SANDBOX=1 bash scripts/split-ci.sh sandbox
+            CARGO_BUILD_JOBS=2 JERYU_DISPOSABLE_SANDBOX=1 bash scripts/split-ci.sh "$JERYU_CI_LANE"
   required:
     name: @COMPONENT@/required
     if: ${{ always() }}

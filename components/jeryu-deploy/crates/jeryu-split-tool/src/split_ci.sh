@@ -28,7 +28,21 @@ case ${1:-ordinary} in
         source_commit=$(jq -er .source_commit .jeryu-source.json)
         [[ $source_commit =~ ^[0-9a-f]{40}$ ]] || { printf 'invalid source commit\n' >&2; exit 1; }
         scratch=$(mktemp -d)
-        trap 'rm -rf -- "$scratch"' EXIT
+        scratch_identity=$(stat -c '%d:%i' -- "$scratch")
+        cleanup() {
+          local result=$? mounts
+          mounts=$(findmnt -rn -o TARGET) || { printf 'cannot inspect mounts; retaining %s\n' "$scratch" >&2; exit 1; }
+          if [[ -L "$scratch" || ! -d "$scratch" || $(realpath -e -- "$scratch") != "$scratch" \
+                || $(stat -c '%d:%i' -- "$scratch") != "$scratch_identity" ]] \
+              || awk -v root="$scratch" '$0 == root || index($0, root "/") == 1 {found=1} END {exit !found}' <<< "$mounts"; then
+            printf 'retaining replaced or mounted source scratch: %s\n' "$scratch" >&2
+            exit 1
+          fi
+          find "$scratch" -xdev -type l -print >&2
+          rm -rf --one-file-system --preserve-root=all -- "$scratch"
+          exit "$result"
+        }
+        trap cleanup EXIT
         git clone --no-local --no-checkout --quiet https://github.com/neverhuman/jeryu.git "$scratch/source"
         git -C "$scratch/source" fetch --quiet --no-tags origin "$source_commit"
         git -C "$scratch/source" -c core.hooksPath=/dev/null checkout --quiet --detach "$source_commit"
@@ -45,6 +59,10 @@ case ${1:-ordinary} in
       cargo build --locked --workspace
     fi
     ;;
+  oci)
+    [[ $component == jeryu-ci-runner ]] || { printf 'OCI proof requires runner component\n' >&2; exit 1; }
+    bash scripts/test-oci.sh
+    ;;
   sandbox)
     [[ $component == jeryu-ci-runner && ${JERYU_DISPOSABLE_SANDBOX:-0} == 1 ]] || {
       printf 'sandbox proof requires the runner component on a disposable capable Linux host\n' >&2; exit 1;
@@ -56,5 +74,5 @@ case ${1:-ordinary} in
     jq -e '.false_skips == 0 and (.escapes | length) == 4 and all(.escapes[]; .verdict == "blocked")' \
       target/jankurai/runner-sandbox/enforcement.json >/dev/null
     ;;
-  *) printf 'usage: bash scripts/split-ci.sh [ordinary|sandbox]\n' >&2; exit 2 ;;
+  *) printf 'usage: bash scripts/split-ci.sh [ordinary|sandbox|oci]\n' >&2; exit 2 ;;
 esac

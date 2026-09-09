@@ -22,7 +22,21 @@ tool="$(realpath -m "${CARGO_TARGET_DIR:-$root/target}")/debug/jeryu-split"
 evidence="$root/target/split-evidence/$source_commit"
 mkdir -p "$evidence"
 scratch=$(mktemp -d)
-trap 'rm -rf -- "$scratch"' EXIT
+scratch_identity=$(stat -c '%d:%i' -- "$scratch")
+cleanup() {
+  local result=$? mounts
+  mounts=$(findmnt -rn -o TARGET) || { printf 'cannot inspect mounts; retaining %s\n' "$scratch" >&2; exit 1; }
+  if [[ -L "$scratch" || ! -d "$scratch" || $(realpath -e -- "$scratch") != "$scratch" \
+        || $(stat -c '%d:%i' -- "$scratch") != "$scratch_identity" ]] \
+      || awk -v root="$scratch" '$0 == root || index($0, root "/") == 1 {found=1} END {exit !found}' <<< "$mounts"; then
+    printf 'retaining replaced or mounted split scratch: %s\n' "$scratch" >&2
+    exit 1
+  fi
+  find "$scratch" -xdev -type l -print >&2
+  rm -rf --one-file-system --preserve-root=all -- "$scratch"
+  exit "$result"
+}
+trap cleanup EXIT
 failed=0
 for component in "${components[@]}"; do
   printf 'Qualifying %s from %s\n' "$component" "$source_commit"

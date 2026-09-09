@@ -54,6 +54,9 @@ case ${1:-all} in
   splits)
     bash scripts/test-split-exports.sh
     ;;
+  oci)
+    bash components/jeryu-ci-runner/scripts/test-oci.sh
+    ;;
   security)
     bash scripts/bootstrap-ci-tools.sh
     npm ci
@@ -92,7 +95,7 @@ case ${1:-all} in
     done
     ;;
   all)
-    for lane in source public rust web runtime product security sandbox splits legacy; do "$0" "$lane"; done
+    for lane in source public rust web runtime product security sandbox oci splits legacy; do "$0" "$lane"; done
     ;;
-  *) printf 'usage: scripts/ci.sh {source|public|rust|web|runtime|product|security|sandbox|splits|legacy|all}\n' >&2; exit 2 ;;
+  *) printf 'usage: scripts/ci.sh {source|public|rust|web|runtime|product|security|sandbox|oci|splits|legacy|all}\n' >&2; exit 2 ;;
 esac

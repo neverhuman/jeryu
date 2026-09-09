@@ -1987,7 +1987,11 @@ dependencies = [
 name = "jeryu-runner-oci"
 version = "5.0.0"
 dependencies = [
+ "anyhow",
  "jeryu-runner-core",
+ "serde_json",
+ "sha2",
+ "tempfile",
 ]
 
 [[package]]
