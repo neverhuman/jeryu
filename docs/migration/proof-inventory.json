@@ -5919,6 +5919,14 @@
       "component": "jeryu-tool",
       "declaration": null,
       "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-tool/crates/jeryu-tool-control/tests/hermetic_builder.rs",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "c66dccf46c7f35c7dd0666d3bd58c41397e734aee938a0a0199c9e62a18961db"
+    },
+    {
+      "component": "jeryu-tool",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
       "path": "components/jeryu-tool/crates/jeryu-tool-control/tests/properties.rs",
       "port_status": "pending-equivalence-proof",
       "sha256": "c9efdd0b901df47ef717579c0eb62605d49b4e9c8b5b55ff54faa8ca45dcb925"
@@ -5945,7 +5953,7 @@
       "kind": "proof-implementation-or-input",
       "path": "components/jeryu-tool/ops/build-jankurai-hermetic.sh",
       "port_status": "pending-equivalence-proof",
-      "sha256": "f1572e400f39330658af50666e92ca3997036054054d25cfcbe09c5e91763d2f"
+      "sha256": "2e28090212b9ad79e76d6e3fc9f0258b30e1a6f9247cbf25aed15b9c7b930422"
     },
     {
       "component": "jeryu-tool",

@@ -83,6 +83,15 @@ cargo test --locked --offline -p jeryu-tool-control \
 
 ## Drift test
 
+The portable hermetic builder has Linux integration tests in
+`crates/jeryu-tool-control/tests/hermetic_builder.rs`. Run
+`cargo test --locked -p jeryu-tool-control --test hermetic_builder` from the
+monorepo root or standalone Tool workspace. These exercise path and output
+refusals, two-CPU admission, offline vendor failure, guarded scratch cleanup,
+and Docker dispatch without ambient credentials or configuration. Synthetic
+fixtures cannot qualify the auditor binary; the real network-disabled build
+must reproduce the manifest's unchanged binary digest separately.
+
 The load-bearing test is the pin drift check. Editing `tool-manifest.toml` and
 running `ops/render-tool-manifest.sh` must update every consumer; `--check` must
 then be green. Reverting any one consumer by hand must make `--check` fail.
