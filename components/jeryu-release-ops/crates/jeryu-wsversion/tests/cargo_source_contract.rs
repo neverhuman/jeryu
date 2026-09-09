@@ -119,9 +119,25 @@ fn repository_manifest_and_lock_use_one_workspace_identity() {
         .collect();
     assert_eq!(packages.len(), 1, "duplicate rustjet identity");
     assert_eq!(packages[0]["version"].as_str(), Some(VERSION));
-    assert!(
-        packages[0].get("source").is_none(),
-        "rustjet must resolve from the checked-out workspace"
+    let expected_source = if root.join(".jeryu-source.json").is_file() {
+        let provenance: serde_json::Value = serde_json::from_str(
+            &std::fs::read_to_string(root.join(".jeryu-source.json")).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(provenance["component"], "jeryu-release-ops");
+        let source = provenance["source_commit"].as_str().unwrap();
+        assert_eq!(source.len(), 40);
+        assert!(source.bytes().all(|byte| byte.is_ascii_hexdigit()));
+        Some(format!(
+            "git+https://github.com/neverhuman/jeryu.git?rev={source}#{source}"
+        ))
+    } else {
+        None
+    };
+    assert_eq!(
+        packages[0].get("source").and_then(toml::Value::as_str),
+        expected_source.as_deref(),
+        "rustjet must be local in the monorepo and source-commit-bound in a split export"
     );
 }
 

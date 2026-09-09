@@ -16,6 +16,7 @@ use toml::Value;
 mod monorepo;
 mod proof_inventory;
 mod split_export;
+mod split_tree;
 
 #[derive(Debug, Parser)]
 #[command(name = "jeryu-split")]
@@ -221,7 +222,7 @@ fn run(cli: Cli) -> Result<()> {
             component,
             source,
             resolve_lock,
-        } => monorepo::export_tree(Path::new("."), &component, &source, resolve_lock),
+        } => split_tree::export_tree(Path::new("."), &component, &source, resolve_lock),
         Command::Manifest {
             manifest,
             json,

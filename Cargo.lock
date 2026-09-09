@@ -2023,6 +2023,7 @@ dependencies = [
  "jeryu-runner-protocol",
  "jeryu-runner-registry",
  "serde",
+ "serde_json",
 ]
 
 [[package]]

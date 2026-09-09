@@ -3,6 +3,7 @@
 set -euo pipefail
 root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)
 cd "$root"
+export CI=true
 export CARGO_BUILD_JOBS=${CARGO_BUILD_JOBS:-2}
 export JERYU_CI_JOBS=$CARGO_BUILD_JOBS
 export JERYU_WEB_DIST="$root/components/jeryu-web/apps/web/dist"

@@ -230,6 +230,21 @@ fn cargo_identity_and_effective_transport_are_exact() {
         .find(|path| path.join("Cargo.lock").is_file())
         .expect("workspace lock");
     let lock = fs::read_to_string(workspace.join("Cargo.lock")).expect("Cargo lock");
+    let expected_source = if workspace.join(".jeryu-source.json").is_file() {
+        let provenance: serde_json::Value = serde_json::from_str(
+            &fs::read_to_string(workspace.join(".jeryu-source.json")).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(provenance["component"], "jeryu-ci-runner");
+        let source = provenance["source_commit"].as_str().unwrap();
+        assert_eq!(source.len(), 40);
+        assert!(source.bytes().all(|byte| byte.is_ascii_hexdigit()));
+        Some(format!(
+            "source = \"git+https://github.com/neverhuman/jeryu.git?rev={source}#{source}\""
+        ))
+    } else {
+        None
+    };
     for name in ["jeryu-core", "jeryu-gitd"] {
         let packages: Vec<_> = lock
             .split("[[package]]")
@@ -240,9 +255,12 @@ fn cargo_identity_and_effective_transport_are_exact() {
             })
             .collect();
         assert_eq!(packages.len(), 1, "duplicate workspace package identity");
-        assert!(
-            !packages[0].lines().any(|line| line.starts_with("source =")),
-            "internal package must use checked-out source"
+        assert_eq!(
+            packages[0]
+                .lines()
+                .find(|line| line.starts_with("source =")),
+            expected_source.as_deref(),
+            "monorepo packages must be local; split dependencies must bind the originating source commit"
         );
     }
 

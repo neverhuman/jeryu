@@ -2,6 +2,7 @@
 # Generated split check entrypoint. Full source qualification belongs to the monorepo.
 set -euo pipefail
 cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.."
+export CI=true
 export CARGO_BUILD_JOBS=${CARGO_BUILD_JOBS:-2}
 jq -e '.schema_version == "jeryu.split-provenance/v1" and .lock_regeneration_required == false' .jeryu-source.json >/dev/null
 component=$(jq -r .component .jeryu-source.json)
@@ -21,6 +22,21 @@ case ${1:-ordinary} in
       npm --workspace @jeryu/web run test:e2e:matrix
       npm audit --audit-level=high
     else
+      if [[ $component == jeryu-deploy ]]; then
+        # The embedded browser is an explicit dependency of this integration
+        # component. Build it from the same immutable public source revision.
+        source_commit=$(jq -er .source_commit .jeryu-source.json)
+        [[ $source_commit =~ ^[0-9a-f]{40}$ ]] || { printf 'invalid source commit\n' >&2; exit 1; }
+        scratch=$(mktemp -d)
+        trap 'rm -rf -- "$scratch"' EXIT
+        git clone --no-local --no-checkout --quiet https://github.com/neverhuman/jeryu.git "$scratch/source"
+        git -C "$scratch/source" fetch --quiet --no-tags origin "$source_commit"
+        git -C "$scratch/source" -c core.hooksPath=/dev/null checkout --quiet --detach "$source_commit"
+        [[ $(git -C "$scratch/source" rev-parse HEAD) == "$source_commit" ]]
+        (cd "$scratch/source" && npm ci && npm run build)
+        export JERYU_WEB_DIST="$scratch/source/components/jeryu-web/apps/web/dist"
+        export JERYU_REQUIRE_WEB=1
+      fi
       cargo fmt --all -- --check
       cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
       excluded=()

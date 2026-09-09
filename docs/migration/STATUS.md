@@ -103,8 +103,22 @@ wrappers. Cargo/npm resolved each component lock in disposable Git clones;
 the resolver rejected no source identity or external version drift. These
 preparatory resolutions used an explicit temporary Git transport override to
 the exact preserved local source commits. They are not anonymous proof.
-Deterministic repetition and complete independent component checks are the
-next gate. No component mirror has been published or marked qualified.
+All ten locked exports from `f8d215885f36178883a4ea900a076195b799dea5`
+were byte-identical across repeated generation. Cache, Core, Intelligence,
+Work, Tool Finder, Tool and Web passed independent checks in disposable Git
+clones. Runner, Deploy and Release Ops failed tests that assumed every Jeryu
+dependency was local or that the complete 65-package monorepo was present.
+The updated tests retain those monorepo assertions and require external split
+dependencies to bind the provenance commit. Deploy also builds its embedded
+web dependency from that exact public source commit in a disposable clone.
+Those fixes passed targeted tests and warning-denied Clippy; independent
+verification of the resulting commit remains required. No component mirror
+has been published or marked qualified.
+
+All six duplicate Redline tips and their reflog commits are reachable from
+their full canonical repositories, with no missing commit objects or
+uncommitted paths. This read-only comparison and the prior restoration proof
+do not waive fresh producer/two-consumer evidence or authorize retirement.
 
 Every original checkout and support directory remains retained. Ten existing
 public Jeryu repository graphs were independently bundled and restored with

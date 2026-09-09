@@ -18,7 +18,19 @@ fn repository_root() -> PathBuf {
 }
 
 fn read(relative: &str) -> String {
-    let path = repository_root().join(relative);
+    let root = repository_root();
+    let path = if let Some(workflow) = relative.strip_prefix(".github/workflows/")
+        && root.join(".jeryu-source.json").is_file()
+    {
+        assert!(
+            !root.join(relative).exists(),
+            "historical workflow must remain inactive in a split export"
+        );
+        assert!(root.join(".github/workflows/split.yml").is_file());
+        root.join("docs/split-original-workflows").join(workflow)
+    } else {
+        root.join(relative)
+    };
     fs::read_to_string(&path).unwrap_or_else(|error| panic!("read {}: {error}", path.display()))
 }
 

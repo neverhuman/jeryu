@@ -4,7 +4,7 @@ use anyhow::{Context, Result, ensure};
 use serde_json::Value;
 use std::{collections::BTreeMap, fs, path::Path, process::Command};
 
-use crate::monorepo::git;
+use crate::split_tree::git;
 
 pub(super) fn ci_files(component: &str) -> BTreeMap<String, String> {
     let sandbox = if component == "jeryu-ci-runner" {
@@ -198,7 +198,9 @@ pub(super) fn resolve_lock(root: &Path, tree: &str, source: &str, npm: bool) -> 
     }
     let resolved = fs::read_to_string(checkout.join(lock_name))?;
     check_locked_versions(&seed, &resolved, npm)?;
-    Ok(resolved)
+    // npm may serialize equivalent objects differently across versions. Retain
+    // the deterministic projection after validating the complete resolved graph.
+    Ok(if npm { seed } else { resolved })
 }
 
 fn checked(command: &mut Command, context: &str) -> Result<()> {
@@ -262,6 +264,10 @@ fn check_locked_versions(seed: &str, resolved: &str, npm: bool) -> Result<()> {
                 );
             }
         }
+        ensure!(
+            seed == resolved,
+            "npm resolution changed projected lock metadata"
+        );
     } else {
         let seed: toml::Value = toml::from_str(seed)?;
         let resolved: toml::Value = toml::from_str(resolved)?;
@@ -333,5 +339,11 @@ mod tests {
         let seed = "[[package]]\nname='external'\nversion='1.0.0'\nsource='registry+fixture'\nchecksum='abc'\n";
         assert!(check_locked_versions(seed, seed, false).is_ok());
         assert!(check_locked_versions(seed, &seed.replace("1.0.0", "1.0.1"), false).is_err());
+        let npm = r#"{"packages":{"node_modules/example":{"version":"1.0.0","integrity":"sha512-fixture"}}}"#;
+        assert!(check_locked_versions(npm, npm, true).is_ok());
+        assert!(
+            check_locked_versions(npm, &npm.replace("sha512-fixture", "sha512-tampered"), true)
+                .is_err()
+        );
     }
 }

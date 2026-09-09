@@ -10,8 +10,8 @@ done
 [[ $(uname -s) == Linux && $(uname -m) == x86_64 ]] || {
   printf 'this source installer currently supports Linux x86_64\n' >&2; exit 1;
 }
-node -e 'if (Number(process.versions.node.split(".")[0]) < 22) process.exit(1)' || {
-  printf 'Node.js 22 or newer is required\n' >&2; exit 1;
+node -e 'const [major, minor] = process.versions.node.split(".").map(Number); if (!(major >= 24 || (major === 22 && minor >= 19))) process.exit(1)' || {
+  printf 'Node.js 22.19+ on the 22.x line, or Node.js 24+, is required\n' >&2; exit 1;
 }
 pkg-config --exists openssl || { printf 'OpenSSL development headers are required\n' >&2; exit 1; }
 [[ $# == 0 ]] || { printf 'usage: scripts/build.sh\n' >&2; exit 2; }
