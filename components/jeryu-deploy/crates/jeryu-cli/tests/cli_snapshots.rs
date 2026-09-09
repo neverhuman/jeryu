@@ -220,7 +220,10 @@ fn control_plane_commands_parse() {
 
 #[test]
 fn serve_store_defaults_to_sqlite_and_accepts_redline() {
-    match Cli::try_parse_from(["jeryu", "serve"]).expect("serve parses").command {
+    match Cli::try_parse_from(["jeryu", "serve"])
+        .expect("serve parses")
+        .command
+    {
         Commands::Serve { store, .. } => assert_eq!(store, None),
         other => panic!("unexpected parse: {other:?}"),
     }

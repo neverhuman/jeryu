@@ -18,7 +18,7 @@
       "kind": "workflow",
       "path": ".github/workflows/ci.yml",
       "port_status": "pending-equivalence-proof",
-      "sha256": "02a5ecefe9e5721c8b0b935aa132f02f08f4d6a4c60f87ba1c30e3dd1ff03e44"
+      "sha256": "821981fabcbf83191c455ab3f8a511a9933590402a7e18776f6db9e7a0e7052c"
     },
     {
       "component": "jeryu",
@@ -2743,7 +2743,7 @@
       "kind": "proof-implementation-or-input",
       "path": "components/jeryu-deploy/crates/jeryu-cli/tests/cli_snapshots.rs",
       "port_status": "pending-equivalence-proof",
-      "sha256": "51d2c67ec754439462294c7d66561d32391a15a796f8e3a69f43e0a9eeea8fe5"
+      "sha256": "be61aa4b1442365a66ee36a38d0e33f7ddf4c0b946d4720f382d12b5532317a7"
     },
     {
       "component": "jeryu-deploy",

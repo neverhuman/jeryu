@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 
 use clap::Parser;
-use jeryu_cli::{cli::Commands, client::RemoteOnlyClient, dispatch, Cli};
+use jeryu_cli::{Cli, cli::Commands, client::RemoteOnlyClient, dispatch};
 
 fn main() -> ExitCode {
     let mut cli = Cli::parse();
