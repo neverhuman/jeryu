@@ -15,6 +15,7 @@ use toml::Value;
 
 mod monorepo;
 mod proof_inventory;
+mod split_export;
 
 #[derive(Debug, Parser)]
 #[command(name = "jeryu-split")]
@@ -40,6 +41,9 @@ enum Command {
         component: String,
         #[arg(long)]
         source: String,
+        /// Regenerate and validate the standalone lock in a disposable Git clone.
+        #[arg(long)]
+        resolve_lock: bool,
     },
     /// Validate and render the split-family manifest.
     Manifest {
@@ -213,9 +217,11 @@ fn run(cli: Cli) -> Result<()> {
         Command::MonorepoCheck => monorepo::check(Path::new(".")),
         Command::PublicPreflight => monorepo::public_preflight(Path::new(".")),
         Command::ProofInventory { check } => proof_inventory::run(Path::new("."), check),
-        Command::ExportTree { component, source } => {
-            monorepo::export_tree(Path::new("."), &component, &source)
-        }
+        Command::ExportTree {
+            component,
+            source,
+            resolve_lock,
+        } => monorepo::export_tree(Path::new("."), &component, &source, resolve_lock),
         Command::Manifest {
             manifest,
             json,

@@ -71,6 +71,12 @@ purpose = "the same complete matrix as GitHub"
 requires_network = true
 
 [[lane]]
+name = "splits"
+command = "bash scripts/ci.sh splits"
+purpose = "deterministic standalone exports, locked dependency identity and independent component verification"
+requires_network = true
+
+[[lane]]
 name = "rust"
 command = "just rust"
 purpose = "warning-denied Clippy, unit, integration, property and documentation tests"

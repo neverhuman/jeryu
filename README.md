@@ -65,3 +65,14 @@ Read [AGENTS.md](AGENTS.md) before contributing. Changes target this monorepo;
 the split repositories will be maintained as deterministic downstream mirrors
 after qualification. The root manifest records a pending protected authority
 handover, preserving the `jeryu-split` identity and immutable v5 lineage.
+
+Prepare a component export with `cargo run --locked -p jeryu-split-tool --bin
+jeryu-split -- export-tree --component jeryu-web --source FULL_COMMIT_SHA
+--resolve-lock`. This writes a Git tree and source provenance without updating
+remote refs. Rust exports bind external Jeryu packages to that monorepo commit;
+npm exports preserve dependency integrities and relocate workspace links.
+Lock resolution rejects changed external package versions and duplicate
+Jeryu package identities. `bash scripts/test-split-exports.sh` reproduces every
+export twice and runs its standalone checks in automatically removed Git
+clones. The source commit and external dependencies must be available first;
+passing these checks does not authorize publication.

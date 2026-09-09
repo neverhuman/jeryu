@@ -34,6 +34,10 @@ Remaining release gates include:
   Git transport override; it is not anonymous build evidence. The public
   preflight independently reads tags without credentials or personal Git
   configuration and still fails until publication.
+  GitHub rejected the attempted exact Redline tag mirror because the current
+  OAuth connection lacks `workflow` scope. Anonymous readback proved that no
+  public ref changed. That permission and independent reviewer/merger
+  identities remain unresolved; no alternate credential was used.
 - Complete portable CI and split-export implementation, proof-lane mapping,
   full source/history/license audit, dependency advisory repair, and every
   ordinary and privileged local proof. Missing capabilities must fail closed.
@@ -50,24 +54,30 @@ self-test and agent-auth commands that had only in-memory simulations return
 explicit errors until server transports are implemented. They cannot report
 successful operations against discarded temporary state.
 
-Local implementation checks have established the following, before final
-commit qualification:
+The frozen candidate `169659957435fb896aa748574d58c0f51c7a50d2` passed the
+ordinary Rust, web and source-install/runtime commands, followed by a separate
+disposable VM sandbox proof. Subsequent implementation changes require their
+own qualification. Evidence for that candidate establishes:
 
 - The source build and installer passed default/explicit destination checks,
   stale-source and tampered-artifact rejection, and process tests against the
   installed binary. Those tests exercise authentication, repository and issue
   creation, Git push/clone, durable SQLite state, and restart persistence.
-- Warning-denied Clippy passed before the latest repository-creation adapter.
-  The ordinary workspace test run exposed a bounded startup timeout in the new
-  process test. Its readiness window is now 60 seconds and its focused rerun
-  passes; a complete rerun is required. The sandbox crate remains a separate
-  required lane and has not been qualified on a disposable capable host.
+- Formatting, warning-denied Clippy across all targets/features, and the
+  complete ordinary workspace test command passed. One paid external model
+  API smoke test remains explicitly optional and ignored; it requires user
+  credentials and consumes quota. Sandbox tests ran separately in a disposable
+  Ubuntu 24.04 KVM guest from a signature- and checksum-verified cloud image.
+  All 35 sandbox tests passed with zero ignored tests. Admission verified all
+  required kernel capabilities; all four escape attempts were blocked, with
+  zero false skips. Memory/process confinement, launch/watchdog, terminal
+  injection and secret-path defenses passed. The guest was removed afterward.
 - Web checks passed 180 unit tests, seven live backend browser tests, 70 UI
   browser tests, the 110-action coverage matrix, accessibility/rendered
   evidence, Storybook, and three Lighthouse runs. The collector passed all
-  nine checks. Existing resource-size warnings remain. That invocation ended
-  with a shell read error after its running wrapper was edited, so it is not
-  a successful complete lane; the frozen wrapper must be rerun.
+  nine checks. Existing resource-size warnings remain. The frozen command
+  completed successfully; the earlier invocation interrupted by an edited
+  running wrapper is retained as a failure, not qualification evidence.
 - Regeneration found stale browser PR types and four missing contracts. The
   browser now receives all 80 Read Model and 17 Work contracts directly from
   their Rust generators. `scripts/contracts.sh --check` compares both owners
@@ -80,10 +90,21 @@ commit qualification:
   is never adopted. Topics, templates and internal visibility remain explicit
   unsupported requests rather than silently discarded fields.
 - npm audit reports zero high/critical, three moderate and two low findings.
-  Cargo advisory, license and ban checks passed. The source policy must be
-  rerun after the public Redline repin. All five pinned binary CI tools passed
-  download checksum verification; pinned Cargo tool installation remains a
-  separate check.
+  Cargo advisory, license, source and ban checks passed after the public
+  Redline repin. Root workflow actionlint and zizmor checks passed. All five
+  pinned binary CI tools passed download checksum verification. The subsequent
+  complete portable security command also passed installation of pinned
+  cargo-audit, cargo-deny and zizmor, dependency/history/workflow checks and
+  SPDX SBOM generation. The governed auditor remains a separate prerequisite.
+
+The split exporter now prepares all ten components, including the web npm
+workspace, with standalone manifests, locks, contribution routing and CI
+wrappers. Cargo/npm resolved each component lock in disposable Git clones;
+the resolver rejected no source identity or external version drift. These
+preparatory resolutions used an explicit temporary Git transport override to
+the exact preserved local source commits. They are not anonymous proof.
+Deterministic repetition and complete independent component checks are the
+next gate. No component mirror has been published or marked qualified.
 
 Every original checkout and support directory remains retained. Ten existing
 public Jeryu repository graphs were independently bundled and restored with

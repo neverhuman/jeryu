@@ -1,0 +1,54 @@
+name: Standalone split verification
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ordinary:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      CARGO_BUILD_JOBS: '2'
+      CI: 'true'
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '26.1.0'
+      - run: bash scripts/split-ci.sh ordinary
+  sandbox:
+    if: ${{ @SANDBOX@ }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+        with:
+          persist-credentials: false
+      - run: |
+          sudo -n env PATH="$PATH" CARGO_HOME="$HOME/.cargo" RUSTUP_HOME="$HOME/.rustup" \
+            CARGO_BUILD_JOBS=2 JERYU_DISPOSABLE_SANDBOX=1 bash scripts/split-ci.sh sandbox
+  required:
+    name: @COMPONENT@/required
+    if: ${{ always() }}
+    needs: [ordinary, sandbox]
+    runs-on: ubuntu-24.04
+    steps:
+      - env:
+          ORDINARY: ${{ needs.ordinary.result }}
+          SANDBOX: ${{ needs.sandbox.result }}
+          NEEDS_SANDBOX: '@SANDBOX@'
+        run: |
+          test "$ORDINARY" = success
+          if [ "$NEEDS_SANDBOX" = true ]; then
+            test "$SANDBOX" = success
+          else
+            test "$SANDBOX" = skipped
+          fi

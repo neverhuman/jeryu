@@ -24,7 +24,6 @@ case ${1:-all} in
     cargo fmt --all -- --check
     cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
     cargo test --locked --workspace --all-features --exclude jeryu-sandbox-linux
-    cargo test --locked --workspace --doc --all-features --exclude jeryu-sandbox-linux
     ;;
   web)
     bash scripts/contracts.sh --check
@@ -48,6 +47,9 @@ case ${1:-all} in
     bash scripts/build.sh
     JERYU_REQUIRE_WEB=1 bash scripts/test-source-install.sh
     ;;
+  splits)
+    bash scripts/test-split-exports.sh
+    ;;
   security)
     bash scripts/bootstrap-ci-tools.sh
     npm ci
@@ -67,10 +69,12 @@ case ${1:-all} in
     }
     mkdir -p target/ci
     cargo run --locked -p jeryu-sandbox-linux --example required_capabilities
-    cargo test --locked -p jeryu-sandbox-linux --all-features -- --include-ignored --nocapture 2>&1 | tee target/ci/sandbox.log
-    if rg -i '(^|[[:space:]])skip[:[:space:]]|skipping|"skipped"[[:space:]]*:[[:space:]]*[1-9]|[1-9][0-9]* ignored' target/ci/sandbox.log; then
+    cargo test --locked -p jeryu-sandbox-linux --all-features -- --include-ignored --nocapture --test-threads=1 2>&1 | tee target/ci/sandbox.log
+    if rg -i '(^|[[:space:]])skip[:[:space:]]|skipping|=> skipped|"skipped"[[:space:]]*:[[:space:]]*[1-9]|[1-9][0-9]* ignored' target/ci/sandbox.log; then
       printf 'sandbox proof did not execute every required case\n' >&2; exit 1
     fi
+    jq -e '.false_skips == 0 and (.escapes | length) == 4 and all(.escapes[]; .verdict == "blocked")' \
+      components/jeryu-ci-runner/target/jankurai/runner-sandbox/enforcement.json >/dev/null
     ;;
   legacy)
     # Keep the original proof union active until each replacement is verified.
@@ -84,7 +88,7 @@ case ${1:-all} in
     done
     ;;
   all)
-    for lane in source public rust web runtime security sandbox legacy; do "$0" "$lane"; done
+    for lane in source public rust web runtime security sandbox splits legacy; do "$0" "$lane"; done
     ;;
-  *) printf 'usage: scripts/ci.sh {source|public|rust|web|runtime|security|sandbox|legacy|all}\n' >&2; exit 2 ;;
+  *) printf 'usage: scripts/ci.sh {source|public|rust|web|runtime|security|sandbox|splits|legacy|all}\n' >&2; exit 2 ;;
 esac
