@@ -130,8 +130,17 @@ async fn wait_until_listening(addr: SocketAddr, server: &mut tokio::task::JoinHa
             let result = server.await;
             panic!("server task exited before readiness on {addr}: {result:?}");
         }
-        let health = client.get(format!("http://{addr}/healthz")).send().await;
-        if health.is_ok_and(|response| response.status().is_success()) {
+        // Probe the backend route. An unknown SPA path can return the HTML
+        // shell in a monorepo build and mask a broken readiness check.
+        let health = client.get(format!("http://{addr}/health")).send().await;
+        let ready = match health {
+            Ok(response) if response.status().is_success() => response
+                .json::<serde_json::Value>()
+                .await
+                .is_ok_and(|body| body["status"] == "ok" && body["service"] == "jeryu-api"),
+            _ => false,
+        };
+        if ready {
             tokio::task::yield_now().await;
             if server.is_finished() {
                 let result = server.await;
