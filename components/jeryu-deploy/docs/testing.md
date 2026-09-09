@@ -12,6 +12,15 @@ metadata, agent-map, shell syntax, phase-dispatch and coverage-evidence
 regressions formerly reachable only through the quick recipes. Its fast recipe
 already delegates to that same check, so no unique quick assertion is dropped.
 
+The PR lock guard asks Cargo for the API member's workspace manifest and binds
+it to the physical Git root. A standalone export keeps its own root lock;
+the exact `components/jeryu-deploy` monorepo placement uses the shared root
+lock. Missing files, failed discovery, foreign roots and linked inputs fail.
+The guard compares source-root identity, member/workspace manifests and lock
+identity/content at both existing recheck points. It never restores or discards
+changed inputs. `bash scripts/test-workspace-lock.sh` exercises synthetic
+standalone and monorepo layouts without compiling or fetching dependencies.
+
 Repository scripts define the reproducible commands. Local runs are developer
 evidence; the protected hosted `jeryu-deploy/required` result at the exact head
 is merge authority. Neither side may replace a failed command with a silent

@@ -53,6 +53,14 @@ qualifies component CI. The existing full wrappers still require portable
 proof admission and the separate proof/release workflows still need root
 commands; the dispatcher repair alone cannot make the required union pass.
 
+Deploy's lock guard now binds Cargo's actual workspace manifest and root lock
+for both standalone exports and the monorepo. Its 39 synthetic cases and
+read-only workspace discovery pass. Core, Runner, Deploy and Intelligence
+still guard metadata checks on a component-local `Cargo.toml` that is absent
+in the monorepo. Those checks need explicit component package selection;
+Runner's version assertion must preserve other components' 5.1.0 packages.
+This remaining omission is not covered by the lock or dispatcher repairs.
+
 Do not port false success behavior. Core/Intelligence/Release Ops/Web now
 delegate independent auxiliary producers to one root implementation; their
 candidate-to-baseline copy and substitute outputs were removed. The default

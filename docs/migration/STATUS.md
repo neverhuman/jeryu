@@ -73,8 +73,10 @@ and runtime verification remain pending. Publication review remains separate.
 
 Split qualification now rejects unreadable/empty component inventories,
 requires exact clean source and exports before/after execution, and uses fresh
-evidence directories. Every failure retains the whole scratch checkout tree;
-successful cleanup checks ownership, identity, links and mounts. All 24
+evidence directories. A failure retains the outer qualification checkout tree;
+the inherited lock resolver and Deploy browser helper still remove their own
+inner temporary clones. Successful outer cleanup checks ownership, identity,
+links and mounts. All 24
 synthetic orchestration cases and shell checks pass. These cases do not replace
 the required ten real independent split builds at the final source commit.
 
@@ -87,6 +89,14 @@ pass against the checked-in scripts, including child failure propagation, and
 the changed shell files pass syntax and warning-level ShellCheck. This repairs
 dispatch coverage only; the full component wrappers and remaining specialized
 proof lanes are still unqualified.
+
+Deploy's full PR wrapper now discovers the API member's Cargo workspace and
+checks its actual root lock, preserving standalone exports and the monorepo
+layout. It rejects missing, linked, replaced or modified inputs and retains
+both existing recheck points. All 39 synthetic cases and actual read-only
+workspace discovery pass; this does not qualify the full wrapper. The separate
+Core, Runner, Deploy and Intelligence metadata guards still assume a local
+component manifest and require repair before complete legacy qualification.
 
 Legacy cleanup accounts for 214 partial merge files and all 107 declared dirty
 patch outputs in restored private Git histories and a path-by-path disposition

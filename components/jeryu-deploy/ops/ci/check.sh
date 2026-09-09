@@ -30,4 +30,5 @@ done
 bash scripts/check-agent-maps.sh
 bash scripts/test-ci-phases.sh
 bash scripts/test-coverage-evidence.sh
+bash scripts/test-workspace-lock.sh
 printf 'check ok: %s\n' "$(pwd)"

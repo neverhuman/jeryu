@@ -2935,7 +2935,7 @@
       "kind": "proof-implementation-or-input",
       "path": "components/jeryu-deploy/ops/ci/check.sh",
       "port_status": "pending-equivalence-proof",
-      "sha256": "6c67669c1acd0d1c5e1f602656a04e0e155b3939bc52c51ca659521f2c5a1304"
+      "sha256": "92dbe03b143b18097680272fe957330158b36e42bd8309bf684e35d5ba6de273"
     },
     {
       "component": "jeryu-deploy",
@@ -3167,7 +3167,7 @@
       "kind": "entrypoint",
       "path": "components/jeryu-deploy/ops/ci/pr-ci.sh",
       "port_status": "pending-equivalence-proof",
-      "sha256": "99b725dd2e84a3e4db93f720f6a69a3f671bca724b31999ace77d1019d1883ce"
+      "sha256": "3f9c10afe93d9edb3d9ac86e741c12837e82ccdfa8d31d7f7a07e67cf3eed515"
     },
     {
       "component": "jeryu-deploy",
@@ -3288,6 +3288,14 @@
       "path": "components/jeryu-deploy/ops/ci/workflow-lint.sh",
       "port_status": "pending-equivalence-proof",
       "sha256": "69a09a582aefa0722f437768352be97b67857f9212bded8aff4e9d6323d1ad98"
+    },
+    {
+      "component": "jeryu-deploy",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-deploy/ops/ci/workspace-lock.sh",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "78762c09e9066399027a16674a2f957873cf79a620582296e10922c9c0831ead"
     },
     {
       "component": "jeryu-deploy",
@@ -3624,6 +3632,14 @@
       "path": "components/jeryu-deploy/scripts/test-emit-release-receipt.sh",
       "port_status": "pending-equivalence-proof",
       "sha256": "c8307a269eedb14b1a851f75ee72657c96f684238a16d90b608eedfc069c571e"
+    },
+    {
+      "component": "jeryu-deploy",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-deploy/scripts/test-workspace-lock.sh",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "2618e0ed7b8bb3759fdf8032b7cfe3a6077bf8ff177a6bdb263afc7622e490a2"
     },
     {
       "component": "jeryu-deploy",

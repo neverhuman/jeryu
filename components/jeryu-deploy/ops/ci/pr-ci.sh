@@ -63,15 +63,8 @@ fi
 export CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS:-$JOBS}"
 TEST_THREADS="${JERYU_CI_TEST_THREADS:-8}"
 
-cargo_lock_before="$(git hash-object Cargo.lock)"
-assert_cargo_lock_unchanged() {
-  local cargo_lock_after
-  cargo_lock_after="$(git hash-object Cargo.lock)"
-  if [ "${cargo_lock_after}" != "${cargo_lock_before}" ]; then
-    echo "[pr-ci] Cargo.lock changed during validation; refusing to discard it" >&2
-    return 1
-  fi
-}
+source ops/ci/workspace-lock.sh
+jeryu_deploy_record_workspace_lock "$repo_root"
 
 # Retain the local metadata, map, shell, phase and coverage regression checks.
 # fast.sh delegates to check.sh, so one invocation covers both local recipes.
@@ -120,7 +113,7 @@ cargo test --locked --workspace --exclude jeryu-sandbox-linux --jobs "$JOBS" --n
 echo "[pr-ci] immutable web-bundle integration" >&2
 bash "${repo_root}/ops/ci/web.sh"
 
-assert_cargo_lock_unchanged
+jeryu_deploy_assert_workspace_lock_unchanged
 echo "[pr-ci] jankurai audit (>= 85)" >&2
 run_governed_jankurai audit . --full --mode advisory --policy agent/audit-policy.toml \
   --json .jankurai/repo-score.json --md .jankurai/repo-score.md
@@ -132,6 +125,6 @@ jq -e '(.score // 0) >= 85 and ((.caps_applied // []) | length == 0)' \
 
 echo "[pr-ci] security lane"
 JERYU_SECURITY_NETWORK=1 bash "${repo_root}/ops/ci/security.sh"
-assert_cargo_lock_unchanged
+jeryu_deploy_assert_workspace_lock_unchanged
 
 echo "[pr-ci] PASS — fmt + clippy + workspace tests + web bundle + jankurai + security all green" >&2
