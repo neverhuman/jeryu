@@ -2455,7 +2455,7 @@
       "kind": "proof-implementation-or-input",
       "path": "components/jeryu-deploy/crates/jeryu-cli/tests/standalone.rs",
       "port_status": "pending-equivalence-proof",
-      "sha256": "f9351aff86c01825921a238f8be4522ec8fbe40660142ff9f8619633ace97d55"
+      "sha256": "2696e9992e76a8c1759e343c3be21dcc9d693a9820187117329e1ee4d14f75dc"
     },
     {
       "component": "jeryu-deploy",

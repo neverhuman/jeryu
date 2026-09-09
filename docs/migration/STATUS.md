@@ -32,7 +32,18 @@ claim that the complete publication audit has finished.
 
 Remaining release gates include:
 
-- Publish the governed Jankurai source and tool artifacts. The canonical
+- Publish and verify the governed Jankurai tool artifacts. Its existing
+  `v1.6.11-deadlang-precision-split.3` source tag is now public at
+  `b88562fdb124aa86dedd70ab972e7d0d87e58be1` in `neverhuman/jankurai`.
+  Independent audit covered 121 diffs in the 133-commit graph and all 1,895
+  unique text blobs. The seven matches were documented API-hash examples and
+  validation signing-key fixtures already present in public history. Root and
+  six Rust packages are MIT; the bundled JetBrains Mono font is SIL OFL 1.1.
+  Before publication the public history was bundled/restored; anonymous
+  readback confirmed the exact new tag and every existing public ref unchanged.
+  The portable authority generator, installer and receipts remain required;
+  public preflight still rejects the historical private source declaration.
+  The canonical
   Redline tag `redline-core-v4.1.0-jain.6` is now anonymously available from
   `neverhuman/redline-core` at the exact
   `d0de59930141baffcfa2b514480e75b14627f24d` commit; independent readback also
@@ -101,6 +112,16 @@ own qualification. Evidence for that candidate establishes:
   complete portable security command also passed installation of pinned
   cargo-audit, cargo-deny and zizmor, dependency/history/workflow checks and
   SPDX SBOM generation. The governed auditor remains a separate prerequisite.
+
+Clean `e2e8897f` subsequently passed source, product and release-build/source-
+install/runtime lanes, including all seven Cache poisoning scenarios and
+Codegraph cluster equality across independent CLI processes. A later process
+test also passed the full authenticated protected PR journey and Clippy:
+distinct author/reviewer/merger, blocked direct-main push, self-approval and
+old-head approval refusal, administrative check publication, exact-head check
+filtering, persisted reviewer/head identity across restart, and exact reviewed
+Git commit/tree after merge and another restart. Installed-binary execution
+of that new test remains part of the next frozen runtime run.
 
 The split exporter now prepares all ten components, including the web npm
 workspace, with standalone manifests, locks, contribution routing and CI
