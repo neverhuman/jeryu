@@ -2,6 +2,7 @@
 
 use reqwest::{Method, blocking::Client};
 use serde_json::{Value, json};
+use sha2::{Digest, Sha256};
 use std::{
     net::TcpListener,
     path::Path,
@@ -394,6 +395,64 @@ fn startup_cli_and_restart_use_durable_state_from_any_directory() {
         "embedded web bundle must be built before the runtime lane"
     );
     assert!(!page.text().unwrap().contains("untrusted-current-directory"));
+
+    // These exact public assets must survive the source build and binary embedding.
+    // Hashing also rejects the SPA fallback, which returns HTML for a missing path.
+    for (path, content_type, sha256) in [
+        (
+            "fonts/OFL.txt",
+            "text/plain; charset=utf-8",
+            "b2fe5e8987594e9ffd1d2ca52a2f5d73eb8335243893c5d6254b5ad69269591d",
+        ),
+        (
+            "fonts/JetBrainsMono-400.woff2",
+            "application/octet-stream",
+            "14425ba9c695763c1547f48a206b7aa60350a33ae23de09f0407877f3fcd89eb",
+        ),
+        (
+            "fonts/JetBrainsMono-500.woff2",
+            "application/octet-stream",
+            "cb182feeed4d798ff6961d3c79f7026279448fca0676438aaecb21f3fc39553a",
+        ),
+        (
+            "fonts/JetBrainsMono-700.woff2",
+            "application/octet-stream",
+            "d0d4e818808f2a0ba39b2b09d1989366f63494e295f003c7ef436697378507e8",
+        ),
+    ] {
+        let response = http.get(format!("{url}/{path}")).send().unwrap();
+        assert_eq!(response.status(), 200, "embedded asset {path}");
+        assert_eq!(
+            response
+                .headers()
+                .get("content-type")
+                .and_then(|value| value.to_str().ok()),
+            Some(content_type),
+            "embedded asset {path}"
+        );
+        let bytes = response.bytes().unwrap();
+        assert_eq!(
+            hex::encode(Sha256::digest(&bytes)),
+            sha256,
+            "embedded asset {path}"
+        );
+    }
+    let notice = http
+        .get(format!("{url}/THIRD_PARTY_NOTICES.txt"))
+        .send()
+        .unwrap();
+    assert_eq!(notice.status(), 200);
+    assert_eq!(
+        notice
+            .headers()
+            .get("content-type")
+            .and_then(|value| value.to_str().ok()),
+        Some("text/plain; charset=utf-8")
+    );
+    let notice = notice.text().unwrap();
+    assert!(notice.contains("JetBrains Mono"));
+    assert!(notice.contains("SIL Open Font License, Version 1.1"));
+    assert!(notice.contains("fonts/OFL.txt"));
 
     let login = http
         .post(format!("{url}/api/v1/auth/login"))

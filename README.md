@@ -2,7 +2,9 @@
 
 Jeryu is a self-hosted forge with repositories, issues, pull requests,
 protected merges, checks, a browser interface, and optional CI runners.
-It is licensed under Apache-2.0.
+Jeryu source is licensed under Apache-2.0. Bundled JetBrains Mono fonts retain
+the SIL Open Font License 1.1; see the
+[bundled font notice](components/jeryu-web/apps/web/public/THIRD_PARTY_NOTICES.txt).
 
 **This branch is a monorepo migration candidate. Anonymous installation and
 release qualification are incomplete.** See

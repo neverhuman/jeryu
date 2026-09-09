@@ -426,8 +426,12 @@ pub(super) fn seed_agent_auth_from_home(
     // Keep the nested path too for older builds, but the top-level copy is the
     // important one for auth/session state.
     if agent_id == "claude" || !matches!(agent_id, "codex" | "agy") {
-        ensure_claude_onboarding_state(&agent_home.join(".claude.json"), agent_id);
-        ensure_claude_onboarding_state(&agent_home.join(".claude/.claude.json"), agent_id);
+        for relative in [".claude.json", ".claude/.claude.json"] {
+            if let Err(error) = ensure_claude_onboarding_state(&agent_home.join(relative), agent_id)
+            {
+                eprintln!("{error}");
+            }
+        }
     }
 }
 
@@ -494,26 +498,45 @@ fn toml_basic_string_fragment(value: &str) -> String {
     value.replace('\\', "\\\\").replace('"', "\\\"")
 }
 
-fn ensure_claude_onboarding_state(path: &std::path::Path, agent_id: &str) {
-    if let Some(parent) = path.parent()
-        && let Err(err) = std::fs::create_dir_all(parent)
-    {
-        eprintln!(
-            "seed_agent_auth[{}]: failed to create Claude state dir {}: {}",
-            agent_id,
-            parent.display(),
-            err
-        );
-        return;
+fn ensure_claude_onboarding_state(path: &std::path::Path, agent_id: &str) -> std::io::Result<()> {
+    let context = |operation: &str, error: std::io::Error| {
+        std::io::Error::new(
+            error.kind(),
+            format!(
+                "seed_agent_auth[{agent_id}]: failed to {operation} Claude onboarding state {}: {error}",
+                path.display()
+            ),
+        )
+    };
+    let mut object = match std::fs::read_to_string(path) {
+        Ok(raw) => {
+            let value: serde_json::Value = serde_json::from_str(&raw).map_err(|error| {
+                context(
+                    "parse",
+                    std::io::Error::new(std::io::ErrorKind::InvalidData, error),
+                )
+            })?;
+            match value {
+                serde_json::Value::Object(object) => object,
+                _ => {
+                    return Err(context(
+                        "validate",
+                        std::io::Error::new(
+                            std::io::ErrorKind::InvalidData,
+                            "expected a JSON object",
+                        ),
+                    ));
+                }
+            }
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => serde_json::Map::new(),
+        Err(error) => return Err(context("read", error)),
+    };
+    // Validate existing state before creating directories or mutating the file.
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).map_err(|error| context("create parent for", error))?;
     }
 
-    let mut state = std::fs::read_to_string(path)
-        .ok()
-        .and_then(|raw| serde_json::from_str::<serde_json::Value>(&raw).ok())
-        .filter(serde_json::Value::is_object)
-        .unwrap_or_else(|| serde_json::json!({}));
-
-    let object = state.as_object_mut().expect("state object");
     object.insert(
         "hasCompletedOnboarding".to_string(),
         serde_json::json!(true),
@@ -537,28 +560,23 @@ fn ensure_claude_onboarding_state(path: &std::path::Path, agent_id: &str) {
         .entry("hasSeenAutoDefaultNotice".to_string())
         .or_insert_with(|| serde_json::json!(true));
 
-    match serde_json::to_vec_pretty(&state)
+    let bytes = serde_json::to_vec_pretty(&object)
         .map_err(std::io::Error::other)
-        .and_then(|bytes| std::fs::write(path, bytes))
-    {
-        Ok(_) => {
-            let _ = std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600));
-            eprintln!(
-                "seed_agent_auth[{}]: ensured Claude onboarding state at {}",
-                agent_id,
-                path.display()
-            );
-        }
-        Err(err) => {
-            eprintln!(
-                "seed_agent_auth[{}]: failed to write Claude onboarding state {}: {}",
-                agent_id,
-                path.display(),
-                err
-            );
-        }
-    }
+        .map_err(|error| context("serialize", error))?;
+    std::fs::write(path, bytes).map_err(|error| context("write", error))?;
+    std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))
+        .map_err(|error| context("set permissions for", error))?;
+    eprintln!(
+        "seed_agent_auth[{}]: ensured Claude onboarding state at {}",
+        agent_id,
+        path.display()
+    );
+    Ok(())
 }
+
+#[cfg(test)]
+#[path = "onboarding_tests.rs"]
+mod onboarding_tests;
 
 /// Build the host `docker run ...` launch command for a session agent. The flags
 /// come straight from the planned, hardened [`OciSpec`] (read-only root, all caps

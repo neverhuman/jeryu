@@ -67,6 +67,7 @@ case ${1:-all} in
     bash scripts/test-product-proofs.sh
     ;;
   splits)
+    bash tests/split-export-hostiles.sh
     bash scripts/test-split-exports.sh
     ;;
   oci)

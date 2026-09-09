@@ -5,38 +5,69 @@ root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)
 cd "$root"
 umask 077
 source_commit=$(git rev-parse HEAD)
-components=()
+source_tree=$(git rev-parse 'HEAD^{tree}')
+source_status=$(git status --porcelain=v1 --untracked-files=all) || {
+  printf 'could not inspect split qualification source state\n' >&2; exit 1;
+}
+[[ -z $source_status ]] || {
+  printf 'commit source changes before split qualification\n' >&2; exit 1;
+}
+component_names=$(git ls-tree -d --name-only "$source_commit:components") || {
+  printf 'could not read split component inventory\n' >&2; exit 1;
+}
+[[ -n $component_names ]] || { printf 'split component inventory is empty\n' >&2; exit 1; }
+mapfile -t components <<< "$component_names"
+declare -A known_components=()
+for component in "${components[@]}"; do
+  [[ $component =~ ^jeryu-[a-z-]+$ && -z ${known_components[$component]:-} ]] || {
+    printf 'invalid or duplicate split component\n' >&2; exit 1;
+  }
+  known_components[$component]=1
+done
 case $# in
-  0) mapfile -t components < <(git ls-tree -d --name-only "$source_commit:components") ;;
+  0) ;;
   2)
-    [[ $1 == --component && $2 =~ ^jeryu-[a-z-]+$ ]] || { printf 'invalid component argument\n' >&2; exit 2; }
+    [[ $1 == --component && $2 =~ ^jeryu-[a-z-]+$ && ${known_components[$2]:-} == 1 ]] || {
+      printf 'invalid component argument\n' >&2; exit 2;
+    }
     components=("$2")
     ;;
   *) printf 'usage: scripts/test-split-exports.sh [--component NAME]\n' >&2; exit 2 ;;
 esac
-if ! git diff --quiet || ! git diff --cached --quiet || [[ -n $(git ls-files --others --exclude-standard) ]]; then
-  printf 'commit source changes before split qualification\n' >&2; exit 1
-fi
 cargo build --locked -p jeryu-split-tool --bin jeryu-split
 tool="$(realpath -m "${CARGO_TARGET_DIR:-$root/target}")/debug/jeryu-split"
-evidence="$root/target/split-evidence/$source_commit"
-mkdir -p "$evidence"
-scratch=$(mktemp -d)
-scratch_identity=$(stat -c '%d:%i' -- "$scratch")
+for directory in "$root/target" "$root/target/split-evidence" "$root/target/split-evidence/$source_commit"; do
+  if [[ ! -e $directory && ! -L $directory ]]; then mkdir -m 0700 -- "$directory"; fi
+  [[ -d $directory && ! -L $directory && -O $directory &&
+     $(realpath -e -- "$directory") == "$directory" ]] || {
+    printf 'split evidence directory is not physical and owned\n' >&2; exit 1;
+  }
+done
+evidence=$(mktemp -d "$root/target/split-evidence/$source_commit/attempt.XXXXXXXX")
+evidence_identity=$(stat -c '%d:%i:%u:%g:%a' -- "$evidence")
+# shellcheck source=tests/scratch.sh
+source "$root/tests/scratch.sh"
+scratch=$(mktemp -d -t jeryu-split-proof.XXXXXXXX)
+jeryu_record_test_scratch "$scratch"
 cleanup() {
-  local result=$? mounts
-  mounts=$(findmnt -rn -o TARGET) || { printf 'cannot inspect mounts; retaining %s\n' "$scratch" >&2; exit 1; }
-  if [[ -L "$scratch" || ! -d "$scratch" || $(realpath -e -- "$scratch") != "$scratch" \
-        || $(stat -c '%d:%i' -- "$scratch") != "$scratch_identity" ]] \
-      || awk -v root="$scratch" '$0 == root || index($0, root "/") == 1 {found=1} END {exit !found}' <<< "$mounts"; then
-    printf 'retaining replaced or mounted split scratch: %s\n' "$scratch" >&2
-    exit 1
+  local result=$?
+  if (( result != 0 )); then
+    printf 'Retaining split scratch after failed verification: %s\n' "$scratch" >&2
+    exit "$result"
   fi
-  find "$scratch" -xdev -type l -print >&2
-  rm -rf --one-file-system --preserve-root=all -- "$scratch"
+  if ! jeryu_remove_test_scratch; then
+    printf 'retaining changed, linked, or mounted split scratch: %s\n' "$scratch" >&2
+    result=1
+  fi
   exit "$result"
 }
 trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+printf '%s\n' "$scratch" > "$evidence/scratch-path.txt"
+jq -n --arg commit "$source_commit" --arg tree "$source_tree" \
+  '{source_commit:$commit,source_tree:$tree,source_state:"clean",publication_qualified:false}' > "$evidence/source.json"
+printf 'Split evidence: %s\n' "$evidence"
 failed=0
 for component in "${components[@]}"; do
   printf 'Qualifying %s from %s\n' "$component" "$source_commit"
@@ -59,17 +90,46 @@ for component in "${components[@]}"; do
     git -C "$checkout" fetch --quiet --no-tags "$root" "$commit"
     git -C "$checkout" -c core.hooksPath=/dev/null checkout --quiet --detach "$commit"
     cd "$checkout"
+    checked_commit=$(git rev-parse HEAD)
+    checked_tree=$(git rev-parse 'HEAD^{tree}')
+    checked_status=$(git status --porcelain=v1 --untracked-files=all)
+    [[ $checked_commit == "$commit" && $checked_tree == "$tree" && -z $checked_status ]] || {
+      printf 'split checkout does not match the clean exported commit\n' >&2; exit 1;
+    }
     export CARGO_TARGET_DIR="$root/target/split-build"
     unset JERYU_WEB_DIST JERYU_REQUIRE_WEB
     bash scripts/split-ci.sh ordinary
-    git diff --exit-code
-    git diff --cached --exit-code
+    checked_commit=$(git rev-parse HEAD)
+    checked_tree=$(git rev-parse 'HEAD^{tree}')
+    checked_status=$(git status --porcelain=v1 --untracked-files=all)
+    [[ $checked_commit == "$commit" && $checked_tree == "$tree" && -z $checked_status ]] || {
+      printf 'split checkout changed during independent checks\n' >&2; exit 1;
+    }
 CHECK
   then
     printf 'Split verification failed: %s; see %s/%s.log\n' "$component" "$evidence" "$component" >&2
     failed=1
   else
-    printf 'Split verification passed: %s\n' "$component"
+    printf 'Split checks completed: %s\n' "$component"
   fi
 done
+checked_commit=$(git rev-parse HEAD)
+checked_tree=$(git rev-parse 'HEAD^{tree}')
+source_status=$(git status --porcelain=v1 --untracked-files=all) || {
+  printf 'could not recheck split qualification source state\n' >&2; exit 1;
+}
+[[ $checked_commit == "$source_commit" && $checked_tree == "$source_tree" && -z $source_status ]] || {
+  printf 'source changed during split qualification\n' >&2; exit 1;
+}
+[[ -d $evidence && ! -L $evidence && $(realpath -e -- "$evidence") == "$evidence" &&
+   $(stat -c '%d:%i:%u:%g:%a' -- "$evidence") == "$evidence_identity" ]] || {
+  printf 'split evidence directory changed during execution\n' >&2; exit 1;
+}
+(( failed == 0 )) || exit "$failed"
+jeryu_remove_test_scratch
+trap - EXIT
+if (( failed == 0 )); then
+  printf 'Split export checks passed for %s components: source=%s evidence=%s; publication remains unqualified.\n' \
+    "${#components[@]}" "$source_commit" "$evidence"
+fi
 exit "$failed"

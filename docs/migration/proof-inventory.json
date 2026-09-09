@@ -2613,6 +2613,14 @@
       "component": "jeryu-deploy",
       "declaration": null,
       "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-deploy/crates/jeryu-api/src/web/sessions/onboarding_tests.rs",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "c91e1322e7ab3d0e563dfc32a71d5b5f6e75a79f5931a13a8676625a7edc7fea"
+    },
+    {
+      "component": "jeryu-deploy",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
       "path": "components/jeryu-deploy/crates/jeryu-api/src/web/sessions/tests.rs",
       "port_status": "pending-equivalence-proof",
       "sha256": "56afd7f841af067374fa4ab0aa6a2f7dbdef1e3095fa2a09daf5d0ec849e908d"
@@ -2695,7 +2703,7 @@
       "kind": "proof-implementation-or-input",
       "path": "components/jeryu-deploy/crates/jeryu-cli/tests/standalone.rs",
       "port_status": "pending-equivalence-proof",
-      "sha256": "2696e9992e76a8c1759e343c3be21dcc9d693a9820187117329e1ee4d14f75dc"
+      "sha256": "62cda293870d336b0b5101ee3e9a00b4b77cb3eb9a3963e5c2c2e9ed8f108b3c"
     },
     {
       "component": "jeryu-deploy",
@@ -7031,7 +7039,7 @@
       "kind": "proof-implementation-or-input",
       "path": "scripts/ci.sh",
       "port_status": "pending-equivalence-proof",
-      "sha256": "6d464d835b50bfce788f792307e2bc1cfca827dda91112910bec512153c2f8c6"
+      "sha256": "5060f04954044ebad80f09688f7b788e9e9c19a3738885426f53367d6d6d44fa"
     },
     {
       "component": "jeryu",
@@ -7087,7 +7095,7 @@
       "kind": "proof-implementation-or-input",
       "path": "scripts/test-split-exports.sh",
       "port_status": "pending-equivalence-proof",
-      "sha256": "78e06cef13bfa359c154a72788a1232b789b25082d77665e3cd2aaf81cfcf781"
+      "sha256": "f4dc88cad0d945418742a6fffa0b58a9fa4ffd2e3d9821b4de0fbf8998e647cc"
     },
     {
       "component": "jeryu",
@@ -7152,6 +7160,14 @@
       "path": "tests/source-install-transaction.sh",
       "port_status": "pending-equivalence-proof",
       "sha256": "83509c0a48d0039b2497d959dd35e3e673f9d346584c821b1bf734dcbd9ceb47"
+    },
+    {
+      "component": "jeryu",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "tests/split-export-hostiles.sh",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "30fb142cae7c738cf15995efc29ecf744832b72912e556a189f3ea5baea03975"
     },
     {
       "component": "jeryu",

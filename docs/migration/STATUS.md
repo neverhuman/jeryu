@@ -42,6 +42,27 @@ still failed: 64 against 85, eight caps and 35 hard findings. Independent
 review identified a real onboarding-state error swallow alongside upstream
 classification defects; no threshold or finding was waived.
 
+The onboarding helper now initializes only missing files. Malformed JSON,
+non-object JSON and read failures return contextual errors before writes;
+the existing optional auth-seeding caller reports the failure. Four API tests
+cover ten scenarios, including preserving invalid bytes, modes and timestamps
+and a read error that still executes under root. Pinned Cargo tests and API
+Clippy pass. This repairs the identified consumer defect; the full auditor
+has not yet been rerun on this successor.
+
+Bundled JetBrains Mono fonts now carry their unchanged upstream OFL and a
+notice binding the exact delivery hashes. The production web build and all
+three standalone process tests pass, including HTTP hashes for the served
+license/fonts and the notice content. Historical JavaScript/source-map notice
+closure remains under review; the font correction is not publication approval.
+
+Split qualification now rejects unreadable/empty component inventories,
+requires exact clean source and exports before/after execution, and uses fresh
+evidence directories. Every failure retains the whole scratch checkout tree;
+successful cleanup checks ownership, identity, links and mounts. All 24
+synthetic orchestration cases and shell checks pass. These cases do not replace
+the required ten real independent split builds at the final source commit.
+
 Legacy cleanup accounts for 214 partial merge files and all 107 declared dirty
 patch outputs in restored private Git histories and a path-by-path disposition
 index. All 52 partial `.merged` files contain conflicts; static review found
