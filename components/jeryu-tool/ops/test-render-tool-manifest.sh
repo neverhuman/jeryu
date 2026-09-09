@@ -6,7 +6,15 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "${here}/.." && pwd)"
 renderer="${here}/render-tool-manifest.sh"
 tmp="$(mktemp -d /tmp/test-render-tool-manifest.XXXXXX)"
-trap 'rm -rf "${tmp}"' EXIT
+# shellcheck source=ops/test-scratch.sh
+source "${here}/test-scratch.sh"
+record_test_scratch "${tmp}"
+cleanup() {
+  local status=$?
+  remove_test_scratch || status=1
+  exit "${status}"
+}
+trap cleanup EXIT
 
 fail() {
   printf 'test-render-tool-manifest: %s\n' "$*" >&2
@@ -27,9 +35,11 @@ expect_failure() {
 
 # Rust unit tests prove rendering is keyed and shape-based against a fabricated
 # future predecessor. Build the exact binary once for the custody hostiles.
-cargo build --quiet --locked --offline --manifest-path "${repo_root}/Cargo.toml" \
+cargo build --quiet --locked --offline --manifest-path "${repo_root}/crates/jeryu-tool-control/Cargo.toml" \
   --bin jeryu-toolctl
-toolctl="${repo_root}/target/debug/jeryu-toolctl"
+toolctl="$(cargo metadata --quiet --locked --offline --no-deps --format-version 1 \
+  --manifest-path "${repo_root}/crates/jeryu-tool-control/Cargo.toml" |
+  jq -er '.target_directory + "/debug/jeryu-toolctl"')"
 
 init_repo() {
   local root="$1" origin="$2"

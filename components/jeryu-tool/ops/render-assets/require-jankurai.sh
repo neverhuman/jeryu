@@ -1,4 +1,14 @@
 require_jankurai() {
+  if [[ "${JERYU_MONOREPO_CANDIDATE:-0}" != "0" ]]; then
+    local candidate_root
+    candidate_root="$(env -i PATH=/usr/bin:/bin GIT_CONFIG_GLOBAL=/dev/null \
+      GIT_CONFIG_NOSYSTEM=1 /usr/bin/git -C "$(dirname -- "${BASH_SOURCE[0]}")" \
+      rev-parse --show-toplevel)" || return 1
+    # shellcheck source=/dev/null
+    source "${candidate_root}/components/jeryu-tool/ops/verify-public-candidate.sh"
+    require_public_candidate_jankurai
+    return
+  fi
   local mode=receipt-bound
   local expected_broker="/opt/jain-ci/authority/release-bin/jankurai"
   local expected_governed="/home/ubuntu/.jeryu/bin/jankurai"

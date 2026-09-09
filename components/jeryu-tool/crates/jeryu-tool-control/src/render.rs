@@ -32,6 +32,13 @@ use paths::*;
 use remote::*;
 use storage::*;
 
+#[path = "render_candidate.rs"]
+mod candidate;
+
+pub fn run_candidate(tool_root: &Path, raw_args: &[String]) -> Result<i32, String> {
+    candidate::run(tool_root, raw_args)
+}
+
 #[derive(Default)]
 struct Args {
     check: bool,

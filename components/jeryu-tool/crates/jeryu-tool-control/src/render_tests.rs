@@ -6,7 +6,7 @@ use std::os::unix::fs::{PermissionsExt, symlink};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 #[cfg(unix)]
-fn test_root(label: &str) -> PathBuf {
+pub(super) fn test_root(label: &str) -> PathBuf {
     let nonce = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .expect("clock")
@@ -26,7 +26,7 @@ fn write_private(path: &Path, value: &str) {
 }
 
 #[cfg(unix)]
-fn run_fixture_git(root: &Path, args: &[&str]) {
+pub(super) fn run_fixture_git(root: &Path, args: &[&str]) {
     let mut command = local_git_command(root);
     let status = command.args(args).status().expect("run fixture Git");
     assert!(status.success(), "fixture Git failed: {args:?}");

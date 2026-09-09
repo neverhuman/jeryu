@@ -25,7 +25,7 @@ impl Pin {
         Self::parse(&text)
     }
 
-    fn parse(text: &str) -> Result<Self, String> {
+    pub(crate) fn parse(text: &str) -> Result<Self, String> {
         let parsed: toml::Value = toml::from_str(text)
             .map_err(|error| format!("failed to parse tool-manifest.toml: {error}"))?;
         let top = parsed

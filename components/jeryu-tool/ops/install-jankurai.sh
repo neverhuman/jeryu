@@ -17,13 +17,231 @@ require_hex() {
   [[ "${value}" =~ ^[0-9a-f]{${length}}$ ]] || die "invalid ${name}"
 }
 
+public_candidate=0
+expected_head=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --public-candidate)
+      [[ "${public_candidate}" == 0 ]] || die "duplicate public candidate mode"
+      public_candidate=1
+      shift
+      ;;
+    --expected-head)
+      [[ $# -ge 2 && -z "${expected_head}" ]] || die "expected head requires one value"
+      expected_head="$2"
+      shift 2
+      ;;
+    *) die "usage: $0 [--public-candidate --expected-head FULL_SHA]" ;;
+  esac
+done
+if [[ "${public_candidate}" == 1 ]]; then
+  require_hex expected-head "${expected_head}" 40
+  [[ "$(id -u)" != 0 ]] || die "public candidate installation must run as a non-root user"
+  while IFS= read -r name; do
+    case "${name}" in
+      JERYU_INSTALL_TEST_*|JERYU_PIN_ENV|JERYU_FORGE_TOKEN_FILE|JANKURAI_*|GIT_*|SSH_ASKPASS*)
+        die "public candidate mode rejects authority, credential, and test overrides" ;;
+    esac
+  done < <(compgen -e)
+else
+  [[ -z "${expected_head}" ]] || die "expected head requires public candidate mode"
+fi
+
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+candidate_state=""
+candidate_state_identity=""
+candidate_pin_blob="" candidate_pin_sha=""
+candidate_builder_blob="" candidate_builder_sha=""
+candidate_predicate_blob="" candidate_predicate_sha=""
+candidate_manifest_blob="" candidate_manifest_sha=""
+
+remove_owned_scratch() {
+  local directory="$1" identity="$2" mount_point links
+  [[ -d "${directory}" && ! -L "${directory}" && -O "${directory}" &&
+     "$(realpath -e -- "${directory}")" == "${directory}" &&
+     "$(stat -c '%d:%i:%u' -- "${directory}")" == "${identity}" &&
+     -r /proc/self/mountinfo ]] || return 1
+  while read -r _ _ _ _ mount_point _; do
+    printf -v mount_point '%b' "${mount_point}"
+    [[ "${mount_point}" != "${directory}" && "${mount_point}" != "${directory}/"* ]] || return 1
+  done </proc/self/mountinfo
+  # Refuse linked or mounted scratch rather than traversing a changed tree.
+  links="$(find "${directory}" -xdev -type l -print -quit)" || return 1
+  [[ -z "${links}" && ! -L "${directory}" &&
+     "$(stat -c '%d:%i:%u' -- "${directory}")" == "${identity}" ]] || return 1
+  rm -rf --one-file-system --preserve-root=all -- "${directory}"
+}
+
+candidate_finish() {
+  local status=$?
+  trap - EXIT
+  if [[ -n "${candidate_state}" ]]; then
+    remove_owned_scratch "${candidate_state}" "${candidate_state_identity}" || {
+      printf 'install-jankurai: retained changed or mounted candidate inputs\n' >&2
+      status=1
+    }
+  fi
+  exit "${status}"
+}
+
+candidate_ancestors() {
+  local directory="${install_root}" owner mode
+  while [[ ! -e "${directory}" ]]; do directory="$(dirname -- "${directory}")"; done
+  while :; do
+    [[ -d "${directory}" && ! -L "${directory}" &&
+       "$(realpath -e -- "${directory}")" == "${directory}" ]] || return 1
+    owner="$(stat -c %u -- "${directory}")"
+    mode="$(stat -c %a -- "${directory}")"
+    [[ "${owner}" == 0 || "${owner}" == "$(id -u)" ]] || return 1
+    (( (8#${mode} & 8#022) == 0 )) || return 1
+    [[ "${directory}" != / ]] || break
+    directory="$(dirname -- "${directory}")"
+  done
+}
+
+public_git() {
+  env -i PATH=/usr/bin:/bin HOME="${candidate_state}/home" \
+    XDG_CONFIG_HOME="${candidate_state}/xdg" GIT_CONFIG_GLOBAL=/dev/null \
+    GIT_CONFIG_SYSTEM=/dev/null GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_COUNT=0 \
+    GIT_TERMINAL_PROMPT=0 GIT_NO_REPLACE_OBJECTS=1 GIT_OPTIONAL_LOCKS=0 \
+    GIT_TEMPLATE_DIR="${candidate_state}/git-template" \
+    /usr/bin/git -C "${candidate_state}" -c credential.helper= -c core.askPass= -c core.hooksPath=/dev/null \
+    -c core.fsmonitor=false -c http.extraHeader= -c http.followRedirects=false \
+    -c http.sslVerify=true -c http.proxy= -c protocol.allow=never -c protocol.https.allow=always "$@"
+}
+
+candidate_renderer() {
+  # Compilation is offline; the parent builds this exact control target first.
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null GIT_CONFIG_NOSYSTEM=1 \
+    GIT_CONFIG_COUNT=0 GIT_TERMINAL_PROMPT=0 GIT_NO_REPLACE_OBJECTS=1 \
+    cargo run --quiet --locked --offline \
+    --manifest-path "${manifest_root}/crates/jeryu-tool-control/Cargo.toml" \
+    --bin jeryu-toolctl -- --tool-root "${manifest_root}" \
+    render-monorepo-candidate --monorepo-root "${candidate_monorepo}" \
+    --check --expected-head "${expected_head}"
+}
+
+candidate_hold_input() {
+  local relative="$1" held="$2" output_blob="$3" output_sha="$4" blob sha
+  [[ -f "${candidate_monorepo}/${relative}" && ! -L "${candidate_monorepo}/${relative}" &&
+    "$(realpath -e -- "${candidate_monorepo}/${relative}")" == "${candidate_monorepo}/${relative}" ]] ||
+    die "candidate input is not a physical committed file"
+  blob="$(public_git -C "${candidate_monorepo}" rev-parse "${expected_head}:${relative}")"
+  require_hex candidate-input-blob "${blob}" 40
+  [[ "$(public_git -C "${candidate_monorepo}" cat-file -t "${blob}")" == blob ]] ||
+    die "candidate input is not a Git blob"
+  public_git -C "${candidate_monorepo}" cat-file blob "${blob}" >"${held}"
+  chmod 400 "${held}"
+  sha="$(sha256_file "${held}")"
+  [[ "$(sha256_file "${candidate_monorepo}/${relative}")" == "${sha}" ]] ||
+    die "candidate input differs from its committed blob"
+  printf -v "${output_blob}" '%s' "${blob}"
+  printf -v "${output_sha}" '%s' "${sha}"
+}
+
+candidate_recheck() {
+  local relative held expected_sha
+  [[ "${public_candidate}" == 1 ]] || return 0
+  candidate_ancestors || die "candidate install ancestors changed"
+  [[ -d "${candidate_state}" && ! -L "${candidate_state}" && -O "${candidate_state}" &&
+     "$(realpath -e -- "${candidate_state}")" == "${candidate_state}" &&
+     "$(stat -c '%d:%i:%u' -- "${candidate_state}")" == "${candidate_state_identity}" &&
+     "$(stat -c %a -- "${candidate_state}")" == 700 ]] ||
+    die "candidate retained input custody changed"
+  [[ "$(public_git -C "${candidate_monorepo}" rev-parse HEAD)" == "${expected_head}" &&
+     "$(public_git -C "${candidate_monorepo}" rev-parse 'HEAD^{tree}')" == "${manifest_tree}" &&
+     -z "$(public_git -C "${candidate_monorepo}" status --porcelain --untracked-files=all)" ]] ||
+    die "candidate checkout is no longer the exact clean source"
+  for relative in "${candidate_pin_path}" "${candidate_builder_path}" "${candidate_predicate_path}"; do
+    case "${relative}" in
+      "${candidate_pin_path}") held=pin.env; expected_sha="${candidate_pin_sha}" ;;
+      "${candidate_builder_path}") held=builder.sh; expected_sha="${candidate_builder_sha}" ;;
+      *) held=receipt.jq; expected_sha="${candidate_predicate_sha}" ;;
+    esac
+    [[ -f "${candidate_state}/${held}" && ! -L "${candidate_state}/${held}" &&
+       "$(stat -c '%a:%h' -- "${candidate_state}/${held}")" == 400:1 &&
+       -f "${candidate_monorepo}/${relative}" && ! -L "${candidate_monorepo}/${relative}" &&
+       "$(realpath -e -- "${candidate_monorepo}/${relative}")" == "${candidate_monorepo}/${relative}" &&
+       "$(sha256_file "${candidate_state}/${held}")" == "${expected_sha}" &&
+       "$(sha256_file "${candidate_monorepo}/${relative}")" == "${expected_sha}" ]] ||
+      die "candidate committed or retained input changed"
+  done
+  [[ -f "${candidate_state}/renderer.json" && ! -L "${candidate_state}/renderer.json" &&
+     "$(stat -c '%a:%h' -- "${candidate_state}/renderer.json")" == 400:1 &&
+     "$(sha256_file "${candidate_state}/renderer.json")" == "${candidate_renderer_sha}" ]] ||
+    die "retained renderer metadata changed"
+  candidate_renderer >"${candidate_state}/renderer-recheck.json"
+  [[ "$(sha256_file "${candidate_state}/renderer-recheck.json")" == "${candidate_renderer_sha}" ]] ||
+    die "candidate renderer identity or committed consumer bytes changed"
+}
+
+candidate_receipt_valid() {
+  local receipt="$1"
+  jq -e --argjson renderer "$(cat "${candidate_state}/renderer.json")" \
+    --arg renderer_sha "${candidate_renderer_sha}" --argjson pin "${candidate_pin_json}" \
+    --arg pin_blob "${candidate_pin_blob}" --arg pin_sha "${candidate_pin_sha}" \
+    --arg builder_blob "${candidate_builder_blob}" --arg builder_sha "${candidate_builder_sha}" \
+    --arg binary_path "${target}" --arg install_root "${install_root}" \
+    --arg lock_identity "${install_lock_identity}" \
+    -f "${candidate_state}/receipt.jq" "${receipt}" >/dev/null || return 1
+  [[ "$(jq -S . "${receipt}" | sha256sum | awk '{print $1}')" == "$(sha256_file "${receipt}")" ]]
+}
+
+# The generated, retained pin supplies JANKURAI_REV before this function runs.
+# shellcheck disable=SC2153
+candidate_public_readback() {
+  local remote_head
+  remote_head="$(public_git ls-remote --tags "${JANKURAI_REPO}" \
+    "refs/tags/${JANKURAI_TAG}" "refs/tags/${JANKURAI_TAG}^{}" |
+    awk -v direct="refs/tags/${JANKURAI_TAG}" -v peeled="refs/tags/${JANKURAI_TAG}^{}" '
+      $2 == peeled {print $1; found=1; exit}
+      $2 == direct {direct_rev=$1}
+      END {if (!found && direct_rev != "") print direct_rev}')"
+  [[ "${remote_head}" == "${JANKURAI_REV}" ]] || die "public immutable tag readback mismatch"
+}
+
+candidate_prepare_build_cache() {
+  # Fetch only the exact lock's public crates.io inventory outside the offline build.
+  awk '/^source = / && $0 != "source = \"registry+https://github.com/rust-lang/crates.io-index\"" {exit 1}' \
+    "${scratch}/source/Cargo.lock" || die "candidate lock contains a non-public-registry source"
+  mkdir "${candidate_state}/cargo-home" "${candidate_state}/docker-config"
+  candidate_cargo="$(command -v cargo)"
+  [[ "${candidate_cargo}" == /* && -x "${candidate_cargo}" ]] || die "Cargo executable unavailable"
+  candidate_cargo_dir="$(dirname -- "${candidate_cargo}")"
+  candidate_rustup_home="${RUSTUP_HOME:-${HOME}/.rustup}"
+  [[ -d "${candidate_rustup_home}" && ! -L "${candidate_rustup_home}" &&
+    "$(realpath -e -- "${candidate_rustup_home}")" == "${candidate_rustup_home}" ]] ||
+    die "Rustup home is not a physical directory"
+  (
+    cd "${candidate_state}"
+    env -i PATH="${candidate_cargo_dir}:/usr/bin:/bin" HOME="${candidate_state}/home" \
+      CARGO_HOME="${candidate_state}/cargo-home" RUSTUP_HOME="${candidate_rustup_home}" \
+      CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse CARGO_NET_OFFLINE=false \
+      "${candidate_cargo}" "+${JANKURAI_RUST_TOOLCHAIN}" fetch --locked \
+      --manifest-path "${scratch}/source/Cargo.toml"
+  )
+  [[ -S /run/docker.sock && ! -L /run/docker.sock &&
+    "$(realpath -e /run/docker.sock)" == /run/docker.sock &&
+    "$(stat -c %u /run/docker.sock)" == 0 &&
+    "$(stat -c %u /run)" == 0 && -f /usr/bin/docker && ! -L /usr/bin/docker &&
+    -x /usr/bin/docker && "$(stat -c '%a:%u:%g:%h' /usr/bin/docker)" == 755:0:0:1 ]] ||
+    die "candidate builder preparation requires the physical local Docker endpoint"
+  (( (8#$(stat -c %a /run/docker.sock) & 8#002) == 0 &&
+     (8#$(stat -c %a /run) & 8#022) == 0 )) || die "Docker endpoint is writable by another user"
+  env -i PATH=/usr/bin:/bin /usr/bin/docker --host unix:///run/docker.sock \
+    --config "${candidate_state}/docker-config" pull "${JANKURAI_BUILDER_IMAGE}"
+}
+
 default_pin_env="${here}/../generated/jankurai-pin.env"
 test_mode="${JERYU_INSTALL_TEST_MODE:-0}"
 [[ "${test_mode}" == "0" || "${test_mode}" == "1" ]] || die "test mode must be 0 or 1"
 
 governed_install_root="/home/ubuntu/.jeryu"
-install_root_input="${JERYU_INSTALL_ROOT:-${governed_install_root}}"
+if [[ "${public_candidate}" == 1 ]]; then
+  install_root_input="${JERYU_INSTALL_ROOT:-${XDG_CACHE_HOME:-${HOME}/.cache}/jeryu/ci-tools/jankurai}"
+else
+  install_root_input="${JERYU_INSTALL_ROOT:-${governed_install_root}}"
+fi
 [[ "${install_root_input}" == /* ]] || die "installation root must be absolute"
 if [[ "${install_root_input}" != "/" ]]; then
   install_root_input="${install_root_input%/}"
@@ -34,12 +252,62 @@ install_root="$(realpath -m -- "${install_root_input}")"
 if [[ "${test_mode}" == "1" && "${install_root}" == "${governed_install_root}" ]]; then
   die "test mode must not target the governed installation root"
 fi
-if [[ "${test_mode}" != "1" && "${install_root}" != "${governed_install_root}" ]]; then
+if [[ "${test_mode}" != "1" && "${public_candidate}" != "1" && "${install_root}" != "${governed_install_root}" ]]; then
   die "governed installation root must be ${governed_install_root}"
 fi
 
 pin_env="${JERYU_PIN_ENV:-${default_pin_env}}"
-if [[ "${pin_env}" != "${default_pin_env}" && "${test_mode}" != "1" ]]; then
+if [[ "${public_candidate}" == 1 ]]; then
+  case "${install_root}" in
+    /|/home/ubuntu/.jeryu|/home/ubuntu/.jeryu/*|/opt/jain-ci|/opt/jain-ci/*)
+      die "public candidate mode must not target a governed installation" ;;
+  esac
+  candidate_ancestors || die "candidate installation ancestors are not physical and protected"
+  manifest_root="$(realpath -e -- "${here}/..")"
+  candidate_monorepo="$(realpath -e -- "${manifest_root}/../..")"
+  [[ "${manifest_root}" == "${candidate_monorepo}/components/jeryu-tool" &&
+    -d "${candidate_monorepo}/.git" && ! -L "${candidate_monorepo}/.git" ]] ||
+    die "public candidate requires an ordinary physical monorepo checkout"
+  candidate_state="$(mktemp -d /tmp/jeryu-public-candidate.XXXXXX)"
+  candidate_state_identity="$(stat -c '%d:%i:%u' -- "${candidate_state}")"
+  trap candidate_finish EXIT
+  trap 'exit 130' INT TERM HUP
+  mkdir "${candidate_state}/home" "${candidate_state}/xdg" "${candidate_state}/git-template"
+  [[ "$(public_git -C "${candidate_monorepo}" rev-parse HEAD)" == "${expected_head}" &&
+    -z "$(public_git -C "${candidate_monorepo}" status --porcelain --untracked-files=all)" ]] ||
+    die "public candidate requires the exact clean committed head"
+  manifest_tree="$(public_git -C "${candidate_monorepo}" rev-parse 'HEAD^{tree}')"
+  candidate_renderer >"${candidate_state}/renderer.json"
+  chmod 400 "${candidate_state}/renderer.json"
+  candidate_renderer_sha="$(sha256_file "${candidate_state}/renderer.json")"
+  jq -e --arg head "${expected_head}" --arg tree "${manifest_tree}" '
+    .schema == "jeryu.jankurai-candidate-render/v1" and .mode == "check" and .drift == false and
+    .scope == {complete:true,repositories:["jeryu","jeryu-cache","jeryu-ci-runner","jeryu-core",
+      "jeryu-deploy","jeryu-intelligence","jeryu-jira","jeryu-release-ops","jeryu-tool",
+      "jeryu-tool-finder","jeryu-web"]} and
+    .source == {repository:"https://github.com/neverhuman/jeryu.git",commit:$head,tree:$tree,clean_at_start:true} and
+    .manifest.path == "components/jeryu-tool/tool-manifest.toml" and
+    .distribution.repository == "https://github.com/neverhuman/jankurai.git" and
+    .governance == {protected_main:false,handover:"pending",predecessor_authentication:"not-performed"} and
+    .verification == {build:"not-performed",installation:"not-performed",public_readback:"not-performed"} and
+    (.consumers | length > 0 and all(.[]; .changed == false and .before_sha256 == .expected_sha256))
+  ' "${candidate_state}/renderer.json" >/dev/null || die "candidate renderer metadata is not exact and drift-free"
+  candidate_pin_path="components/jeryu-tool/generated/jankurai-pin.env"
+  candidate_builder_path="components/jeryu-tool/ops/build-jankurai-hermetic.sh"
+  candidate_predicate_path="components/jeryu-tool/ops/public-candidate-receipt.jq"
+  candidate_hold_input "${candidate_pin_path}" "${candidate_state}/pin.env" candidate_pin_blob candidate_pin_sha
+  candidate_hold_input "${candidate_builder_path}" "${candidate_state}/builder.sh" candidate_builder_blob candidate_builder_sha
+  candidate_hold_input "${candidate_predicate_path}" "${candidate_state}/receipt.jq" candidate_predicate_blob candidate_predicate_sha
+  [[ "$(public_git -C "${candidate_monorepo}" hash-object "${candidate_state}/receipt.jq")" == "${candidate_predicate_blob}" ]] ||
+    die "retained receipt predicate differs from its committed blob"
+  candidate_hold_input components/jeryu-tool/tool-manifest.toml "${candidate_state}/manifest.toml" candidate_manifest_blob candidate_manifest_sha
+  jq -e --arg pin "${candidate_pin_sha}" --arg manifest "${candidate_manifest_sha}" \
+    --arg blob "${candidate_manifest_blob}" '
+    .generated_pin_sha256 == $pin and .manifest.sha256 == $manifest and .manifest.blob == $blob
+  ' "${candidate_state}/renderer.json" >/dev/null || die "candidate renderer inputs differ from retained Git bytes"
+  pin_env="${candidate_state}/pin.env"
+fi
+if [[ "${pin_env}" != "${default_pin_env}" && "${test_mode}" != "1" && "${public_candidate}" != "1" ]]; then
   die "a non-canonical pin file is allowed only in explicit test mode"
 fi
 [[ -r "${pin_env}" ]] || die "generated pin is missing: ${pin_env}"
@@ -76,6 +344,17 @@ require_hex JANKURAI_BUILD_CONTEXT_SHA256 "${JANKURAI_BUILD_CONTEXT_SHA256}" 64
   die "unsupported build mode: ${JANKURAI_BUILD_MODE}"
 [[ "${JANKURAI_PACKAGE_PATH}" == "crates/jankurai" ]] ||
   die "unsupported package path: ${JANKURAI_PACKAGE_PATH}"
+
+if [[ "${public_candidate}" == 1 ]]; then
+  candidate_pin_json="$(for name in "${required_pin_vars[@]}"; do printf '%s\0%s\0' "${name}" "${!name}"; done |
+    jq -Rs 'split("\u0000")[:-1] | [range(0; length; 2) as $i | {key:.[$i],value:.[$i+1]}] | from_entries')"
+  jq -e --arg producer "${JANKURAI_REPO}" --arg tag "${JANKURAI_TAG}" \
+    --arg commit "${JANKURAI_REV}" --arg tree "${JANKURAI_SOURCE_TREE}" '
+    .producer_repository == $producer and .distribution.tag == $tag and
+    .distribution.commit == $commit and .distribution.tree == $tree
+  ' "${candidate_state}/renderer.json" >/dev/null || die "public distribution changed the producer identity"
+  JANKURAI_REPO="$(jq -er .distribution.repository "${candidate_state}/renderer.json")"
+fi
 
 install_dir="${install_root}/bin"
 target="${install_dir}/jankurai"
@@ -172,7 +451,11 @@ if [[ "${test_mode}" == "1" && -n "${JERYU_INSTALL_TEST_LOCK_WAITING_FILE:-}" ]]
     die "test lock waiting marker must be absolute"
   printf 'waiting\n' > "${JERYU_INSTALL_TEST_LOCK_WAITING_FILE}"
 fi
-flock -x "${install_lock_fd}" || die "unable to acquire exclusive installation lock"
+if [[ "${public_candidate}" == 1 ]]; then
+  flock -x --timeout 30 "${install_lock_fd}" || die "public candidate install lock contended for 30 seconds"
+else
+  flock -x "${install_lock_fd}" || die "unable to acquire exclusive installation lock"
+fi
 install_lock_identity="$(stat -Lc '%d:%i:%u:%g:%a:%h' -- \
   "/proc/${installer_pid}/fd/${install_lock_fd}")"
 
@@ -232,6 +515,9 @@ rollback_dir_fd_path="/proc/${installer_pid}/fd/${rollback_dir_fd}"
 target_custody_path="${install_dir_fd_path}/jankurai"
 
 require_transaction_custody() {
+  if [[ "${public_candidate}" == 1 ]]; then
+    candidate_ancestors || die "candidate installation ancestor custody changed"
+  fi
   require_install_lock
   if ! validate_custody_dir "${install_dir_fd}" "${install_dir_identity}" "${install_dir}" ||
     ! validate_custody_dir "${receipts_root_fd}" "${receipts_root_identity}" \
@@ -281,10 +567,12 @@ export CARGO_NET_OFFLINE=true
 export NO_PROXY="127.0.0.1,localhost,::1"
 export no_proxy="${NO_PROXY}"
 
-token_file="${JERYU_FORGE_TOKEN_FILE:-/home/ubuntu/.jeryu/secrets/merge-token}"
-[[ -r "${token_file}" ]] || die "local-forge credential is unavailable"
-forge_token="$(tr -d '\n' < "${token_file}")"
-[[ -n "${forge_token}" ]] || die "local-forge credential is empty"
+if [[ "${public_candidate}" != 1 ]]; then
+  token_file="${JERYU_FORGE_TOKEN_FILE:-/home/ubuntu/.jeryu/secrets/merge-token}"
+  [[ -r "${token_file}" ]] || die "local-forge credential is unavailable"
+  forge_token="$(tr -d '\n' < "${token_file}")"
+  [[ -n "${forge_token}" ]] || die "local-forge credential is empty"
+fi
 git_bin=git
 if [[ -n "${JERYU_INSTALL_TEST_GIT_BIN:-}" ]]; then
   [[ "${test_mode}" == "1" ]] || die "a Git test double is allowed only in explicit test mode"
@@ -292,6 +580,10 @@ if [[ -n "${JERYU_INSTALL_TEST_GIT_BIN:-}" ]]; then
   git_bin="${JERYU_INSTALL_TEST_GIT_BIN}"
 fi
 forge_git() {
+  if [[ "${public_candidate}" == 1 ]]; then
+    public_git "$@"
+    return
+  fi
   GIT_CONFIG_COUNT=2 \
   GIT_CONFIG_KEY_0=http.extraHeader \
   GIT_CONFIG_VALUE_0="Authorization: Bearer ${forge_token}" \
@@ -307,16 +599,24 @@ forge_git() {
 # explicitly diagnostic and cannot be mistaken for governed installation.
 manifest_root="$(realpath -m "${here}/..")"
 manifest_repo="http://127.0.0.1:8787/git/jeryu/jeryu-tool.git"
-manifest_commit="$(git -C "${manifest_root}" rev-parse HEAD)"
-manifest_tree="$(git -C "${manifest_root}" rev-parse 'HEAD^{tree}')"
-manifest_sha256="$(sha256_file "${manifest_root}/tool-manifest.toml")"
+if [[ "${public_candidate}" == 1 ]]; then
+  manifest_repo="$(jq -r .source.repository "${candidate_state}/renderer.json")"
+  manifest_commit="${expected_head}"
+  manifest_sha256="${candidate_manifest_sha}"
+else
+  manifest_commit="$(git -C "${manifest_root}" rev-parse HEAD)"
+  manifest_tree="$(git -C "${manifest_root}" rev-parse 'HEAD^{tree}')"
+  manifest_sha256="$(sha256_file "${manifest_root}/tool-manifest.toml")"
+fi
 require_hex JERYU_TOOL_MANIFEST_COMMIT "${manifest_commit}" 40
 require_hex JERYU_TOOL_MANIFEST_TREE "${manifest_tree}" 40
 require_hex JERYU_TOOL_MANIFEST_SHA256 "${manifest_sha256}" 64
 governance_status="diagnostic-candidate"
 governance_protected_main=false
 governance_protection="not-applicable"
-if [[ "${test_mode}" != "1" ]]; then
+if [[ "${public_candidate}" == 1 ]]; then
+  governance_status="public-candidate"
+elif [[ "${test_mode}" != "1" ]]; then
   [[ "$(git -C "${manifest_root}" remote get-url origin)" == "${manifest_repo}" ]] ||
     die "jeryu-tool manifest origin is not canonical"
   [[ -z "$(git -C "${manifest_root}" status --porcelain --untracked-files=all)" ]] ||
@@ -439,6 +739,13 @@ matching_receipt() {
        "$(stat -Lc '%h' -- "${receipt}")" == "1" &&
        "$(realpath -e -- "${receipt}")" == "${receipt_dir}/${leaf}" ]] || continue
     receipt_descriptor="${receipt}"
+    if [[ "${public_candidate}" == 1 ]]; then
+      if candidate_receipt_valid "${receipt_descriptor}"; then
+        printf '%s' "${receipt_dir}/${leaf}"
+        return 0
+      fi
+      continue
+    fi
     if jq -e \
       --arg remote "${JANKURAI_REPO}" \
       --arg commit "${JANKURAI_REV}" \
@@ -533,8 +840,11 @@ if [[ -e "${target_custody_path}" || -L "${target_custody_path}" ]]; then
     existing_target_fd _ignored_file_identity ||
     die "existing target is not a single-link physical regular file"
   existing_target_descriptor="/proc/${installer_pid}/fd/${existing_target_fd}"
-  existing_version="$("${existing_target_descriptor}" --version 2>/dev/null || true)"
   existing_sha="$(sha256_file "${existing_target_descriptor}")"
+  existing_version=""
+  if [[ "${public_candidate}" != 1 || "${existing_sha}" == "${JANKURAI_BINARY_SHA256}" ]]; then
+    existing_version="$("${existing_target_descriptor}" --version 2>/dev/null || true)"
+  fi
   if [[ "${existing_version}" == "${JANKURAI_VERSION}" &&
         "${existing_sha}" == "${JANKURAI_BINARY_SHA256}" ]]; then
     if receipt="$(matching_receipt)"; then
@@ -548,14 +858,32 @@ if [[ -e "${target_custody_path}" || -L "${target_custody_path}" ]]; then
          "${receipt_digest}" ]] ||
         die "content-addressed receipt failed self-verification: ${receipt}"
       require_transaction_custody
-      printf 'jeryu jankurai already current: %s sha256=%s receipt=%s\n' \
-        "${JANKURAI_VERSION}" "${existing_sha}" "${receipt}"
+      if [[ "${public_candidate}" == 1 ]]; then
+        candidate_recheck
+        candidate_public_readback
+        candidate_receipt_valid "/proc/${installer_pid}/fd/${existing_receipt_fd}" ||
+          die "retained candidate receipt changed"
+      fi
+      if [[ "${public_candidate}" == 1 ]]; then
+        require_transaction_custody
+        [[ "$(realpath -e -- "${existing_target_descriptor}")" == "${target}" &&
+           "$(sha256_file "${existing_target_descriptor}")" == "${JANKURAI_BINARY_SHA256}" &&
+           "$(stat -Lc '%d:%i:%u:%g:%h' -- "${existing_target_descriptor}")" == \
+             "$(stat -Lc '%d:%i:%u:%g:%h' -- "${target_custody_path}")" ]] ||
+          die "current candidate binary changed during verification"
+        jq -nc --arg receipt "${receipt}" --arg path "${target}" --arg sha256 "${existing_sha}" \
+          '{status:"current",receipt:$receipt,path:$path,sha256:$sha256}'
+      else
+        printf 'jeryu jankurai already current: %s sha256=%s receipt=%s\n' \
+          "${JANKURAI_VERSION}" "${existing_sha}" "${receipt}"
+      fi
       exit 0
     fi
   fi
 fi
 
 scratch="$(mktemp -d /tmp/jeryu-install-jankurai.XXXXXX)"
+scratch_identity="$(stat -c '%d:%i:%u' -- "${scratch}")"
 stage_fd=""
 stage_leaf=""
 stage_identity=""
@@ -601,7 +929,7 @@ rollback_target() {
 }
 
 finish() {
-  local status=$?
+  local status=$? keep_candidate_state=0 log_fd log_leaf log_identity
   trap - EXIT
   if [[ "${status}" -ne 0 && "${target_replaced}" -eq 1 && "${success}" -ne 1 ]]; then
     validate_install_lock && rollback_target ||
@@ -618,7 +946,35 @@ finish() {
     remove_retained_leaf "${receipt_install_fd}" "${receipt_install_identity}" \
       "${receipt_dir_fd}" "${receipt_install_leaf}"
   fi
-  rm -rf "${scratch}"
+  if [[ "${status}" -ne 0 && "${public_candidate}" == 1 &&
+        -e "${candidate_state}/build.log" ]]; then
+    # Keep diagnostics under the already-held root; never expose cache contents.
+    if [[ -f "${candidate_state}/build.log" && ! -L "${candidate_state}/build.log" &&
+          "$(stat -c '%a:%u:%h' -- "${candidate_state}/build.log")" == "600:$(id -u):1" ]] &&
+       validate_install_lock && candidate_ancestors; then
+      create_exclusive_leaf "${install_root_fd}" jankurai-build-failure log_fd log_leaf log_identity
+      cat "${candidate_state}/build.log" >&"${log_fd}"
+      sync -f "/proc/${installer_pid}/fd/${log_fd}"
+      validate_retained_leaf "${log_fd}" "${log_identity}" "${install_root_fd}" "${log_leaf}" ||
+        die "failed build log lost physical custody"
+      printf 'install-jankurai: retained build log: %s/%s\n' "${install_root}" "${log_leaf}" >&2
+      tail -n 20 "/proc/${installer_pid}/fd/${log_fd}" >&2
+    else
+      printf 'install-jankurai: retained candidate scratch because build log custody changed: %s\n' \
+        "${candidate_state}" >&2
+      keep_candidate_state=1
+    fi
+  fi
+  remove_owned_scratch "${scratch}" "${scratch_identity}" || {
+    printf 'install-jankurai: retained changed or mounted build scratch\n' >&2
+    status=1
+  }
+  if [[ -n "${candidate_state}" && "${keep_candidate_state}" == 0 ]]; then
+    remove_owned_scratch "${candidate_state}" "${candidate_state_identity}" || {
+      printf 'install-jankurai: retained changed or mounted candidate inputs\n' >&2
+      status=1
+    }
+  fi
   exit "${status}"
 }
 trap finish EXIT
@@ -630,7 +986,9 @@ actual_target="${JANKURAI_TARGET_TRIPLE}"
 
 candidate="${scratch}/out/bin/jankurai"
 source_verification="release-authoritative"
-if [[ "${test_mode}" == "1" ]]; then
+if [[ "${public_candidate}" == 1 ]]; then
+  source_verification="public-candidate"
+elif [[ "${test_mode}" == "1" ]]; then
   source_verification="diagnostic-candidate"
 fi
 if [[ "${test_mode}" == "1" && -n "${JERYU_INSTALL_TEST_PREBUILT_BINARY:-}" ]]; then
@@ -671,7 +1029,23 @@ else
     die "source checkout is dirty before build"
 
   mkdir -p "$(dirname "${candidate}")"
-  "${here}/build-jankurai-hermetic.sh" "${scratch}/source" "${candidate}"
+  if [[ "${public_candidate}" == 1 ]]; then
+    candidate_recheck
+    candidate_prepare_build_cache >"${candidate_state}/build.log" 2>&1
+    (
+      cd "${candidate_state}"
+      env -i PATH="${candidate_cargo_dir}:/usr/bin:/bin" HOME="${candidate_state}/home" \
+        CARGO_HOME="${candidate_state}/cargo-home" RUSTUP_HOME="${candidate_rustup_home}" \
+        GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null GIT_CONFIG_NOSYSTEM=1 \
+        GIT_CONFIG_COUNT=0 GIT_TERMINAL_PROMPT=0 GIT_NO_REPLACE_OBJECTS=1 \
+        CARGO_NET_OFFLINE=true JANKURAI_NO_UPDATE_CHECK=1 \
+        JERYU_PIN_ENV="${candidate_state}/pin.env" /usr/bin/bash "${candidate_state}/builder.sh" \
+        "${scratch}/source" "${candidate}"
+    ) >>"${candidate_state}/build.log" 2>&1
+    tail -n 20 "${candidate_state}/build.log"
+  else
+    "${here}/build-jankurai-hermetic.sh" "${scratch}/source" "${candidate}"
+  fi
   [[ -z "$(forge_git -C "${scratch}/source" status --porcelain --untracked-files=all)" ]] ||
     die "source checkout became dirty during build"
 fi
@@ -745,6 +1119,10 @@ if [[ "${test_mode}" == "1" &&
     "pre-stage-rename"
 fi
 require_transaction_custody
+if [[ "${public_candidate}" == 1 ]]; then
+  candidate_recheck
+  candidate_public_readback
+fi
 validate_retained_leaf "${stage_fd}" "${stage_identity}" "${install_dir_fd}" "${stage_leaf}" ||
   die "target transaction leaf custody changed"
 mv -fT "${install_dir_fd_path}/${stage_leaf}" "${target_custody_path}"
@@ -790,8 +1168,18 @@ timestamp="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 run_id="${JERYU_RUN_ID:-install-${timestamp}-$$}"
 operator="${JERYU_OPERATOR:-${USER:-unknown}}"
 receipt_stage="${scratch}/installation-receipt.json"
+receipt_schema="jeryu.jankurai-installation/v2"
+receipt_network_scope="local-forge-source-plus-closed-vendor-network-none"
+receipt_no_proxy="127.0.0.1,localhost,::1"
+if [[ "${public_candidate}" == 1 ]]; then
+  receipt_schema="jeryu.jankurai-public-candidate-installation/v1"
+  receipt_network_scope="public-source-fetch-plus-closed-vendor-network-none"
+  receipt_no_proxy=""
+fi
 jq -n -S \
-  --arg schema "jeryu.jankurai-installation/v2" \
+  --arg schema "${receipt_schema}" \
+  --arg network_scope "${receipt_network_scope}" \
+  --arg no_proxy "${receipt_no_proxy}" \
   --arg timestamp "${timestamp}" \
   --arg operator "${operator}" \
   --arg run_id "${run_id}" \
@@ -847,8 +1235,7 @@ jq -n -S \
       container_engine_path:"/usr/bin/docker",git_global_config_disabled:true,
       git_system_config_disabled:true,git_http_follow_redirects:false,
       git_terminal_prompt:false,jankurai_update_check:false,
-      network_scope:"local-forge-source-plus-closed-vendor-network-none",
-      no_proxy:"127.0.0.1,localhost,::1"},
+      network_scope:$network_scope,no_proxy:$no_proxy},
     governance:{status:$governance_status,manifest_repo:$manifest_repo,
       manifest_commit:$manifest_commit,manifest_tree:$manifest_tree,
       manifest_sha256:$manifest_sha,protected_main:$protected_main,
@@ -858,6 +1245,26 @@ jq -n -S \
       rollback_artifact:$rollback_path,
       lock:{path:$install_lock_path,identity:$install_lock_identity,
         exclusive:true,held_through_receipt:true}},conclusion:"success"}' > "${receipt_stage}"
+if [[ "${public_candidate}" == 1 ]]; then
+  candidate_recheck
+  candidate_public_readback
+  jq -S --argjson renderer "$(cat "${candidate_state}/renderer.json")" \
+    --arg renderer_sha "${candidate_renderer_sha}" \
+    --arg producer "$(jq -r .producer_repository "${candidate_state}/renderer.json")" \
+    --arg pin_blob "${candidate_pin_blob}" --arg pin_sha "${candidate_pin_sha}" \
+    --arg builder_blob "${candidate_builder_blob}" --arg builder_sha "${candidate_builder_sha}" '
+    .source.producer_repository = $producer |
+    .governance.handover = "pending" |
+    .governance.predecessor_authentication = "not-performed" |
+    .renderer_metadata = $renderer | .renderer_metadata_sha256 = $renderer_sha |
+    .inputs = {
+      pin:{path:"components/jeryu-tool/generated/jankurai-pin.env",blob:$pin_blob,sha256:$pin_sha},
+      builder:{path:"components/jeryu-tool/ops/build-jankurai-hermetic.sh",blob:$builder_blob,sha256:$builder_sha}} |
+    .verification = {build:"verified",installation:"verified",public_readback:"verified"}
+  ' "${receipt_stage}" >"${candidate_state}/receipt.json"
+  mv -fT "${candidate_state}/receipt.json" "${receipt_stage}"
+  candidate_receipt_valid "${receipt_stage}" || die "candidate receipt failed the closed predicate"
+fi
 receipt_sha="$(sha256_file "${receipt_stage}")"
 receipt_path="${receipt_dir}/${receipt_sha}.json"
 receipt_leaf="${receipt_sha}.json"
@@ -888,7 +1295,23 @@ fi
 [[ "$(sha256_file "/proc/${installer_pid}/fd/${receipt_fd}")" == "${receipt_sha}" ]] ||
   die "receipt content address mismatch"
 require_transaction_custody
+if [[ "${public_candidate}" == 1 ]]; then
+  candidate_recheck
+  candidate_public_readback
+  candidate_receipt_valid "/proc/${installer_pid}/fd/${receipt_fd}" ||
+    die "published candidate receipt failed verification"
+  require_transaction_custody
+  [[ "$(realpath -e -- "${installed_target_descriptor}")" == "${target}" &&
+     "$(stat -Lc '%d:%i:%u:%g:%h' -- "${target_custody_path}")" == "${installed_target_identity}" &&
+     "$(sha256_file "${installed_target_descriptor}")" == "${JANKURAI_BINARY_SHA256}" ]] ||
+    die "published candidate binary changed during final verification"
+fi
 
 success=1
-printf 'jeryu jankurai installed: %s sha256=%s path=%s receipt=%s\n' \
-  "${installed_version}" "${installed_sha}" "${target}" "${receipt_path}"
+if [[ "${public_candidate}" == 1 ]]; then
+  jq -nc --arg receipt "${receipt_path}" --arg path "${target}" --arg sha256 "${installed_sha}" \
+    '{status:"installed",receipt:$receipt,path:$path,sha256:$sha256}'
+else
+  printf 'jeryu jankurai installed: %s sha256=%s path=%s receipt=%s\n' \
+    "${installed_version}" "${installed_sha}" "${target}" "${receipt_path}"
+fi

@@ -72,6 +72,14 @@ pub(super) fn bind_jankurai_wrapper(text: &str) -> Result<String, String> {
         ));
     }
 
+    let canonical_wrapper = regex(&format!(
+        r"(?m)^{}$",
+        regex::escape(CANONICAL_JANKURAI_WRAPPER)
+    ));
+    if canonical_wrapper.find_iter(text).count() == 1 {
+        return Ok(text.to_owned());
+    }
+
     let exact_wrapper = regex(
         r#"(?m)^jankurai\(\)[ \t]*\{[ \t]*\n[ \t]+require_jankurai(?: \|\| return 1)?[ \t]*\n[ \t]+command "\$\{(?P<bin>JERYU_(?:GOVERNED_)?JANKURAI_BIN)\}" "\$@"[ \t]*\n\}[ \t]*$"#,
     );
@@ -89,10 +97,10 @@ pub(super) fn bind_jankurai_wrapper(text: &str) -> Result<String, String> {
         .name("bin")
         .ok_or_else(|| "Jankurai command wrapper is missing its executable binding".to_owned())?;
     match bin.as_str() {
-        "JERYU_GOVERNED_JANKURAI_BIN" => Ok(text.to_owned()),
-        "JERYU_JANKURAI_BIN" => {
+        "JERYU_GOVERNED_JANKURAI_BIN" | "JERYU_JANKURAI_BIN" => {
             let mut rendered = text.to_owned();
-            rendered.replace_range(bin.range(), "JERYU_GOVERNED_JANKURAI_BIN");
+            let matched = captures.get(0).expect("matched exact legacy wrapper");
+            rendered.replace_range(matched.range(), CANONICAL_JANKURAI_WRAPPER);
             Ok(rendered)
         }
         _ => Err("Jankurai command wrapper uses an unsupported executable binding".to_owned()),

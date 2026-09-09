@@ -39,6 +39,11 @@ cd "$repo_root"
 # A local premerge manifest PR may instead qualify its exact pinned candidate in
 # /tmp, with a content-addressed diagnostic receipt, without granting release
 # authority or mutating an installed auditor.
+if [[ "${JERYU_MONOREPO_CANDIDATE:-0}" == 1 ]]; then
+  source ops/ci/lib.sh
+  require_jankurai
+  qualification_mode="public-candidate"
+else
 unset JERYU_GOVERNED_JANKURAI_BIN JERYU_JANKURAI_BIN JERYU_JANKURAI_RECEIPT \
   JERYU_JANKURAI_RECEIPT_SHA256 JERYU_JANKURAI_ALLOW_TEST_RECEIPT
 host_bin="$(command -v jankurai 2>/dev/null || true)"
@@ -85,6 +90,7 @@ else
   require_jankurai
   qualification_mode="premerge-candidate"
 fi
+fi
 printf '[pr-ci] jankurai mode=%s bin=%s receipt=%s receipt_sha256=%s\n' \
   "${qualification_mode}" "${JERYU_GOVERNED_JANKURAI_BIN}" \
   "${JERYU_JANKURAI_RECEIPT:-not-product-visible}" \
@@ -93,7 +99,7 @@ printf '[pr-ci] jankurai mode=%s bin=%s receipt=%s receipt_sha256=%s\n' \
 # The manifest PR proves its own generated consumers first. After each protected
 # consumer lands, the release lane runs the unscoped family check over canonical mains.
 echo "[pr-ci] jankurai pin drift check (manifest-owner self scope)" >&2
-bash ops/render-tool-manifest.sh --check --repo jeryu-tool
+bash ops/ci/check-rendered-identity.sh --check --repo jeryu-tool
 
 echo "[pr-ci] standard lanes" >&2
 bash ops/ci/fast.sh

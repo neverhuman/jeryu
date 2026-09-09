@@ -18,8 +18,13 @@ production_candidate="$(
   exit 1
 }
 tmp="$(mktemp -d /tmp/test-bootstrap-jankurai-root-seal.XXXXXX)"
+# shellcheck source=ops/test-scratch.sh
+source "${here}/test-scratch.sh"
+record_test_scratch "${tmp}"
 cleanup() {
-  rm -rf -- "$tmp"
+  local status=$?
+  remove_test_scratch || status=1
+  exit "${status}"
 }
 trap cleanup EXIT
 

@@ -9,14 +9,19 @@ source "${source_lib}"
 production_broker="/opt/jain-ci/authority/release-bin/jankurai"
 production_governed="/home/ubuntu/.jeryu/bin/jankurai"
 tmp="$(mktemp -d /tmp/test-governed-jankurai-path.XXXXXX)"
+# shellcheck source=ops/test-scratch.sh
+source "${here}/test-scratch.sh"
+record_test_scratch "${tmp}"
 source_verifier="${tmp}/ensure-jankurai.sh"
 cleanup() {
-  rm -rf -- "${tmp}"
+  local status=$?
+  remove_test_scratch || status=1
+  exit "${status}"
 }
 trap cleanup EXIT
 
 repo_root="$(cd "${here}/.." && pwd)"
-cargo run --quiet --locked --offline --manifest-path "${repo_root}/Cargo.toml" \
+cargo run --quiet --locked --offline --manifest-path "${repo_root}/crates/jeryu-tool-control/Cargo.toml" \
   --bin jeryu-toolctl -- --tool-root "${repo_root}" emit-ensure-script \
   >"${source_verifier}"
 

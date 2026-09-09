@@ -4,7 +4,7 @@
 set -euo pipefail
 source ops/ci/lib.sh
 
-bash ops/render-tool-manifest.sh --check --repo jeryu-tool
+bash ops/ci/check-rendered-identity.sh --check --repo jeryu-tool
 bash ops/test-install-jankurai.sh
 bash ops/test-bootstrap-jankurai-root-seal.sh
 bash ops/test-render-tool-manifest.sh

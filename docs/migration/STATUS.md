@@ -63,6 +63,21 @@ Remaining release gates include:
   supported; schema 2 rejects unknown or substituted distribution fields.
   Anonymous immutable-tag preflight passes. The portable authority generator,
   installer and receipts remain required; availability is not build proof.
+  The actual portable builder at `ecb8c89d` subsequently reproduced the
+  unchanged golden binary and build-context digests from anonymously acquired
+  public source and an initially empty registry cache. All source, vendor,
+  compiler, linker and pinned image identities matched. The nonroot Docker
+  build used two CPUs with networking disabled; input hashes matched afterward
+  and both builder/source scratch passed guarded cleanup. Three maintained
+  Rust refusal/cleanup/dispatch tests and Clippy also pass. This closes the
+  builder check, without creating an installation receipt or changing the
+  installed auditor.
+  An explicit candidate renderer, portable installer, closed receipt verifier
+  and root `auditor` command are now implemented. Tool unit/integration tests,
+  Clippy and the four retained installer/root-seal/renderer/governed-path shell
+  suites pass locally. Their separate candidate receipt keeps protected
+  approval pending; actual candidate installation and generated-consumer
+  qualification remain required before the full CI gate can pass.
   The canonical
   Redline tag `redline-core-v4.1.0-jain.6` is now anonymously available from
   `neverhuman/redline-core` at the exact

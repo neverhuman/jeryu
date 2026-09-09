@@ -12,10 +12,14 @@ canonical_tag="$(sed -n 's/^JANKURAI_TAG="\([^"]*\)"$/\1/p' "${canonical_pin}")"
   exit 1
 }
 tmp="$(mktemp -d /tmp/test-install-jankurai.XXXXXX)"
+# shellcheck source=ops/test-scratch.sh
+source "${here}/test-scratch.sh"
+record_test_scratch "${tmp}"
 first_pid=""
 second_pid=""
 race_pid=""
 cleanup() {
+  local status=$?
   set +e
   if [[ -n "${first_pid}" ]] && kill -0 "${first_pid}" 2>/dev/null; then
     kill "${first_pid}" 2>/dev/null
@@ -29,7 +33,8 @@ cleanup() {
     kill "${race_pid}" 2>/dev/null
     wait "${race_pid}" 2>/dev/null
   fi
-  rm -rf "${tmp}"
+  remove_test_scratch || status=1
+  exit "${status}"
 }
 trap cleanup EXIT
 real_git="$(command -v git)"

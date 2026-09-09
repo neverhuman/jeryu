@@ -20,6 +20,10 @@ case ${1:-all} in
   public)
     cargo run --locked -p jeryu-split-tool --bin jeryu-split -- public-preflight
     ;;
+  auditor)
+    source scripts/bootstrap-jankurai.sh
+    bootstrap_public_jankurai
+    ;;
   rust)
     web_build
     cargo fmt --all -- --check
@@ -84,6 +88,9 @@ case ${1:-all} in
       components/jeryu-ci-runner/target/jankurai/runner-sandbox/enforcement.json >/dev/null
     ;;
   legacy)
+    source scripts/bootstrap-jankurai.sh
+    bootstrap_public_jankurai
+    export JERYU_TOOL_RENDER="$root/components/jeryu-tool/ops/ci/check-rendered-identity.sh"
     # Keep the original proof union active until each replacement is verified.
     bash ops/ci/pr-ci.sh
     for component in components/*; do
@@ -97,5 +104,5 @@ case ${1:-all} in
   all)
     for lane in source public rust web runtime product security sandbox oci splits legacy; do "$0" "$lane"; done
     ;;
-  *) printf 'usage: scripts/ci.sh {source|public|rust|web|runtime|product|security|sandbox|oci|splits|legacy|all}\n' >&2; exit 2 ;;
+  *) printf 'usage: scripts/ci.sh {source|public|auditor|rust|web|runtime|product|security|sandbox|oci|splits|legacy|all}\n' >&2; exit 2 ;;
 esac

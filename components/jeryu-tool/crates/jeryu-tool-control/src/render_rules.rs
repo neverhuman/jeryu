@@ -12,6 +12,10 @@ const SANDBOX_JANKURAI_PATH: &str = "/opt/rust/cargo/bin/jankurai";
 const SANDBOX_RECEIPT_ROOT: &str = "/opt/jeryu/receipts/jankurai/sha256";
 const CANONICAL_JANKURAI_WRAPPER: &str = r#"jankurai() {
   require_jankurai || return 1
+  if [[ "${JERYU_MONOREPO_CANDIDATE:-0}" == "1" ]]; then
+    command "${JERYU_CANDIDATE_JANKURAI_DESCRIPTOR:?candidate descriptor is missing}" "$@"
+    return
+  fi
   command "${JERYU_GOVERNED_JANKURAI_BIN}" "$@"
 }"#;
 
@@ -312,6 +316,44 @@ fi\n\n";
     }
     text = replace_receipt_path(&text, &context.image_receipt_sha256);
     Ok(semantic_identity_rules(&text, pin))
+}
+
+/// Render identity consumers without deriving protected installation evidence.
+/// Candidate authority is carried separately in execution-time provenance.
+pub(crate) fn render_candidate_consumer(
+    path: &Path,
+    original: &str,
+    pin: &Pin,
+    function: &str,
+) -> Result<String, String> {
+    let name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("");
+    if name == "ensure-jankurai.sh" {
+        return Ok(ensure_script(pin, function));
+    }
+    if name == "lib.sh" {
+        let text = replace_require_function(&replace_pin_block(original, pin)?, function);
+        return bind_jankurai_wrapper(&text);
+    }
+    if path.extension().and_then(|extension| extension.to_str()) == Some("sh") {
+        return replace_pin_block(original, pin);
+    }
+    if matches!(name, "audit-policy.toml" | "default-audit-policy.toml") {
+        return Ok(regex(r#"(required_tool_version\s*=\s*")[^"]*(")"#)
+            .replace_all(original, format!("${{1}}{}${{2}}", pin.get("semver")))
+            .into_owned());
+    }
+    if name == "ci-lanes.toml" {
+        return Ok(regex(r#"(jankurai_version\s*=\s*")[^"]*(")"#)
+            .replace_all(original, format!("${{1}}{}${{2}}", pin.get("version")))
+            .into_owned());
+    }
+    if name.ends_with(".yml") && original.contains("JANKURAI_") {
+        return Ok(replace_workflow_pin(original, pin));
+    }
+    Ok(original.to_owned())
 }
 
 #[cfg(test)]
