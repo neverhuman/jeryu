@@ -1,0 +1,18 @@
+[package]
+name = "jeryu-runner-oci"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+jeryu-runner-core = { workspace = true }
+
+[dev-dependencies]
+anyhow = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+tempfile = { workspace = true }
+
+[lints]
+workspace = true

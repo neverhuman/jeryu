@@ -1,0 +1,13 @@
+{
+  "action": "write",
+  "layer": "l3-repo-compiled-cas",
+  "actor_tier": "t1-protected-internal",
+  "source_repo_id": "repo_jeryu",
+  "target_repo_id": "repo_jeryu",
+  "scope": { "kind": "repo", "tenant_id": "tenant_01", "repo_id": "repo_jeryu" },
+  "green_protected_policy": true,
+  "has_explainable_fingerprint": true,
+  "has_receipt": true,
+  "is_release_lane": false,
+  "is_agent_patch": false
+}

@@ -1,0 +1,36 @@
+# jeryu-tool-finder — all-Rust cross-repo duplicate-code discovery.
+#
+# The engine (scanning, overlap merging, pattern families, enrichment) lives in
+# jeryu-codegraph and is consumed AS A LIBRARY: no subprocess dance, one
+# implementation shared with the live API server. Every build consumes the
+# immutable source-identity tag; governed Git rewrites carry that stable Cargo
+# coordinate over the hosted forge. No ambient sibling checkout participates
+# in dependency resolution.
+
+[package]
+name = "jeryu-tool-finder"
+version = "5.1.0"
+edition = "2024"
+license = "Apache-2.0"
+repository = "https://git.neverhuman.org/git/jeryu/jeryu-tool-finder.git"
+rust-version = "1.95"
+description = "Cross-repo duplicate-code discovery: scan, dossier, and propose shared tools"
+
+[dependencies]
+jeryu-codegraph = { workspace = true }
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+
+[dev-dependencies]
+proptest = "1"
+tempfile = "3"
+
+[[bin]]
+name = "jeryu-tool-finder"
+path = "src/main.rs"
+
+[lints.rust]
+unsafe_code = "forbid"

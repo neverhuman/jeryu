@@ -1,0 +1,23 @@
+[package]
+name = "jeryu-tool-control"
+version = "5.1.0"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Typed Jeryu tool registry and governed manifest control plane"
+
+[dependencies]
+regex.workspace = true
+serde_json.workspace = true
+thiserror = { version = "2" }
+toml.workspace = true
+
+[dev-dependencies]
+proptest = "1"
+
+[[bin]]
+name = "jeryu-toolctl"
+path = "src/main.rs"
+
+[lints]
+workspace = true

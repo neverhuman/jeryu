@@ -1,2 +1,8 @@
 .jankurai/
 target/
+node_modules/
+*.tsbuildinfo
+dist/
+playwright-report/
+test-results/
+storybook-static/

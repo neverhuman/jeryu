@@ -1,0 +1,41 @@
+[[lane]]
+name = "ci"
+command = "just"
+purpose = "run the complete Tool Finder required-check surface"
+requires_network = false
+
+[[lane]]
+name = "check"
+command = "just check"
+purpose = "run shell hostiles plus locked Rust format, lint, and tests"
+requires_network = false
+
+[[lane]]
+name = "score"
+command = "just score"
+purpose = "run the governed exact-head Jankurai score gate"
+requires_network = false
+
+[[lane]]
+name = "security"
+command = "just security"
+purpose = "run secret, workflow, dependency, advisory, and SBOM checks"
+requires_network = false
+
+[[lane]]
+name = "contract-drift"
+command = "just contract-drift"
+purpose = "compare the compiled CLI help with its tracked contract"
+requires_network = false
+
+[[lane]]
+name = "docs"
+command = "just check && just score"
+purpose = "verify documentation against behavior and conformance"
+requires_network = false
+
+[[lane]]
+name = "artifact-evidence"
+command = "just score && just security && just artifact-support"
+purpose = "bind passing source, score, security, and release artifact evidence"
+requires_network = false

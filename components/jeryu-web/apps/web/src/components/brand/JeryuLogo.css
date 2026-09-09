@@ -1,0 +1,100 @@
+/* JeryuLogo — terminal-prompt glyph + wordmark (TUI overhaul). */
+
+.jeryu-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-fg-primary);
+  font-family: var(--font-display);
+  line-height: 1;
+  user-select: none;
+}
+
+.jeryu-logo__glyph {
+  flex: none;
+  color: var(--color-accent-primary);
+  filter: drop-shadow(
+    0 0 6px color-mix(in srgb, var(--color-accent-primary) 55%, transparent)
+  );
+}
+
+.jeryu-logo__wordmark {
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.06em;
+  text-shadow: var(--glow-text);
+}
+
+.jeryu-logo__wordmark-accent {
+  color: var(--color-accent-primary);
+}
+
+/* -- header (default) ------------------------------------------------- */
+.jeryu-logo--header {
+  font-size: var(--font-size-md);
+}
+
+.jeryu-logo--header .jeryu-logo__glyph {
+  font-size: 1.25em;
+}
+
+/* -- mark (glyph only) ------------------------------------------------- */
+.jeryu-logo--mark {
+  font-size: var(--font-size-2xl);
+}
+
+/* -- hero (splash) ----------------------------------------------------- */
+.jeryu-logo--hero {
+  font-size: clamp(1.5rem, 5vw, 3rem);
+}
+
+.jeryu-logo__frame {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35em;
+  color: var(--color-accent-primary);
+}
+
+.jeryu-logo__frame-top,
+.jeryu-logo__frame-bottom {
+  font-size: 0.42em;
+  letter-spacing: 0.02em;
+  color: var(--color-fg-muted);
+  white-space: pre;
+}
+
+.jeryu-logo__hero-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+}
+
+.jeryu-logo--hero .jeryu-logo__glyph {
+  font-size: 1.1em;
+}
+
+.jeryu-logo--hero .jeryu-logo__wordmark {
+  font-size: 1em;
+  letter-spacing: 0.08em;
+  /* A brighter hero glow that gently pulses on boot. */
+  text-shadow:
+    0 0 12px color-mix(in srgb, var(--color-accent-primary) 55%, transparent),
+    0 0 32px color-mix(in srgb, var(--color-accent-primary) 30%, transparent);
+  animation: jeryu-logo-pulse 3.2s var(--ease-standard) infinite;
+}
+
+@keyframes jeryu-logo-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.82;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jeryu-logo--hero .jeryu-logo__wordmark {
+    animation: none;
+  }
+}

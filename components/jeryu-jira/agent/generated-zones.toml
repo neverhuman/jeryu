@@ -1,0 +1,9 @@
+[[zones]]
+path = ".jankurai/"
+generator = "just score"
+manual_edits = false
+
+[[zones]]
+path = "contracts/generated/"
+generator = "cargo run -p jeryu-jira --bin jeryu-jira-export-contracts"
+manual_edits = false

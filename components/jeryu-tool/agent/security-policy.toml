@@ -1,0 +1,22 @@
+schema_version = "1.0.0"
+enabled_tools = ["jeryu-tool-security"]
+required_tools = ["jeryu-tool-security"]
+advisory_tools = []
+
+[severity_thresholds]
+fail_lane_on = "high"
+
+[profiles.local]
+enabled_tools = ["jeryu-tool-security"]
+required_tools = ["jeryu-tool-security"]
+advisory_tools = []
+
+[profiles.ci]
+enabled_tools = ["jeryu-tool-security"]
+required_tools = ["jeryu-tool-security"]
+advisory_tools = []
+
+[profiles.release]
+enabled_tools = ["jeryu-tool-security"]
+required_tools = ["jeryu-tool-security"]
+advisory_tools = []

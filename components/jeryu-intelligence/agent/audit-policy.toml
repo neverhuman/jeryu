@@ -1,0 +1,25 @@
+schema_version = "1.0.0"
+workspace = "jeryu-intelligence"
+# rust-workspace profile: a single all-Rust binary (src/) consuming the
+# jeryu-codegraph engine as a pinned-tag library, plus the ops/ CI gate.
+#
+# Reviewed floor = 82. The 2026-06 Rust rewrite (Python scripts -> cargo
+# binary with fmt/clippy/test lanes and an end-to-end pipeline test) lifted the
+# clean full-scan score from 68 to 83 (0 caps, 0 hard findings): the repo now
+# carries a real build system and proof lanes the old scripts profile
+# structurally lacked. The floor sits one point under the reviewed score to
+# absorb scanner jitter, NOT to hide caps: the hard gates below are absolute
+# and ops/ci/score.sh fails on ANY cap regardless of score
+# (hard_findings_allowed = 0, caps must be 0). Always score with --full — the
+# [smart] incremental scan gives inconsistent caps.
+minimum_score = 82
+hard_findings_allowed = 0
+required_tool = "jankurai"
+required_tool_version = "1.6.11"
+
+[scan]
+excluded_paths = [
+  ".jankurai/",
+  "dossiers/",   # generated cluster dossiers; produced by just scan + just dossier
+  "target/",     # cargo build output
+]

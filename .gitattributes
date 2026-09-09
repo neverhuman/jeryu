@@ -1,0 +1,2 @@
+# Preserve byte-identical ts-rs output, including its documented-type spacing.
+components/**/contracts/generated/*.ts whitespace=-blank-at-eol

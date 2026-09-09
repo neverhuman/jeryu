@@ -1,0 +1,17 @@
+# jankurai:migration v1
+id = "0001_fixture_model"
+owner = "jeryu-web"
+reviewer = "jeryu-web"
+change_type = "expand"
+safety = "online"
+transaction = "required"
+lock_timeout = "5s"
+statement_timeout = "60s"
+estimated_rows = 0
+deploy_phase = "expand"
+app_compatibility = "old_app_new_db,new_app_old_db"
+rollback = "db/rollbacks/0001_fixture_model.sql"
+backfill = "none; the store starts empty and is filled deterministically by db/seed/build-fixtures.mjs, never by product traffic"
+data_classification = "synthetic-fixture"
+tenant_impact = "none"
+tests = ["db-migration-analyze", "sqlite_store_round_trips_fixtures"]

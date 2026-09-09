@@ -1,0 +1,20 @@
+[package]
+name = "jeryu-mirror-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "jeryu-mirror"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = { version = "1" }
+clap.workspace = true
+jeryu-core = { workspace = true }
+jeryu-gitd = { workspace = true }
+jeryu-mirror = { workspace = true }
+serde.workspace = true
+serde_json.workspace = true

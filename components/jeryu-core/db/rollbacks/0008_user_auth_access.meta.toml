@@ -1,0 +1,6 @@
+id = "0008_user_auth_access_rollback"
+description = "staged non-destructive rollback for public portal account, session, token, and grant tables"
+rolls_back = "0008_user_auth_access"
+roll_forward = "db/migrations/0008_user_auth_access.sql"
+data_loss = "none; durable web credentials, sessions, PAT hashes, and repo grants are retained"
+verify = "rollback emits a notice and leaves user_accounts, web_sessions, personal_access_tokens, and repo_access_grants intact for roll-forward repair"

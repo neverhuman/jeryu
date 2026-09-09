@@ -1,0 +1,346 @@
+/* ToolsPage.css — the /tools left-rail + dashboard layout. */
+
+.tools-header__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.tools-header__row .page__title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.tools-header__scan {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.tools-header__meta {
+  color: var(--color-fg-muted);
+  font-size: var(--font-size-xs);
+}
+
+.tools-button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-subtle);
+  background-color: var(--color-bg-1);
+  color: var(--color-fg-primary);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+
+.tools-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.tools-button--primary {
+  background-color: var(--color-accent-info-bg);
+  border-color: var(--color-accent-info);
+  color: var(--color-accent-info);
+  font-weight: var(--font-weight-medium);
+}
+
+.tools-button--quiet {
+  color: var(--color-fg-muted);
+}
+
+/* Body: registry rail left, family dashboard right (same split the merge
+ * cockpit uses). Collapses to one column on narrow viewports. */
+.tools-body {
+  display: grid;
+  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+  gap: var(--space-5);
+  align-items: start;
+}
+
+@media (max-width: 960px) {
+  .tools-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.tools-rail {
+  position: sticky;
+  top: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  background-color: var(--color-bg-1);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  max-height: calc(100vh - var(--space-7) * 2);
+  overflow-y: auto;
+}
+
+.tools-rail .page__section-title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.tools-rail__totals {
+  margin: 0;
+  color: var(--color-fg-secondary);
+  font-size: var(--font-size-xs);
+}
+
+.tools-rail__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.tools-rail__tool {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background-color: var(--color-bg-2);
+}
+
+.tools-rail__tool-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.tools-rail__tool-name {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-fg-primary);
+  overflow-wrap: anywhere;
+}
+
+.tools-rail__tool-loc {
+  font-size: var(--font-size-xs);
+  color: var(--color-accent-success);
+  white-space: nowrap;
+}
+
+.tools-rail__tool-meta {
+  display: flex;
+  gap: var(--space-1);
+  flex-wrap: wrap;
+}
+
+.tools-rail__status--published {
+  color: var(--color-accent-success);
+}
+
+.tools-rail__status--proposed {
+  color: var(--color-accent-info);
+}
+
+/* Live scan progress */
+.tools-scan__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.tools-scan__counts {
+  font-size: var(--font-size-sm);
+  color: var(--color-fg-secondary);
+}
+
+.tools-scan__repo {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--color-fg-muted);
+}
+
+.tools-scan__bar {
+  height: 6px;
+  border-radius: var(--radius-md);
+  background-color: var(--color-bg-2);
+  overflow: hidden;
+}
+
+.tools-scan__bar-fill {
+  height: 100%;
+  background-color: var(--color-accent-info);
+  transition: width 150ms ease;
+}
+
+.tools-scan__error {
+  margin: 0;
+  color: var(--color-accent-danger);
+  font-size: var(--font-size-sm);
+}
+
+.tools-scan__feed {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.tools-scan__feed-item {
+  font-size: var(--font-size-xs);
+  color: var(--color-fg-muted);
+  font-family: var(--font-mono);
+}
+
+/* Pattern families */
+.tools-dashboard__families {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.tools-family__toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--color-fg-primary);
+  text-align: left;
+  font-size: var(--font-size-md);
+}
+
+.tools-family__label {
+  font-weight: var(--font-weight-semibold);
+  font-family: var(--font-mono);
+}
+
+.tools-family__loc {
+  margin-left: auto;
+  color: var(--color-accent-success);
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+}
+
+.tools-family__meta {
+  margin: 0;
+  color: var(--color-fg-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.tools-family__repos {
+  margin: 0;
+  color: var(--color-fg-muted);
+  font-size: var(--font-size-xs);
+  overflow-wrap: anywhere;
+}
+
+.tools-family__clusters {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  border-top: 1px solid var(--color-border-subtle);
+  padding-top: var(--space-3);
+}
+
+/* Member clusters */
+.tools-cluster {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  background-color: var(--color-bg-2);
+}
+
+.tools-cluster__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.tools-cluster__id {
+  font-size: var(--font-size-xs);
+  color: var(--color-fg-muted);
+}
+
+.tools-cluster__loc {
+  color: var(--color-accent-success);
+  font-size: var(--font-size-sm);
+}
+
+.tools-cluster__spans {
+  color: var(--color-fg-muted);
+  font-size: var(--font-size-xs);
+}
+
+.tools-cluster__insight {
+  margin: 0;
+  color: var(--color-fg-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.tools-cluster__occurrences {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: var(--font-size-xs);
+}
+
+.tools-cluster__occ-repo {
+  color: var(--color-accent-info);
+  font-weight: var(--font-weight-medium);
+}
+
+.tools-cluster__preview summary {
+  cursor: pointer;
+  font-size: var(--font-size-xs);
+  color: var(--color-fg-muted);
+}
+
+.tools-cluster__preview pre {
+  margin: var(--space-2) 0 0;
+  padding: var(--space-3);
+  background-color: var(--color-bg-1);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-xs);
+  overflow-x: auto;
+  max-height: 240px;
+}
+
+.tools-cluster__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.tools-cluster__suggestion {
+  font-size: var(--font-size-xs);
+  color: var(--color-fg-muted);
+}
+
+.tools-cluster__receipt {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-accent-info);
+}

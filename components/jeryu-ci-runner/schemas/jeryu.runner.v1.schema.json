@@ -1,0 +1,540 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://git.neverhuman.org/schemas/jeryu.runner.v1.schema.json",
+  "title": "Jeryu runner wire v1",
+  "description": "Closed JSON shapes for the endpoint-neutral jeryu.runner.v1 request and acknowledgement messages. Cross-field fencing, digest, receipt, and time-order invariants remain enforced by the Rust validator.",
+  "oneOf": [
+    { "$ref": "#/$defs/RegisterRequest" },
+    { "$ref": "#/$defs/RegisterAck" },
+    { "$ref": "#/$defs/HeartbeatRequest" },
+    { "$ref": "#/$defs/HeartbeatAck" },
+    { "$ref": "#/$defs/LeaseRequest" },
+    { "$ref": "#/$defs/LeaseAck" },
+    { "$ref": "#/$defs/ResultRequest" },
+    { "$ref": "#/$defs/ResultAck" }
+  ],
+  "$defs": {
+    "Identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9._:/-]*[A-Za-z0-9])?$",
+      "allOf": [
+        { "not": { "pattern": "\\.\\." } },
+        { "not": { "pattern": "//" } }
+      ]
+    },
+    "Label": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$",
+      "not": { "pattern": "\\.\\." }
+    },
+    "Digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "GitSha": {
+      "type": "string",
+      "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+    },
+    "UnixMillis": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 253402300799999
+    },
+    "RelativeWorkspacePath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.{1,2}(?:/|$))[^\\u0000\\r\\n]+$"
+    },
+    "RunnerClass": {
+      "oneOf": [
+        {
+          "enum": [
+            "native-rust-hot",
+            "native-rust-clean",
+            "crategraph-delta",
+            "nextest-capsule",
+            "agent-guard",
+            "merge-spec",
+            "release-hermetic",
+            "microvm-rust",
+            "oci-docker",
+            "k8s-oci"
+          ]
+        },
+        {
+          "type": "string",
+          "pattern": "^custom:[a-z0-9](?:[a-z0-9._-]{0,62}[a-z0-9])?$"
+        }
+      ]
+    },
+    "StringEnvironment": {
+      "type": "object",
+      "maxProperties": 256,
+      "propertyNames": {
+        "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,63}$"
+      },
+      "additionalProperties": {
+        "type": "string",
+        "maxLength": 32768
+      }
+    },
+    "RunnerContext": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["runner_id", "runner_epoch"],
+      "properties": {
+        "runner_id": { "$ref": "#/$defs/Identifier" },
+        "runner_epoch": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "ExecutionContext": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "runner_id",
+        "runner_epoch",
+        "run_id",
+        "lease_id",
+        "job_id",
+        "repository",
+        "head_sha",
+        "required_check",
+        "job_digest",
+        "protected_policy_sha",
+        "toolchain_digest",
+        "runner_class_policy_id",
+        "runner_class_policy_digest",
+        "image_digest",
+        "rootfs_digest"
+      ],
+      "properties": {
+        "runner_id": { "$ref": "#/$defs/Identifier" },
+        "runner_epoch": { "type": "integer", "minimum": 1 },
+        "run_id": { "$ref": "#/$defs/Identifier" },
+        "lease_id": { "$ref": "#/$defs/Identifier" },
+        "job_id": { "$ref": "#/$defs/Identifier" },
+        "repository": {
+          "type": "string",
+          "pattern": "^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?/[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$"
+        },
+        "head_sha": { "$ref": "#/$defs/GitSha" },
+        "required_check": {
+          "allOf": [
+            { "$ref": "#/$defs/Identifier" },
+            { "pattern": "/" }
+          ]
+        },
+        "job_digest": { "$ref": "#/$defs/Digest" },
+        "protected_policy_sha": { "$ref": "#/$defs/GitSha" },
+        "toolchain_digest": { "$ref": "#/$defs/Digest" },
+        "runner_class_policy_id": { "$ref": "#/$defs/Identifier" },
+        "runner_class_policy_digest": { "$ref": "#/$defs/Digest" },
+        "image_digest": { "$ref": "#/$defs/Digest" },
+        "rootfs_digest": { "$ref": "#/$defs/Digest" }
+      }
+    },
+    "WireCacheMode": {
+      "enum": ["read-only", "read-write-quarantine", "read-write-trusted"]
+    },
+    "WireArtifactWhen": {
+      "enum": ["always", "on-success", "on-failure"]
+    },
+    "WireStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "command", "uses", "env", "working_directory"],
+      "properties": {
+        "id": { "$ref": "#/$defs/Identifier" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "command": {
+          "type": ["string", "null"],
+          "minLength": 1,
+          "maxLength": 32768
+        },
+        "uses": {
+          "type": ["string", "null"],
+          "minLength": 1,
+          "maxLength": 32768
+        },
+        "env": {
+          "allOf": [
+            { "$ref": "#/$defs/StringEnvironment" },
+            { "maxProperties": 128 }
+          ]
+        },
+        "working_directory": {
+          "anyOf": [
+            { "$ref": "#/$defs/RelativeWorkspacePath" },
+            { "type": "null" }
+          ]
+        }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "command": { "type": "string", "minLength": 1 },
+            "uses": { "type": "null" }
+          }
+        },
+        {
+          "properties": {
+            "command": { "type": "null" },
+            "uses": { "type": "string", "minLength": 1 }
+          }
+        }
+      ]
+    },
+    "WireCacheMount": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "path", "mode", "fingerprint"],
+      "properties": {
+        "name": { "$ref": "#/$defs/Label" },
+        "path": { "$ref": "#/$defs/RelativeWorkspacePath" },
+        "mode": { "$ref": "#/$defs/WireCacheMode" },
+        "fingerprint": { "$ref": "#/$defs/Identifier" }
+      }
+    },
+    "WireArtifactPath": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "paths", "when", "retention_days"],
+      "properties": {
+        "name": { "$ref": "#/$defs/Label" },
+        "paths": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/RelativeWorkspacePath" }
+        },
+        "when": { "$ref": "#/$defs/WireArtifactWhen" },
+        "retention_days": { "type": "integer", "minimum": 1, "maximum": 365 }
+      }
+    },
+    "WireJobRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "request_id",
+        "pipeline_id",
+        "run_id",
+        "lease_id",
+        "job_id",
+        "runner_id",
+        "runner_epoch",
+        "runner_class",
+        "steps",
+        "cache_mounts",
+        "artifact_paths",
+        "env",
+        "timeout_seconds"
+      ],
+      "properties": {
+        "request_id": { "$ref": "#/$defs/Identifier" },
+        "pipeline_id": { "$ref": "#/$defs/Identifier" },
+        "run_id": { "$ref": "#/$defs/Identifier" },
+        "lease_id": { "$ref": "#/$defs/Identifier" },
+        "job_id": { "$ref": "#/$defs/Identifier" },
+        "runner_id": { "$ref": "#/$defs/Identifier" },
+        "runner_epoch": { "type": "integer", "minimum": 1 },
+        "runner_class": { "$ref": "#/$defs/RunnerClass" },
+        "steps": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 256,
+          "items": { "$ref": "#/$defs/WireStep" }
+        },
+        "cache_mounts": {
+          "type": "array",
+          "maxItems": 64,
+          "items": { "$ref": "#/$defs/WireCacheMount" }
+        },
+        "artifact_paths": {
+          "type": "array",
+          "maxItems": 64,
+          "items": { "$ref": "#/$defs/WireArtifactPath" }
+        },
+        "env": { "$ref": "#/$defs/StringEnvironment" },
+        "timeout_seconds": { "type": "integer", "minimum": 1, "maximum": 604800 }
+      }
+    },
+    "WireJobOutcome": {
+      "enum": [
+        "success",
+        "failed",
+        "cancelled",
+        "timed-out",
+        "infrastructure-failure"
+      ]
+    },
+    "WireJobResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "runner_id",
+        "runner_epoch",
+        "run_id",
+        "lease_id",
+        "job_id",
+        "outcome",
+        "exit_code",
+        "started_at_unix_millis",
+        "finished_at_unix_millis",
+        "artifact_digests",
+        "cache_receipts",
+        "log_digest"
+      ],
+      "properties": {
+        "runner_id": { "$ref": "#/$defs/Identifier" },
+        "runner_epoch": { "type": "integer", "minimum": 1 },
+        "run_id": { "$ref": "#/$defs/Identifier" },
+        "lease_id": { "$ref": "#/$defs/Identifier" },
+        "job_id": { "$ref": "#/$defs/Identifier" },
+        "outcome": { "$ref": "#/$defs/WireJobOutcome" },
+        "exit_code": { "type": ["integer", "null"] },
+        "started_at_unix_millis": { "$ref": "#/$defs/UnixMillis" },
+        "finished_at_unix_millis": { "$ref": "#/$defs/UnixMillis" },
+        "artifact_digests": {
+          "type": "array",
+          "maxItems": 256,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/Digest" }
+        },
+        "cache_receipts": {
+          "type": "array",
+          "maxItems": 256,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/Identifier" }
+        },
+        "log_digest": { "$ref": "#/$defs/Digest" }
+      }
+    },
+    "RegisterRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocol_version",
+        "message_type",
+        "request_id",
+        "runner_id",
+        "supported_classes",
+        "labels",
+        "capacity",
+        "sent_at_unix_millis"
+      ],
+      "properties": {
+        "protocol_version": { "const": "jeryu.runner.v1" },
+        "message_type": { "const": "register-request" },
+        "request_id": { "$ref": "#/$defs/Identifier" },
+        "runner_id": { "$ref": "#/$defs/Identifier" },
+        "supported_classes": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/RunnerClass" }
+        },
+        "labels": {
+          "type": "array",
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/Label" }
+        },
+        "capacity": { "type": "integer", "minimum": 1, "maximum": 1024 },
+        "sent_at_unix_millis": { "$ref": "#/$defs/UnixMillis" }
+      }
+    },
+    "RegisterAck": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocol_version",
+        "message_type",
+        "request_id",
+        "runner_id",
+        "runner_epoch",
+        "heartbeat_interval_millis",
+        "lease_ttl_millis",
+        "server_time_unix_millis"
+      ],
+      "properties": {
+        "protocol_version": { "const": "jeryu.runner.v1" },
+        "message_type": { "const": "register-ack" },
+        "request_id": { "$ref": "#/$defs/Identifier" },
+        "runner_id": { "$ref": "#/$defs/Identifier" },
+        "runner_epoch": { "type": "integer", "minimum": 1 },
+        "heartbeat_interval_millis": { "type": "integer", "minimum": 1, "maximum": 300000 },
+        "lease_ttl_millis": { "type": "integer", "minimum": 1, "maximum": 86400000 },
+        "server_time_unix_millis": { "$ref": "#/$defs/UnixMillis" }
+      }
+    },
+    "HeartbeatRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocol_version",
+        "message_type",
+        "request_id",
+        "runner",
+        "lease",
+        "monotonic_millis",
+        "message",
+        "sent_at_unix_millis"
+      ],
+      "properties": {
+        "protocol_version": { "const": "jeryu.runner.v1" },
+        "message_type": { "const": "heartbeat-request" },
+        "request_id": { "$ref": "#/$defs/Identifier" },
+        "runner": { "$ref": "#/$defs/RunnerContext" },
+        "lease": {
+          "anyOf": [
+            { "$ref": "#/$defs/ExecutionContext" },
+            { "type": "null" }
+          ]
+        },
+        "monotonic_millis": { "type": "integer", "minimum": 0 },
+        "message": { "type": "string", "maxLength": 1024 },
+        "sent_at_unix_millis": { "$ref": "#/$defs/UnixMillis" }
+      }
+    },
+    "HeartbeatAck": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocol_version",
+        "message_type",
+        "request_id",
+        "runner",
+        "lease",
+        "still_owner",
+        "drain",
+        "next_heartbeat_millis",
+        "server_time_unix_millis"
+      ],
+      "properties": {
+        "protocol_version": { "const": "jeryu.runner.v1" },
+        "message_type": { "const": "heartbeat-ack" },
+        "request_id": { "$ref": "#/$defs/Identifier" },
+        "runner": { "$ref": "#/$defs/RunnerContext" },
+        "lease": {
+          "anyOf": [
+            { "$ref": "#/$defs/ExecutionContext" },
+            { "type": "null" }
+          ]
+        },
+        "still_owner": { "type": "boolean" },
+        "drain": { "type": "boolean" },
+        "next_heartbeat_millis": { "type": "integer", "minimum": 0, "maximum": 300000 },
+        "server_time_unix_millis": { "$ref": "#/$defs/UnixMillis" }
+      }
+    },
+    "LeaseRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocol_version",
+        "message_type",
+        "request_id",
+        "runner",
+        "requested_at_unix_millis"
+      ],
+      "properties": {
+        "protocol_version": { "const": "jeryu.runner.v1" },
+        "message_type": { "const": "lease-request" },
+        "request_id": { "$ref": "#/$defs/Identifier" },
+        "runner": { "$ref": "#/$defs/RunnerContext" },
+        "requested_at_unix_millis": { "$ref": "#/$defs/UnixMillis" }
+      }
+    },
+    "LeaseGrant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["context", "leased_at_unix_millis", "expires_at_unix_millis", "job"],
+      "properties": {
+        "context": { "$ref": "#/$defs/ExecutionContext" },
+        "leased_at_unix_millis": { "$ref": "#/$defs/UnixMillis" },
+        "expires_at_unix_millis": { "$ref": "#/$defs/UnixMillis" },
+        "job": { "$ref": "#/$defs/WireJobRequest" }
+      }
+    },
+    "LeaseDecision": {
+      "enum": ["assigned", "no-work", "drain", "fenced"]
+    },
+    "LeaseAck": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocol_version",
+        "message_type",
+        "request_id",
+        "runner",
+        "decision",
+        "lease",
+        "server_time_unix_millis"
+      ],
+      "properties": {
+        "protocol_version": { "const": "jeryu.runner.v1" },
+        "message_type": { "const": "lease-ack" },
+        "request_id": { "$ref": "#/$defs/Identifier" },
+        "runner": { "$ref": "#/$defs/RunnerContext" },
+        "decision": { "$ref": "#/$defs/LeaseDecision" },
+        "lease": {
+          "anyOf": [
+            { "$ref": "#/$defs/LeaseGrant" },
+            { "type": "null" }
+          ]
+        },
+        "server_time_unix_millis": { "$ref": "#/$defs/UnixMillis" }
+      }
+    },
+    "ResultRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocol_version",
+        "message_type",
+        "context",
+        "result",
+        "receipt_id",
+        "submitted_at_unix_millis"
+      ],
+      "properties": {
+        "protocol_version": { "const": "jeryu.runner.v1" },
+        "message_type": { "const": "result-request" },
+        "context": { "$ref": "#/$defs/ExecutionContext" },
+        "result": { "$ref": "#/$defs/WireJobResult" },
+        "receipt_id": { "$ref": "#/$defs/Identifier" },
+        "submitted_at_unix_millis": { "$ref": "#/$defs/UnixMillis" }
+      }
+    },
+    "ResultDecision": {
+      "enum": ["accepted", "duplicate", "fenced"]
+    },
+    "ResultAck": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocol_version",
+        "message_type",
+        "context",
+        "receipt_id",
+        "decision",
+        "server_time_unix_millis"
+      ],
+      "properties": {
+        "protocol_version": { "const": "jeryu.runner.v1" },
+        "message_type": { "const": "result-ack" },
+        "context": { "$ref": "#/$defs/ExecutionContext" },
+        "receipt_id": { "$ref": "#/$defs/Identifier" },
+        "decision": { "$ref": "#/$defs/ResultDecision" },
+        "server_time_unix_millis": { "$ref": "#/$defs/UnixMillis" }
+      }
+    }
+  }
+}

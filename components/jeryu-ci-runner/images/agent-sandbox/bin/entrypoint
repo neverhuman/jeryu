@@ -1,0 +1,15 @@
+#!/bin/sh
+# Entrypoint for the confined agent sandbox.
+#
+# The container runs `--read-only`, so $HOME is pointed at a subdir of the writable
+# workspace bind-mount (see the Dockerfile's `ENV HOME=/workspace/.agent-home`). A fresh
+# workspace has no such dir yet, and the agent CLIs (codex/claude) expect to write under
+# $HOME on startup (~/.codex, ~/.claude, ~/.cache). Create it before handing off so the
+# agent starts cleanly instead of crashing on a read-only home. Then exec the argv the
+# runner emitted (codex / claude / jekko ...), so this process is replaced and signals
+# (e.g. an interrupt `docker kill`) reach the agent directly.
+set -e
+if [ -n "${HOME}" ]; then
+  mkdir -p "${HOME}/.cache" 2>/dev/null || true
+fi
+exec "$@"

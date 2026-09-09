@@ -1,0 +1,3 @@
+# Generated pointer. Release handover is gated by the root manifest.
+schema_version = "jeryu.manifest-pointer/v1"
+manifest_authority = "../../repos.manifest.toml"

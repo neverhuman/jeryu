@@ -1,0 +1,12 @@
+version = 1
+
+[[source]]
+id = "rust-lcov"
+kind = "line_coverage"
+format = "lcov"
+mode = "advisory"
+owner = "ops"
+lane = "fast-coverage"
+artifacts = ["target/llvm-cov/lcov.info", "target/jankurai/coverage/rust-lcov.info"]
+applies_to = ["crates/**/*.rs"]
+rules = ["HLT-008-FALSE-GREEN-RISK"]

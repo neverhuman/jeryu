@@ -1,0 +1,32 @@
+# Cargo Git transport overlay. Keep mappings exact: a broad neverhuman rewrite
+# would misroute Jain repositories whose hosted owner is `veox`. Do not include
+# the ambient user configuration; private hosted reads use only the dedicated
+# credential helper below.
+[credential]
+	helper =
+
+[credential "https://git.neverhuman.org"]
+	helper = /home/ubuntu/.config/jeryu/bin/git-credential-neverhuman-org
+
+# The current hosted smart-HTTP service rejects Git's compressed upload-pack
+# request body. This host-scoped setting preserves the working uncompressed
+# transport until the server-side fix is deployed.
+[http "https://git.neverhuman.org"]
+	postBuffer = 1
+
+[url "https://git.neverhuman.org/git/jeryu/jeryu-ci-runner.git"]
+	insteadOf = https://github.com/neverhuman/jeryu-ci-runner.git
+
+[url "https://git.neverhuman.org/git/jeryu/jeryu-core.git"]
+	insteadOf = http://127.0.0.1:8787/git/jeryu/jeryu-core.git
+	insteadOf = https://github.com/neverhuman/jeryu-core.git
+
+[url "https://git.neverhuman.org/git/jeryu/jeryu-intelligence.git"]
+	insteadOf = http://127.0.0.1:8787/git/jeryu/jeryu-intelligence.git
+	insteadOf = https://github.com/neverhuman/jeryu-intelligence.git
+
+[url "https://git.neverhuman.org/git/jeryu/jeryu-jira.git"]
+	insteadOf = https://github.com/neverhuman/jeryu-jira.git
+
+[url "https://git.neverhuman.org/git/jeryu/jeryu-release-ops.git"]
+	insteadOf = https://github.com/neverhuman/jeryu-release-ops.git

@@ -1,0 +1,101 @@
+[[lane]]
+name = "fast"
+command = "just fast"
+purpose = "run the locked offline workspace compile check"
+requires_network = false
+
+[[lane]]
+name = "check"
+command = "just check"
+purpose = "validate metadata, scripts, and the locked workspace"
+requires_network = false
+
+[[lane]]
+name = "score"
+command = "just score"
+purpose = "run the governed exact-head Jankurai score gate"
+requires_network = false
+
+[[lane]]
+name = "security"
+command = "just security"
+purpose = "run required secret, workflow, dependency, advisory, and SBOM checks"
+requires_network = false
+
+[[lane]]
+name = "artifact-support"
+command = "just artifact-support"
+purpose = "bind exact source, locked metadata, tool identity, and SBOM evidence"
+requires_network = false
+
+[[lane]]
+name = "contract-drift"
+command = "just contract-drift"
+purpose = "compare every public library API with the immutable split.1 baseline"
+requires_network = false
+
+[[lane]]
+name = "contract-schema"
+command = "just contract-schema"
+purpose = "bind the public Cache receipt schema to real Serde output"
+requires_network = false
+
+[[lane]]
+name = "required"
+command = "bash scripts/ci-local.sh required"
+purpose = "run the complete Cache required-check surface"
+requires_network = false
+
+[[lane]]
+name = "ci-metadata"
+command = "just fast && just check && just score"
+purpose = "verify CI and workspace metadata with compile and audit gates"
+requires_network = false
+
+[[lane]]
+name = "docs"
+command = "just check && just score"
+purpose = "verify documentation against executable metadata and conformance"
+requires_network = false
+
+[[lane]]
+name = "security-score"
+command = "just security && just score"
+purpose = "verify supply-chain implementation and audit routing together"
+requires_network = false
+
+[[lane]]
+name = "cache-poisoning"
+command = "bash tests/cache_poisoning_matrix.sh"
+purpose = "exercise the adversarial cache-poisoning matrix"
+requires_network = false
+
+[[lane]]
+name = "ci-dispatch-hostiles"
+command = "bash tests/ci_local_dispatch_test.sh"
+purpose = "reject malformed or injected local CI lane arguments"
+requires_network = false
+
+[[lane]]
+name = "pr-ci-order-hostiles"
+command = "bash tests/pr_ci_order_test.sh"
+purpose = "bind product execution, evidence generation, and final validation order"
+requires_network = false
+
+[[lane]]
+name = "security-tool-hostiles"
+command = "bash tests/security_lane_test.sh"
+purpose = "reject shell-function, PATH, release-root, and tool-custody substitution"
+requires_network = false
+
+[[lane]]
+name = "contract-hostiles"
+command = "bash tests/contract_drift_test.sh"
+purpose = "reject public API, tool, source, and receipt substitution"
+requires_network = false
+
+[[lane]]
+name = "artifact-hostiles"
+command = "bash tests/artifact_support_test.sh"
+purpose = "reject artifact, tool, source, and physical custody substitution"
+requires_network = false

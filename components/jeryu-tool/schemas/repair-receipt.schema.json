@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://git.neverhuman.org/jeryu/jeryu-tool/schemas/repair-receipt.schema.json",
+  "title": "Jeryu Tool repair receipt",
+  "description": "Create-once, exact-source evidence and bounded rerun instructions for a Jeryu Tool verification lane.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "repo", "root", "run_id", "correlation_id", "git_head",
+    "git_tree", "dirty_worktree", "lane", "purpose", "status", "exit_code",
+    "started_at", "finished_at", "rerun", "evidence"
+  ],
+  "properties": {
+    "schema_version": { "const": "jeryu.tool.repair-receipt/v1" },
+    "repo": { "const": "jeryu/jeryu-tool" },
+    "root": { "const": "." },
+    "run_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,95}$" },
+    "correlation_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,95}$" },
+    "git_head": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "git_tree": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "dirty_worktree": { "const": false },
+    "lane": {
+      "enum": [
+        "fast", "fast-proof", "fast-test", "fast-coverage", "check", "required", "score",
+        "security", "tool-adoption", "proof-routing", "contract-drift",
+        "artifact-support", "repair-proof",
+        "repair-receipt-contract"
+      ]
+    },
+    "purpose": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[^\\r\\n]+$"
+    },
+    "status": { "enum": ["pass", "fail"] },
+    "exit_code": { "type": "integer", "minimum": 0, "maximum": 255 },
+    "started_at": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+    },
+    "finished_at": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+    },
+    "rerun": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cwd", "argv", "docs_url"],
+      "properties": {
+        "cwd": { "const": "." },
+        "argv": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "prefixItems": [
+            { "const": "just" },
+            { "type": "string" }
+          ],
+          "items": false
+        },
+        "docs_url": { "const": "docs/testing.md#repair-receipts" }
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "sha256", "bytes"],
+        "properties": {
+          "path": {
+            "type": "string",
+            "pattern": "^target/[A-Za-z0-9._/-]+$",
+            "not": { "pattern": "(^|/)\\.\\.?(/|$)" }
+          },
+          "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "bytes": { "type": "integer", "minimum": 0 }
+        }
+      }
+    }
+  }
+}

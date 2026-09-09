@@ -1,0 +1,11 @@
+job_id=phase4_t4_fork
+repo_id=jeryu/jeryu
+commit_sha=def456
+workspace=/tmp/jeryu-phase4-fork
+command=/bin/echo
+args=hello,fork
+trust_tier=T4
+fork=true
+network_policy=deny
+secret_policy=default
+token_policy=read-only

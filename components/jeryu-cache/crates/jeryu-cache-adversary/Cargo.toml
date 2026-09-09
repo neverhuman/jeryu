@@ -1,0 +1,15 @@
+[package]
+name = "jeryu-cache-adversary"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+jeryu-cache-core = { workspace = true }
+jeryu-cache-service = { workspace = true }
+serde.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

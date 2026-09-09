@@ -1,0 +1,15 @@
+[package]
+name = "jeryu-runner-native"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+jeryu-runner-core = { workspace = true }
+# The native runner stays SAFE (no unsafe); it delegates ALL unsafe sandbox
+# primitives to jeryu-sandbox-linux, the single unsafe island.
+jeryu-sandbox-linux = { workspace = true }
+
+[lints]
+workspace = true

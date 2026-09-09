@@ -1,0 +1,13 @@
+[package]
+name = "jeryu-rustjet"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Jeryu Phase 5 Cargo graph planner and Rust CI accelerator"
+
+[dev-dependencies]
+proptest.workspace = true
+
+[lints]
+workspace = true

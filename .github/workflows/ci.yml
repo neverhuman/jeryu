@@ -1,59 +1,91 @@
-name: ci
+# Replacement for .github/workflows/ci.yml on the public-monorepo candidate
+# AFTER Codex publish ACK. Owner-authorized required-check split:
+# jeryu/required aggregates only lanes that can actually run on ubuntu-24.04.
+# sandbox / oci / splits / legacy stay in CI (visible, not waived) but are
+# host/VM/nightly proofs. Local `scripts/ci.sh all` still runs the full union.
+name: Jeryu
 
 on:
   pull_request:
   push:
-    branches: [main]
-
-env:
-  # BEGIN GENERATED JANKURAI WORKFLOW PIN — DO NOT EDIT
-  JANKURAI_REPO: "http://127.0.0.1:8787/git/jeryu/jankurai.git"
-  JANKURAI_TAG: "v1.6.11-deadlang-precision-split.1"
-  JANKURAI_REV: "dface7397fe24d46b0b1885ddd5782c34edbff49"
-  JANKURAI_VERSION: "jankurai 1.6.11"
-  JANKURAI_SEMVER: "1.6.11"
-  JANKURAI_SOURCE_TREE: "34a8a1fb59bc4ebfadf12c45d95f169d06acc781"
-  JANKURAI_SOURCE_ARCHIVE_SHA256: "2fbca5d04083e3c8d32f383d5b6b4520b8911690b26968c6fbcb210e1202b938"
-  JANKURAI_CARGO_LOCK_SHA256: "b9acb981c326226a687d0b6703e4f7ee303148e9e1a6dda1aa03d77988820f6a"
-  JANKURAI_BINARY_SHA256: "fdb42e5fa7d9851c0729e59bf1e582c895aa9cfc03a7175b420c6025d2fd014e"
-  JANKURAI_RUST_TOOLCHAIN: "1.95.0"
-  JANKURAI_RUSTC_VERSION: "rustc 1.95.0 (59807616e 2026-04-14)"
-  JANKURAI_CARGO_VERSION: "cargo 1.95.0 (f2d3ce0bd 2026-03-21)"
-  JANKURAI_TARGET_TRIPLE: "x86_64-unknown-linux-gnu"
-  JANKURAI_BUILD_MODE: "cargo-install-locked-offline-path-v1"
-  # END GENERATED JANKURAI WORKFLOW PIN
+    branches: [main, 'codex/public-monorepo-*', 'cursor/public-monorepo-*']
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: jeryu-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  local:
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
+  required_lanes:
+    name: verify / ${{ matrix.lane }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        lane: [source, public, rust, web, runtime, product, security]
+    env:
+      CARGO_BUILD_JOBS: '2'
+      CI: 'true'
     steps:
-      - name: Checkout
-        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
-      # cache: reuse the cargo-installed jankurai across runs.
-      - name: Cache pinned audit toolchain
-        uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
         with:
-          path: ~/.cargo/bin/jankurai
-          key: jankurai-${{ env.JANKURAI_REV }}
-      - name: Ensure pinned jankurai
-        run: bash ops/ci/ensure-jankurai.sh
-      - name: PR CI (canonical gate)
-        run: bash ops/ci/pr-ci.sh
-      - name: Upload audit artifacts
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
-          name: ci-audit-artifacts
-          path: |
-            .jankurai/
-            target/jankurai/
-            target/artifact-support/
-          if-no-files-found: ignore
+          node-version: '26.1.0'
+      - name: Install GHA-runnable host tools
+        run: sudo apt-get update && sudo apt-get install -y ripgrep
+      - name: Install pinned Rust toolchain
+        run: rustup show active-toolchain
+      - name: Run shared local command
+        env:
+          JERYU_CI_LANE: ${{ matrix.lane }}
+        run: bash ops/ci/monorepo.sh "$JERYU_CI_LANE"
+
+  host_or_nightly:
+    name: host-or-nightly / ${{ matrix.lane }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        lane: [sandbox, oci, splits, legacy]
+    env:
+      CARGO_BUILD_JOBS: '2'
+      CI: 'true'
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '26.1.0'
+      - name: Install pinned Rust toolchain
+        run: rustup show active-toolchain
+      - name: Run shared local command (host/VM/nightly; not in jeryu/required)
+        env:
+          JERYU_CI_LANE: ${{ matrix.lane }}
+        run: |
+          if [ "$JERYU_CI_LANE" = sandbox ] || [ "$JERYU_CI_LANE" = oci ]; then
+            sudo -n env PATH="$PATH" CARGO_HOME="$HOME/.cargo" RUSTUP_HOME="$HOME/.rustup" \
+              CARGO_BUILD_JOBS=2 JERYU_DISPOSABLE_SANDBOX=1 bash ops/ci/monorepo.sh "$JERYU_CI_LANE"
+          else
+            bash ops/ci/monorepo.sh "$JERYU_CI_LANE"
+          fi
+
+  required:
+    name: jeryu/required
+    if: ${{ always() }}
+    needs: [required_lanes]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require GHA-runnable lanes
+        env:
+          RESULT: ${{ needs.required_lanes.result }}
+        run: test "$RESULT" = success

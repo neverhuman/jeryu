@@ -1,14 +1,78 @@
 schema_version = "1.0.0"
 workspace = "jeryu"
-profile = "public-portal"
+profile = "rust-workspace"
 required_check = "jeryu/required"
 
 [split]
-cross_repo_dependency_policy = "pinned-public-git-tags"
+cross_repo_dependency_policy = "workspace-jeryu-and-immutable-public-redline"
 local_path_patches = false
 
 cargo_members = [
-
+  "components/jeryu-ci-runner/crates/jeryu-agent-auth",
+  "components/jeryu-ci-runner/crates/jeryu-agent-stream",
+  "components/jeryu-ci-runner/crates/jeryu-agentbridge",
+  "components/jeryu-deploy/crates/jeryu-api",
+  "components/jeryu-ci-runner/crates/jeryu-artifact-metadata",
+  "components/jeryu-intelligence/crates/jeryu-autonomy",
+  "components/jeryu-release-ops/crates/jeryu-bench",
+  "components/jeryu-core/crates/jeryu-bugtracker",
+  "components/jeryu-cache/crates/jeryu-cache",
+  "components/jeryu-cache/crates/jeryu-cache-adversary",
+  "components/jeryu-cache/crates/jeryu-cache-cli",
+  "components/jeryu-cache/crates/jeryu-cache-core",
+  "components/jeryu-ci-runner/crates/jeryu-cache-policy",
+  "components/jeryu-cache/crates/jeryu-cache-service",
+  "components/jeryu-ci-runner/bins/jeryu-ci-bin",
+  "components/jeryu-ci-runner/crates/jeryu-ci-compiler",
+  "components/jeryu-ci-runner/crates/jeryu-ci-governor",
+  "components/jeryu-ci-runner/crates/jeryu-ci-ir",
+  "components/jeryu-ci-runner/crates/jeryu-ci-scheduler",
+  "components/jeryu-deploy/crates/jeryu-cli",
+  "components/jeryu-intelligence/crates/jeryu-codegraph",
+  "components/jeryu-release-ops/crates/jeryu-compliance-export",
+  "components/jeryu-core/crates/jeryu-core",
+  "components/jeryu-core/crates/domain",
+  "components/jeryu-ci-runner/crates/jeryu-egress",
+  "components/jeryu-core/crates/jeryu-enterprise",
+  "components/jeryu-release-ops/crates/jeryu-evidence",
+  "components/jeryu-release-ops/crates/jeryu-git-guard",
+  "components/jeryu-core/crates/jeryu-gitd",
+  "components/jeryu-jira/crates/jeryu-jira",
+  "components/jeryu-release-ops/crates/jeryu-kernel",
+  "components/jeryu-release-ops/crates/jeryu-lifecycle",
+  "components/jeryu-release-ops/crates/jeryu-mapcheck",
+  "components/jeryu-intelligence/crates/jeryu-mcp",
+  "components/jeryu-core/crates/jeryu-mirror",
+  "components/jeryu-core/crates/jeryu-mirror-cli",
+  "components/jeryu-release-ops/crates/jeryu-obs",
+  "components/jeryu-release-ops/crates/jeryu-ops",
+  "components/jeryu-release-ops/crates/jeryu-phase11-audit",
+  "components/jeryu-release-ops/bins/jeryu-phase11-bin",
+  "components/jeryu-release-ops/crates/jeryu-phase11-core",
+  "components/jeryu-ci-runner/crates/jeryu-phase7-cli",
+  "components/jeryu-core/crates/jeryu-proof",
+  "components/jeryu-core/crates/jeryu-readmodel",
+  "components/jeryu-release-ops/crates/jeryu-replay-verifier",
+  "components/jeryu-release-ops/crates/jeryu-repogate",
+  "components/jeryu-intelligence/crates/jeryu-review",
+  "components/jeryu-ci-runner/crates/jeryu-runner-core",
+  "components/jeryu-ci-runner/crates/jeryu-runner-microvm",
+  "components/jeryu-ci-runner/crates/jeryu-runner-native",
+  "components/jeryu-ci-runner/crates/jeryu-runner-oci",
+  "components/jeryu-ci-runner/crates/jeryu-runner-protocol",
+  "components/jeryu-ci-runner/crates/jeryu-runner-registry",
+  "components/jeryu-ci-runner/crates/jeryu-runnerd",
+  "components/jeryu-intelligence/crates/jeryu-rustjet",
+  "components/jeryu-intelligence/crates/jeryu-rustjet-cli",
+  "components/jeryu-ci-runner/crates/jeryu-sandbox-linux",
+  "components/jeryu-release-ops/crates/jeryu-signing",
+  "components/jeryu-release-ops/crates/jeryu-signrail",
+  "components/jeryu-deploy/crates/jeryu-split-tool",
+  "components/jeryu-release-ops/crates/jeryu-tenant",
+  "components/jeryu-tool/crates/jeryu-tool-control",
+  "components/jeryu-tool-finder",
+  "components/jeryu-core/crates/jeryu-tui",
+  "components/jeryu-release-ops/crates/jeryu-wsversion"
 ]
 
 [python]

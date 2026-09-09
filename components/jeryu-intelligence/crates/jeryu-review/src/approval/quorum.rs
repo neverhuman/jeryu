@@ -1,0 +1,304 @@
+//! Quorum evaluator.
+//!
+//! Given a set of receipts and a `QuorumEntry` for the pack's risk tier, decide
+//! whether the quorum is met, short of an approval, vetoed, or human-required.
+//!
+//! Invariants enforced here:
+//!   - `no_self_approval` — the author cannot count.
+//!   - `require_distinct_agent_identities` — duplicate agent ids don't count.
+//!   - All required `roles` must emit `Pass`.
+//!   - Any `Block` decision short-circuits to `Vetoed` (veto > approval count).
+//!   - Missing quorum policy for the tier → fail closed (HumanRequired).
+
+use crate::policy::ApprovalsPolicy;
+use crate::schema::{AgentApprovalReceipt, ReviewDecision, ReviewerRole, RiskTier};
+use std::collections::HashSet;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum QuorumDecision {
+    Met,
+    Insufficient,
+    Vetoed,
+    HumanRequired,
+}
+
+#[derive(Debug, Clone)]
+pub struct QuorumOutcome {
+    pub decision: QuorumDecision,
+    pub passing_roles: Vec<ReviewerRole>,
+    pub blocking_roles: Vec<ReviewerRole>,
+    pub missing_roles: Vec<ReviewerRole>,
+    pub abstaining_roles: Vec<ReviewerRole>,
+    pub reason: String,
+}
+
+pub fn evaluate_quorum(
+    risk: RiskTier,
+    receipts: &[AgentApprovalReceipt],
+    policy: &ApprovalsPolicy,
+    author_agent: Option<&str>,
+) -> QuorumOutcome {
+    let Some(entry) = policy.quorum.get(&risk).cloned() else {
+        return QuorumOutcome {
+            decision: QuorumDecision::HumanRequired,
+            passing_roles: vec![],
+            blocking_roles: vec![],
+            missing_roles: vec![],
+            abstaining_roles: vec![],
+            reason: format!("missing quorum policy for {risk:?}; failing closed"),
+        };
+    };
+
+    // Filter out author receipts (no self-approval).
+    let mut counted: Vec<&AgentApprovalReceipt> = receipts.iter().collect();
+    if policy.invariants.no_self_approval {
+        if let Some(author) = author_agent {
+            counted.retain(|r| r.agent_id != author && r.not_author);
+        } else {
+            counted.retain(|r| r.not_author);
+        }
+    }
+    // Deduplicate by agent_id when distinct identities are required.
+    if policy.invariants.require_distinct_agent_identities {
+        let mut seen: HashSet<&str> = HashSet::new();
+        counted.retain(|r| seen.insert(r.agent_id.as_str()));
+    }
+
+    let blocking_roles: Vec<ReviewerRole> = counted
+        .iter()
+        .filter(|r| matches!(r.decision, ReviewDecision::Block))
+        .map(|r| r.role)
+        .collect();
+    if !blocking_roles.is_empty() {
+        return QuorumOutcome {
+            decision: QuorumDecision::Vetoed,
+            passing_roles: vec![],
+            blocking_roles,
+            missing_roles: vec![],
+            abstaining_roles: vec![],
+            reason: "one or more reviewers issued a hard block".into(),
+        };
+    }
+
+    let abstaining_roles: Vec<ReviewerRole> = counted
+        .iter()
+        .filter(|r| matches!(r.decision, ReviewDecision::Abstain))
+        .map(|r| r.role)
+        .collect();
+    let passing_roles: Vec<ReviewerRole> = counted
+        .iter()
+        .filter(|r| matches!(r.decision, ReviewDecision::Pass))
+        .map(|r| r.role)
+        .collect();
+
+    let missing_roles: Vec<ReviewerRole> = entry
+        .roles
+        .iter()
+        .copied()
+        .filter(|req| !passing_roles.contains(req))
+        .collect();
+
+    if !missing_roles.is_empty() || passing_roles.len() < entry.approvals_needed as usize {
+        return QuorumOutcome {
+            decision: QuorumDecision::Insufficient,
+            passing_roles: passing_roles.clone(),
+            blocking_roles,
+            missing_roles,
+            abstaining_roles,
+            reason: format!(
+                "needed {} approvals (roles {:?}); got {}",
+                entry.approvals_needed,
+                entry.roles,
+                passing_roles.len()
+            ),
+        };
+    }
+
+    if entry.human_required {
+        return QuorumOutcome {
+            decision: QuorumDecision::HumanRequired,
+            passing_roles,
+            blocking_roles,
+            missing_roles,
+            abstaining_roles,
+            reason: "policy requires human approval at this tier".into(),
+        };
+    }
+
+    QuorumOutcome {
+        decision: QuorumDecision::Met,
+        passing_roles,
+        blocking_roles,
+        missing_roles,
+        abstaining_roles,
+        reason: "all required reviewers approved; quorum reached".into(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::policy::{ApprovalRules, ApprovalsPolicy, QuorumEntry};
+    use crate::schema::{ReviewDecision, ReviewerRole, RiskTier, ScanOutcome};
+    use crate::test_support::{pack_with, receipt_for};
+    use std::collections::HashMap;
+
+    fn policy_with_quorum(
+        tier: RiskTier,
+        needed: u32,
+        roles: Vec<ReviewerRole>,
+        human: bool,
+    ) -> ApprovalsPolicy {
+        let mut quorum = HashMap::new();
+        quorum.insert(
+            tier,
+            QuorumEntry {
+                approvals_needed: needed,
+                roles,
+                human_required: human,
+                fail_closed: false,
+                fail_closed_without_human: false,
+            },
+        );
+        ApprovalsPolicy {
+            schema: "vibegate.approvals.v1".into(),
+            invariants: ApprovalRules::default(),
+            hard_stops: vec![],
+            quorum,
+            verdict_ttl_minutes: Some(60),
+            re_judge_on: vec![],
+        }
+    }
+
+    fn receipt(role: ReviewerRole, agent: &str, decision: ReviewDecision) -> AgentApprovalReceipt {
+        let p = pack_with(RiskTier::R2, true, ScanOutcome::Passed);
+        receipt_for(role, agent, decision, &p)
+    }
+
+    #[test]
+    fn quorum_met_when_required_roles_pass() {
+        let p = policy_with_quorum(
+            RiskTier::R2,
+            2,
+            vec![ReviewerRole::Security, ReviewerRole::TestIntegrity],
+            false,
+        );
+        let r = vec![
+            receipt(ReviewerRole::Security, "sec.v1", ReviewDecision::Pass),
+            receipt(ReviewerRole::TestIntegrity, "test.v1", ReviewDecision::Pass),
+        ];
+        assert_eq!(
+            evaluate_quorum(RiskTier::R2, &r, &p, Some("builder.x")).decision,
+            QuorumDecision::Met
+        );
+    }
+
+    #[test]
+    fn one_block_vetoes_regardless_of_count() {
+        let p = policy_with_quorum(
+            RiskTier::R2,
+            2,
+            vec![ReviewerRole::Security, ReviewerRole::TestIntegrity],
+            false,
+        );
+        let r = vec![
+            receipt(ReviewerRole::Security, "sec.v1", ReviewDecision::Block),
+            receipt(ReviewerRole::TestIntegrity, "test.v1", ReviewDecision::Pass),
+            receipt(ReviewerRole::Runtime, "rt.v1", ReviewDecision::Pass),
+        ];
+        let outcome = evaluate_quorum(RiskTier::R2, &r, &p, None);
+        assert_eq!(outcome.decision, QuorumDecision::Vetoed);
+        assert_eq!(outcome.blocking_roles, vec![ReviewerRole::Security]);
+    }
+
+    #[test]
+    fn missing_required_role_is_insufficient() {
+        let p = policy_with_quorum(
+            RiskTier::R2,
+            2,
+            vec![ReviewerRole::Security, ReviewerRole::TestIntegrity],
+            false,
+        );
+        let r = vec![receipt(
+            ReviewerRole::Security,
+            "sec.v1",
+            ReviewDecision::Pass,
+        )];
+        let outcome = evaluate_quorum(RiskTier::R2, &r, &p, None);
+        assert_eq!(outcome.decision, QuorumDecision::Insufficient);
+        assert!(outcome.missing_roles.contains(&ReviewerRole::TestIntegrity));
+    }
+
+    #[test]
+    fn author_self_approval_does_not_count() {
+        let p = policy_with_quorum(RiskTier::R1, 1, vec![ReviewerRole::TestIntegrity], false);
+        let mut self_r = receipt(
+            ReviewerRole::TestIntegrity,
+            "builder.author",
+            ReviewDecision::Pass,
+        );
+        self_r.not_author = false;
+        assert_eq!(
+            evaluate_quorum(RiskTier::R1, &[self_r], &p, Some("builder.author")).decision,
+            QuorumDecision::Insufficient
+        );
+    }
+
+    #[test]
+    fn human_required_lands_separately() {
+        let p = policy_with_quorum(RiskTier::R4, 0, vec![], true);
+        assert_eq!(
+            evaluate_quorum(RiskTier::R4, &[], &p, None).decision,
+            QuorumDecision::HumanRequired
+        );
+    }
+
+    #[test]
+    fn missing_quorum_policy_fails_closed() {
+        let p = ApprovalsPolicy {
+            schema: "vibegate.approvals.v1".into(),
+            invariants: ApprovalRules::default(),
+            hard_stops: vec![],
+            quorum: HashMap::new(),
+            verdict_ttl_minutes: Some(60),
+            re_judge_on: vec![],
+        };
+        let outcome = evaluate_quorum(RiskTier::R1, &[], &p, None);
+        assert_eq!(outcome.decision, QuorumDecision::HumanRequired);
+        assert!(outcome.reason.contains("missing quorum policy"));
+    }
+
+    #[test]
+    fn author_agent_cannot_self_approve_even_when_not_author_flag_true() {
+        let p = policy_with_quorum(RiskTier::R1, 1, vec![ReviewerRole::TestIntegrity], false);
+        let mut r = receipt(
+            ReviewerRole::TestIntegrity,
+            "builder.author",
+            ReviewDecision::Pass,
+        );
+        r.not_author = true; // agent lies
+        assert_eq!(
+            evaluate_quorum(RiskTier::R1, &[r], &p, Some("builder.author")).decision,
+            QuorumDecision::Insufficient,
+            "author_agent identity overrides a lying not_author flag"
+        );
+    }
+
+    #[test]
+    fn duplicate_agent_identities_collapse() {
+        let p = policy_with_quorum(
+            RiskTier::R2,
+            2,
+            vec![ReviewerRole::Security, ReviewerRole::TestIntegrity],
+            false,
+        );
+        let r = vec![
+            receipt(ReviewerRole::Security, "sec.v1", ReviewDecision::Pass),
+            receipt(ReviewerRole::Security, "sec.v1", ReviewDecision::Pass),
+        ];
+        assert_eq!(
+            evaluate_quorum(RiskTier::R2, &r, &p, None).decision,
+            QuorumDecision::Insufficient
+        );
+    }
+}

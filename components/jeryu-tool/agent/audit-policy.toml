@@ -1,0 +1,25 @@
+schema_version = "1.0.0"
+workspace = "jeryu-tool"
+# This is a tool control plane, not a product service: it has no database,
+# billable request path, browser runtime, or durable product data. The reviewed
+# historical floor remains 65 for compatibility with already-released family
+# consumers; current candidate work is held to the fleet-wide score target by
+# exact-head sealing instead of weakening or rewriting that release policy.
+# The absolute repository gates remain:
+# hard_findings_allowed = 0 and no caps (see ops/ci/score.sh). Mirrored in
+# tool-manifest.toml [floors]."jeryu-tool".
+minimum_score = 65
+hard_findings_allowed = 0
+required_tool = "jankurai"
+required_tool_version = "1.6.11"
+
+[scan]
+excluded_paths = [
+  ".jankurai/",
+  "generated/",   # generated pin env; rendered from tool-manifest.toml, not authored
+]
+
+# `deprecated` is a closed wire value in tools-registry.toml and its Rust
+# validator. It is not a process marker or an unfinished implementation.
+[dead_language]
+allow_terms = ["deprecated"]

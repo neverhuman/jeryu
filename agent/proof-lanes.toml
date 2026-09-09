@@ -1,19 +1,119 @@
-[lanes.fast]
-required = ["just fast"]
-blocks_merge = true
+[[lane]]
+name = "fast"
+command = "just fast"
+purpose = "monorepo identity, authority shape and proof inventory smoke check"
+requires_network = false
 
-[lanes.check]
-required = ["just check"]
-blocks_merge = true
+[[lane]]
+name = "check"
+command = "just check"
+purpose = "root workspace metadata and Rust formatting"
+requires_network = false
 
-[lanes.score]
-required = ["just score"]
-blocks_merge = true
+[[lane]]
+name = "score"
+command = "just score"
+purpose = "pinned Jankurai repository score and hard-finding gate"
+requires_network = false
 
-[lanes.security]
-required = ["just security"]
-blocks_merge = true
+[[lane]]
+name = "security"
+command = "just security"
+purpose = "required secret, workflow, tool-custody, advisory, and SBOM checks"
+requires_network = true
 
-[lanes.artifact-support]
-required = ["just artifact-support"]
-blocks_merge = false
+[[lane]]
+name = "artifact-support"
+command = "just artifact-support"
+purpose = "source artifact support metadata"
+requires_network = false
+
+[[lane]]
+name = "hostile-checks"
+command = "bash tests/clone-family-hostiles.sh && bash tests/security-lane-hostiles.sh"
+purpose = "hosted-origin and fail-closed scanner negative-path coverage"
+requires_network = false
+
+[[lane]]
+name = "fast-check"
+command = "just fast && just check"
+purpose = "workflow and metadata smoke-check routing"
+requires_network = false
+
+[[lane]]
+name = "fast-check-score"
+command = "just fast && just check && just score"
+purpose = "CI and command-wrapper audit routing"
+requires_network = false
+
+[[lane]]
+name = "check-score"
+command = "just check && just score"
+purpose = "documentation and hostile-test audit routing"
+requires_network = false
+
+[[lane]]
+name = "security-score"
+command = "just security && just score"
+purpose = "supply-chain implementation and audit routing"
+requires_network = false
+
+[[lane]]
+name = "ci"
+command = "bash scripts/ci.sh all"
+purpose = "all root lanes, including public prerequisites and required sandbox capabilities"
+requires_network = true
+
+[[lane]]
+name = "ci-local"
+command = "bash scripts/ci-local.sh"
+purpose = "the same complete matrix as GitHub"
+requires_network = true
+
+[[lane]]
+name = "splits"
+command = "bash scripts/ci.sh splits"
+purpose = "deterministic standalone exports, locked dependency identity and independent component verification"
+requires_network = true
+
+[[lane]]
+name = "rust"
+command = "just rust"
+purpose = "warning-denied Clippy, unit, integration, property and documentation tests"
+requires_network = true
+
+[[lane]]
+name = "web"
+command = "just web"
+purpose = "locked web, contracts, browser, accessibility, performance and UX checks"
+requires_network = true
+
+[[lane]]
+name = "runtime"
+command = "just runtime"
+purpose = "source build, verified installation, real CLI and restart persistence"
+requires_network = true
+
+[[lane]]
+name = "contracts"
+command = "just contracts"
+purpose = "regenerate contracts from both Rust owners and compare every browser consumer"
+requires_network = true
+
+[[lane]]
+name = "public"
+command = "just public"
+purpose = "reject private dependency and tool prerequisites"
+requires_network = true
+
+[[lane]]
+name = "sandbox"
+command = "just sandbox"
+purpose = "execute every sandbox isolation case on a capable disposable Linux environment"
+requires_network = true
+
+[[lane]]
+name = "legacy"
+command = "just legacy"
+purpose = "retain original proof entrypoints until replacement equivalence is verified"
+requires_network = true

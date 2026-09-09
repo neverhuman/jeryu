@@ -1,0 +1,18 @@
+[package]
+name = "jeryu-ci-bin"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+jeryu-ci-ir = { workspace = true }
+jeryu-ci-compiler = { workspace = true }
+jeryu-ci-scheduler = { workspace = true }
+jeryu-artifact-metadata = { workspace = true }
+jeryu-cache-policy = { workspace = true }
+jeryu-runner-protocol = { workspace = true }
+
+[lints]
+workspace = true

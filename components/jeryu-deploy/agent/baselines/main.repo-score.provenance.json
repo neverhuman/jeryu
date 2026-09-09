@@ -1,0 +1,37 @@
+{
+  "schema": "jeryu.jankurai-baseline-provenance/v1",
+  "repository": "jeryu/jeryu-deploy",
+  "generated_at": "2026-09-02T11:02:50Z",
+  "source": {
+    "remote": "https://git.neverhuman.org/git/jeryu/jeryu-deploy.git",
+    "branch": "main",
+    "commit": "b114cbfd2a996b5a6528310954c0a1ab4553414d",
+    "tree": "cb9ef11c9745aaf4f19a9a67faea46959aefafac",
+    "dirty_worktree": false,
+    "isolation": "auto-removed-clone-no-local-no-hardlinks-no-tags"
+  },
+  "jankurai": {
+    "version": "jankurai 1.6.11",
+    "source_tag": "v1.6.11-deadlang-precision-split.3",
+    "source_commit": "b88562fdb124aa86dedd70ab972e7d0d87e58be1",
+    "source_tree": "611229e54938c0e8808896e369fd54d095d258f7",
+    "binary_sha256": "9e6b8857a26f6004d4c74e510e13b06d880f2e2ae0c89502698889ed690c5d6c"
+  },
+  "report": {
+    "path": "agent/baselines/main.repo-score.json",
+    "sha256": "757ba1d6d1393ca56b297ba88312e23f3542afc9b843aaeb7d92f2e05a18edaa",
+    "generator_artifact_sha256": "4cf89b41feab3fdce81ec3dee380142c8fd42f6932f0a738bdb624c115c297f6",
+    "normalization": "single-trailing-lf-added-for-tracked-text-file",
+    "mode": "full",
+    "score": 85,
+    "hard_findings": 0,
+    "caps": 0,
+    "report_fingerprint": "sha256:5f4c35882e5b96898f9ad313ef0e6aa2d28f53a5273b30850425b42ad20e7aad",
+    "input_fingerprint": "sha256:c0da4b27f88b446fac3a3a87df5425623d69899ebf12739547de79d8983a82b4",
+    "policy_fingerprint": "sha256:f08c38448d92e3afdb8cd457ad1f8648fe6e0eca2f764f3568868143de911050"
+  },
+  "acceptance": {
+    "self_authorizing": false,
+    "required_mechanism": "independent exact-head review plus protected merge"
+  }
+}

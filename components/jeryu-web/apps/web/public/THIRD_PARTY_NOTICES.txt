@@ -1,0 +1,38 @@
+Bundled font notice
+===================
+
+Jeryu source is licensed under Apache-2.0. The bundled JetBrains Mono font
+files are separately licensed under the SIL Open Font License, Version 1.1.
+
+Copyright 2020 The JetBrains Mono Project Authors (https://github.com/JetBrains/JetBrainsMono)
+
+The complete copyright and license notice is in fonts/OFL.txt, served by
+Jeryu at /fonts/OFL.txt. Keep that notice with redistributed font files.
+This notice covers the identical font files in historical Jeryu web bundles
+as well as the current application.
+
+The Latin subset files identify themselves as JetBrains Mono version 2.211.
+Their bytes match these official Google Fonts delivery URLs:
+
+JetBrainsMono-400.woff2
+https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbY2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKxTOlOV.woff2
+SHA-256: 14425ba9c695763c1547f48a206b7aa60350a33ae23de09f0407877f3fcd89eb
+
+JetBrainsMono-500.woff2
+https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbY2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8-qxTOlOV.woff2
+SHA-256: cb182feeed4d798ff6961d3c79f7026279448fca0676438aaecb21f3fc39553a
+
+JetBrainsMono-700.woff2
+https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbY2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8L6tTOlOV.woff2
+SHA-256: d0d4e818808f2a0ba39b2b09d1989366f63494e295f003c7ef436697378507e8
+
+The unchanged OFL.txt was obtained from this immutable Google Fonts source:
+https://raw.githubusercontent.com/google/fonts/0cf764bb712367b6079cbb4fd2353e6f54ec6850/ofl/jetbrainsmono/OFL.txt
+SHA-256: b2fe5e8987594e9ffd1d2ca52a2f5d73eb8335243893c5d6254b5ad69269591d
+
+These delivery-byte matches do not identify the original download date or
+the upstream source revision used to generate the subsets.
+
+Other covered Web dependencies have accompanying notices in
+DEPENDENCY_NOTICES.txt, served at /DEPENDENCY_NOTICES.txt. Exact versions
+and source provenance are documented in docs/notices/web-bundles.json.

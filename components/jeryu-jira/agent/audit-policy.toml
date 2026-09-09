@@ -1,0 +1,15 @@
+schema_version = "1.0.0"
+workspace = "jeryu-jira"
+minimum_score = 85
+hard_findings_allowed = 0
+required_tool = "jankurai"
+required_tool_version = "1.6.11"
+
+[dead_language]
+allow_terms = ["stale", "placeholder", "fallback", "old"]
+
+[scan]
+excluded_paths = [
+  ".jankurai/",
+  "contracts/generated/",
+]

@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Mandatory local gate before any push: run the same lanes CI runs.
+# Wire once with: git config core.hooksPath ops/git-hooks
+# There is no `fast` lane in this repo (the jankurai pin lives in jeryu-tool).
+set -euo pipefail
+
+bash scripts/ci-local.sh required

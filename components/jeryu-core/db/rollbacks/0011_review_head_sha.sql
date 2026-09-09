@@ -1,0 +1,11 @@
+-- Rollback for 0011_review_head_sha is intentionally non-destructive.
+--
+-- Review head bindings and historical NULL rows are audit evidence. A live
+-- rollback disables the new application behavior, retains the additive column,
+-- and rolls forward after repair. For schema removal, restore the verified
+-- pre-0011 VACUUM INTO copy rather than rewriting the reviews table in place.
+--
+-- timeout-guard:
+--   lock_timeout = '5s'
+--   statement_timeout = '60s'
+SELECT '0011_review_head_sha rollback is non-destructive; retain review audit evidence and roll forward after repair' AS rollback_notice;

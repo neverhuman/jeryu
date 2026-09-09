@@ -1,0 +1,27 @@
+[package]
+name = "jeryu-agentbridge"
+description = "Typed AgentBridge API for Jeryu Phase 7"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "jeryu-editbot"
+path = "src/bin/jeryu-editbot.rs"
+
+[dependencies]
+jeryu-core = { workspace = true }
+jeryu-proof = { workspace = true }
+jeryu-ci-scheduler = { workspace = true }
+# The in-cell agent driver reuses the runner-core policy/sandbox model and the
+# real kernel sandbox launch path. All unsafe stays in jeryu-sandbox-linux; this
+# crate inherits the workspace `forbid(unsafe_code)` lint below.
+jeryu-runner-core = { workspace = true }
+jeryu-sandbox-linux = { workspace = true }
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

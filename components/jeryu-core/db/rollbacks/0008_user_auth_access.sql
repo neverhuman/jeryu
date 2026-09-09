@@ -1,0 +1,12 @@
+-- Rollback for 0008_user_auth_access is intentionally non-destructive.
+--
+-- The migration creates durable credentials, sessions, PAT hashes, and
+-- repository grants. Removing those tables would delete live authentication
+-- state, so rollback is a staged operational action: disable the web-auth
+-- surface at the application layer, keep the tables intact, and roll forward
+-- with db/migrations/0008_user_auth_access.sql after repair.
+--
+-- timeout-guard:
+--   lock_timeout = '5s'
+--   statement_timeout = '60s'
+SELECT '0008_user_auth_access rollback is non-destructive; retain auth tables and roll forward after repair' AS rollback_notice;

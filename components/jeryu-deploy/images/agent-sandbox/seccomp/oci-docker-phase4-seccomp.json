@@ -1,0 +1,29 @@
+{
+  "_comment": "Seccomp profile for the confined agent sandbox. Default-allow with the kernel-escape and host-manipulation syscalls denied (EPERM). Combined with --cap-drop=ALL, --read-only, no-new-privileges, a non-root user, and --network none, this confines an untrusted coding agent to building this repo in its workspace. Referenced by OciSpec::from_agent_job at /opt/jeryu/seccomp/<name>.json, where <name> is the plan's seccomp name; for the OCI-Docker agent lane that is oci-docker-phase4-seccomp, hence this file's name. A stricter variant: switch to default-deny with an explicit build-tooling allowlist, and arg-filter socket() to AF_UNIX only.",
+  "defaultAction": "SCMP_ACT_ALLOW",
+  "archMap": [
+    { "architecture": "SCMP_ARCH_X86_64", "subArchitectures": ["SCMP_ARCH_X86", "SCMP_ARCH_X32"] },
+    { "architecture": "SCMP_ARCH_AARCH64", "subArchitectures": ["SCMP_ARCH_ARM"] }
+  ],
+  "syscalls": [
+    {
+      "names": [
+        "symlink", "symlinkat",
+        "mount", "umount", "umount2", "pivot_root", "chroot",
+        "ptrace", "process_vm_readv", "process_vm_writev",
+        "kexec_load", "kexec_file_load", "reboot",
+        "init_module", "finit_module", "delete_module",
+        "bpf", "perf_event_open",
+        "setns", "unshare",
+        "add_key", "request_key", "keyctl",
+        "acct", "quotactl", "swapon", "swapoff",
+        "settimeofday", "clock_settime", "clock_adjtime", "adjtimex",
+        "nfsservctl", "syslog", "_sysctl",
+        "open_by_handle_at", "name_to_handle_at",
+        "iopl", "ioperm", "vm86", "vm86old", "modify_ldt"
+      ],
+      "action": "SCMP_ACT_ERRNO",
+      "errnoRet": 1
+    }
+  ]
+}

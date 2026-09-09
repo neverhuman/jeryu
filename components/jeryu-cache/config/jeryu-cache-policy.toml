@@ -1,0 +1,53 @@
+version = 1
+schema = "jeryu.jeryu-cache.jeryu-cache-policy"
+
+[defaults]
+false_hits_tolerated = 0
+cross_project_compiled_artifacts = "deny"
+release_mutable_compiled_cache = "deny"
+fork_trusted_compiled_cache_write = "deny"
+untrusted_global_cache_write = "deny"
+restore_requires_fingerprint = true
+promotion_requires_receipt = true
+
+[layers.L0]
+name = "job tmpfs"
+compiled = false
+mutable = true
+scope = "job"
+
+[layers.L1]
+name = "runner-local project cache"
+compiled = true
+mutable = true
+scope = "repo"
+
+[layers.L2]
+name = "runner-local registry/source blob cache"
+compiled = false
+mutable = true
+scope = "tenant"
+
+[layers.L3]
+name = "repo-scoped compiled artifact CAS"
+compiled = true
+mutable = true
+scope = "repo"
+
+[layers.L4]
+name = "tenant-scoped source/dependency CAS"
+compiled = false
+mutable = true
+scope = "tenant"
+
+[layers.L5]
+name = "explicitly shared compiled artifact CAS"
+compiled = true
+mutable = true
+scope = "explicit-shared"
+
+[layers.L6]
+name = "release-hermetic vendor snapshot"
+compiled = false
+mutable = false
+scope = "release"

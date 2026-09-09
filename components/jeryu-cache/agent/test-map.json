@@ -1,0 +1,225 @@
+{
+  "tests": {
+    ".cargo/": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify cargo configuration is parseable and local"
+    },
+    ".config/": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify local tool configuration remains parseable"
+    },
+    ".dockerignore": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify workspace metadata remains parseable"
+    },
+    ".github/": {
+      "command": "bash scripts/ci-local.sh required",
+      "lane": "ci",
+      "purpose": "verify workflow mirrors cannot diverge from the complete required gate"
+    },
+    ".gitignore": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify workspace metadata remains parseable"
+    },
+    ".jankurai/": {
+      "command": "just score",
+      "lane": "score",
+      "purpose": "verify committed audit evidence matches the pinned Jankurai lane"
+    },
+    "AGENTS.md": {
+      "command": "just score",
+      "lane": "score",
+      "purpose": "verify split metadata and agent maps"
+    },
+    "CHANGELOG.md": {
+      "command": "just score",
+      "lane": "score",
+      "purpose": "verify release notes stay routed through the score lane"
+    },
+    "Cargo.lock": {
+      "command": "bash scripts/ci-local.sh required",
+      "lane": "ci",
+      "purpose": "verify lockfile dependencies through the complete required gate"
+    },
+    "Cargo.toml": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify workspace manifest shape"
+    },
+    "Justfile": {
+      "command": "bash scripts/ci-local.sh required",
+      "lane": "ci",
+      "purpose": "verify local command wrappers remain canonical"
+    },
+    "LICENSE": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify workspace metadata remains parseable"
+    },
+    "README.md": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify root navigation remains current"
+    },
+    "VERSION": {
+      "command": "just score",
+      "lane": "score",
+      "purpose": "verify version source remains aligned with release evidence"
+    },
+    "agent/": {
+      "command": "just score",
+      "lane": "score",
+      "purpose": "verify agent metadata parses and routes proof lanes"
+    },
+    "config/jeryu-cache-policy.toml": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify jeryu-cache owned source remains build-addressable"
+    },
+    "contracts/": {
+      "command": "just contract-schema",
+      "lane": "contract-schema",
+      "purpose": "bind the public receipt contract inventory to its executable schema test"
+    },
+    "crates/jeryu-cache-adversary/": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify jeryu-cache owned source remains build-addressable"
+    },
+    "crates/jeryu-cache-cli/": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify jeryu-cache owned source remains build-addressable"
+    },
+    "crates/jeryu-cache-core/": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify jeryu-cache owned source remains build-addressable"
+    },
+    "crates/jeryu-cache-service/": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify jeryu-cache owned source remains build-addressable"
+    },
+    "crates/jeryu-cache/": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify jeryu-cache owned source remains build-addressable"
+    },
+    "deny.toml": {
+      "command": "just security",
+      "lane": "security",
+      "purpose": "verify security policy metadata remains parseable"
+    },
+    "docs/": {
+      "command": "just check && just score",
+      "lane": "docs",
+      "purpose": "verify agent-readable docs remain routed and auditable"
+    },
+    "examples/cache-key-material.json": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify jeryu-cache owned source remains build-addressable"
+    },
+    "fixtures/cache-poisoning/": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify jeryu-cache owned source remains build-addressable"
+    },
+    "ops/ci/": {
+      "command": "bash scripts/ci-local.sh required",
+      "lane": "ci",
+      "purpose": "verify every required product, security, and release-evidence lane"
+    },
+    "ops/git-hooks/": {
+      "command": "bash scripts/ci-local.sh required",
+      "lane": "ci",
+      "purpose": "verify pre-push gates delegate to local CI lanes"
+    },
+    "policies/cache-laws.toml": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify jeryu-cache owned source remains build-addressable"
+    },
+    "repos.manifest.toml": {
+      "command": "just check && just score",
+      "lane": "check",
+      "purpose": "verify split manifest remains parseable and routed"
+    },
+    "rust-toolchain.toml": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify local Rust toolchain metadata remains pinned"
+    },
+    "scripts/": {
+      "command": "bash scripts/ci-local.sh required",
+      "lane": "ci",
+      "purpose": "verify helper dispatch and the complete required gate"
+    },
+    "schemas/": {
+      "command": "just contract-schema",
+      "lane": "contract-schema",
+      "purpose": "verify the machine-readable receipt schema against real Serde output"
+    },
+    "tools/": {
+      "command": "just security && just score",
+      "lane": "security",
+      "purpose": "verify the canonical supply-chain wrapper and its receipt stay fail-closed"
+    },
+    "tests/": {
+      "command": "bash scripts/ci-local.sh required",
+      "lane": "ci",
+      "purpose": "execute the complete required gate for changed negative proofs"
+    },
+    "tests/cache_poisoning_matrix.sh": {
+      "command": "bash tests/cache_poisoning_matrix.sh",
+      "lane": "check",
+      "purpose": "verify jeryu-cache owned source remains build-addressable"
+    },
+    "tests/ci_local_dispatch_test.sh": {
+      "command": "bash tests/ci_local_dispatch_test.sh",
+      "lane": "ci",
+      "purpose": "reject missing, extra, unknown, and injected lane arguments"
+    },
+    "tests/pr_ci_order_test.sh": {
+      "command": "bash tests/pr_ci_order_test.sh",
+      "lane": "ci",
+      "purpose": "bind product execution before evidence and final revalidation"
+    },
+    "tests/security_lane_test.sh": {
+      "command": "bash tests/security_lane_test.sh",
+      "lane": "security",
+      "purpose": "reject shell-function, PATH, release-root, and tool-custody substitution"
+    },
+    "tests/contract_drift_test.sh": {
+      "command": "bash tests/contract_drift_test.sh",
+      "lane": "contract-drift",
+      "purpose": "reject API, source, tool, and receipt substitution"
+    },
+    "tests/artifact_support_test.sh": {
+      "command": "bash tests/artifact_support_test.sh",
+      "lane": "artifact-support",
+      "purpose": "reject artifact, source, tool, and physical custody substitution"
+    },
+    "agent/tool-adoption.toml": {
+      "command": "just score",
+      "lane": "score",
+      "purpose": "verify Jankurai tool-adoption catalog coverage"
+    },
+    "db/": {
+      "command": "just check && just score",
+      "lane": "check",
+      "purpose": "verify documented data boundary policy remains routed"
+    },
+    "ops/": {
+      "command": "just fast && just check && just score",
+      "lane": "ci",
+      "purpose": "verify local ops guidance and CI wrappers stay reproducible"
+    }
+  },
+  "workspace": "jeryu-cache"
+}

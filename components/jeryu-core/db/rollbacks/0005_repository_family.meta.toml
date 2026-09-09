@@ -1,0 +1,23 @@
+# jankurai:migration v1
+id = "0005_repository_family_rollback"
+owner = "forge-api"
+reviewer = "forge-api"
+approval = "forge-api"
+change_type = "contract"
+safety = "online"
+transaction = "required"
+lock_timeout = "5s"
+statement_timeout = "60s"
+estimated_rows = 0
+deploy_phase = "contract"
+app_compatibility = "old_app_new_db"
+rollback = "db/migrations/0005_repository_family.sql"
+roll_forward = "db/migrations/0005_repository_family.sql"
+backup = "sqlite .backup of forge.sqlite before apply (ops runbook: ~/.jeryu/backups/)"
+restore = "restore the pre-apply .backup snapshot; family is re-seedable from migration 0005"
+irreversible = false
+backfill = "none; drops the nullable grouping column only"
+data_classification = "internal"
+tenant_impact = "none"
+verify = "PRAGMA table_info(repositories) no longer lists family; app still serves /api/v1/repos"
+tests = ["db-migration-analyze", "sqlite_open_seeds_repository_families"]

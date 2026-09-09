@@ -1,0 +1,17 @@
+# jankurai:migration v1
+id = "0007_jankurai_scores"
+owner = "forge-api"
+reviewer = "forge-api"
+change_type = "expand"
+safety = "online"
+transaction = "required"
+lock_timeout = "5s"
+statement_timeout = "60s"
+estimated_rows = 0
+deploy_phase = "expand"
+app_compatibility = "old_app_new_db,new_app_old_db"
+rollback = "db/rollbacks/0007_jankurai_scores.sql"
+backfill = "none; table starts empty and is filled by the score ingest endpoint"
+data_classification = "internal"
+tenant_impact = "none"
+tests = ["db-migration-analyze", "sqlite_store_round_trips_jankurai_scores"]

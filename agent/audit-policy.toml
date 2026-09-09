@@ -1,10 +1,8 @@
 schema_version = "1.0.0"
 workspace = "jeryu"
-# public-portal profile: a scripts/docs-only scaffold has no product code, so
-# the db-truth / build-speed / contract category floors structurally cannot
-# reach product-grade scores. 75 is the reviewed floor for this profile;
-# member repos keep the standard 85.
-minimum_score = 75
+# The root now contains product source. Retain the component policies and apply
+# the standard product floor at the root; the former portal floor was 75.
+minimum_score = 85
 hard_findings_allowed = 0
 required_tool = "jankurai"
 required_tool_version = "1.6.11"

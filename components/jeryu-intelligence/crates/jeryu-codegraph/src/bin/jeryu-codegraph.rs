@@ -1,0 +1,667 @@
+//! `jeryu-codegraph` CLI: index the workspace, query impact, and check slices.
+
+use std::path::PathBuf;
+use std::process::Command;
+
+use anyhow::{Context, Result};
+use clap::{Parser, Subcommand};
+use jeryu_codegraph::{
+    CodeGraph, CodeGraphQuery, CodeGraphRepoIdentity, CodeGraphService, CodeGraphStore, Slice,
+    ToolBuildScanConfig, ToolBuildScanOptions, discover_system_repo_roots,
+    scan_tool_build_clusters, scan_tool_build_family, scan_tool_build_system,
+};
+use jeryu_rustjet::WorkspaceGraph;
+use serde::Deserialize;
+
+#[derive(Parser)]
+#[command(
+    name = "jeryu-codegraph",
+    about = "Additive workspace code graph: symbol index, impact, and export slice gate"
+)]
+struct Cli {
+    #[command(subcommand)]
+    command: Commands,
+}
+
+#[derive(Subcommand)]
+enum Commands {
+    /// Index the workspace and persist the code graph.
+    Index {
+        /// Workspace root.
+        #[arg(long, default_value = ".")]
+        root: PathBuf,
+        /// SQLite database path (defaults to ~/.jeryu/codegraph.sqlite).
+        #[arg(long)]
+        db: Option<PathBuf>,
+    },
+    /// Report impact of changed repo-relative paths.
+    Impact {
+        /// Workspace root.
+        #[arg(long, default_value = ".")]
+        root: PathBuf,
+        /// SQLite database path (defaults to ~/.jeryu/codegraph.sqlite).
+        #[arg(long)]
+        db: Option<PathBuf>,
+        /// Changed repo-relative paths.
+        paths: Vec<String>,
+    },
+    /// Build the hosted-oracle impact pack for changed paths.
+    Query {
+        /// Workspace root.
+        #[arg(long, default_value = ".")]
+        root: PathBuf,
+        /// SQLite database path (defaults to ~/.local/share/jeryu/codegraph.sqlite).
+        #[arg(long)]
+        db: Option<PathBuf>,
+        /// Changed repo-relative path. Repeat for multiple paths.
+        #[arg(long = "changed")]
+        changed: Vec<String>,
+        /// Optional short task intent.
+        #[arg(long)]
+        intent: Option<String>,
+        /// Optional code question.
+        #[arg(long)]
+        question: Option<String>,
+        /// Requested token budget for downstream context consumers.
+        #[arg(long)]
+        max_tokens: Option<u32>,
+        /// Ref label for the pack.
+        #[arg(long = "ref", default_value = "working-tree")]
+        ref_name: String,
+        /// Emit the full JSON impact pack.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Check changed files against an export slice.
+    SliceCheck {
+        /// Comma-separated allowed prefixes.
+        prefixes_csv: String,
+        /// Comma-separated changed repo-relative paths.
+        changed_csv: String,
+    },
+    /// Validate that the persisted graph round-trips.
+    Validate {
+        /// SQLite database path (defaults to ~/.jeryu/codegraph.sqlite).
+        #[arg(long)]
+        db: Option<PathBuf>,
+    },
+    /// Fast repeated-code cluster mining for Jankurai tool-building leads.
+    ToolBuild {
+        #[command(subcommand)]
+        command: ToolBuildCommands,
+    },
+}
+
+#[derive(Subcommand)]
+enum ToolBuildCommands {
+    /// Scan a root and persist ranked repeated-code clusters.
+    Scan {
+        /// Repository root to scan.
+        #[arg(long, default_value = ".")]
+        root: PathBuf,
+        /// SQLite database path (defaults to ~/.local/share/jeryu/codegraph.sqlite).
+        #[arg(long)]
+        db: Option<PathBuf>,
+        /// Stable repo id for persisted cluster rows.
+        #[arg(long)]
+        repo_id: Option<String>,
+        /// Commit/ref label for persisted cluster rows.
+        #[arg(long)]
+        commit: Option<String>,
+        /// Number of normalized non-empty lines per fingerprinted window.
+        #[arg(long, default_value_t = 8)]
+        window_lines: usize,
+        /// Minimum occurrences before a fingerprint becomes a cluster.
+        #[arg(long, default_value_t = 2)]
+        min_occurrences: usize,
+        /// Maximum clusters to persist/return.
+        #[arg(long, default_value_t = 50)]
+        top: usize,
+        /// Emit full JSON report.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Scan EVERY repo in a split manifest into one shared index so windows
+    /// repeated across more than one repo collapse into cross-repo clusters.
+    /// This is the tool-finder hot path: the leads worth extracting into a
+    /// shared tool. Persisted under the synthetic `--repo-id` (default
+    /// `family/jeryu-split`).
+    ScanFamily {
+        /// Path to repos.manifest.toml listing the family `[[repo]]` roots.
+        #[arg(long)]
+        manifest: PathBuf,
+        /// SQLite database path (defaults to ~/.local/share/jeryu/codegraph.sqlite).
+        #[arg(long)]
+        db: Option<PathBuf>,
+        /// Synthetic repo id for the persisted cross-repo cluster rows.
+        #[arg(long, default_value = "family/jeryu-split")]
+        repo_id: String,
+        /// Commit/ref label for persisted cluster rows.
+        #[arg(long, default_value = "working-tree")]
+        commit: String,
+        /// Number of normalized non-empty lines per fingerprinted window.
+        #[arg(long, default_value_t = 8)]
+        window_lines: usize,
+        /// Minimum occurrences before a fingerprint becomes a cluster.
+        #[arg(long, default_value_t = 2)]
+        min_occurrences: usize,
+        /// Minimum distinct repos a cluster must span to be kept.
+        #[arg(long, default_value_t = 2)]
+        min_repos: usize,
+        /// Maximum clusters to persist/return.
+        #[arg(long, default_value_t = 50)]
+        top: usize,
+        /// Emit full JSON report.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Scan EVERY repo across EVERY split family on this host into one
+    /// system-wide index (repo enumeration via `<parent>/*-split/
+    /// repos.manifest.toml`). Runs the full v2 pipeline: parallel workers,
+    /// gitignore-aware discovery, generated-zone/scaffold/test awareness,
+    /// window quality filters, overlap merging, categories, and pattern
+    /// families. Persisted under `--repo-id` (default `system/host`).
+    ScanSystem {
+        /// Directories whose `*-split` children carry family manifests.
+        #[arg(long = "manifest-parent", default_values_os_t = vec![PathBuf::from("/home/ubuntu")])]
+        manifest_parents: Vec<PathBuf>,
+        /// SQLite database path (defaults to ~/.local/share/jeryu/codegraph.sqlite).
+        #[arg(long)]
+        db: Option<PathBuf>,
+        /// Synthetic repo id for the persisted system-wide cluster rows.
+        #[arg(long, default_value = "system/host")]
+        repo_id: String,
+        /// Commit/ref label for persisted cluster rows.
+        #[arg(long, default_value = "working-tree")]
+        commit: String,
+        /// Number of normalized non-empty lines per fingerprinted window.
+        #[arg(long, default_value_t = 8)]
+        window_lines: usize,
+        /// Minimum occurrences before a fingerprint becomes a cluster.
+        #[arg(long, default_value_t = 2)]
+        min_occurrences: usize,
+        /// Minimum distinct repos a cluster must span to be kept.
+        #[arg(long, default_value_t = 2)]
+        min_repos: usize,
+        /// Maximum clusters to persist/return.
+        #[arg(long, default_value_t = 200)]
+        top: usize,
+        /// Worker threads (0 = all cores).
+        #[arg(long, default_value_t = 0)]
+        threads: usize,
+        /// Disable overlap merging (keep the raw window ladder).
+        #[arg(long)]
+        no_merge_overlaps: bool,
+        /// Emit full JSON report.
+        #[arg(long)]
+        json: bool,
+        /// Print live progress to stderr.
+        #[arg(long)]
+        progress: bool,
+    },
+    /// List persisted tool-building clusters.
+    Clusters {
+        /// SQLite database path (defaults to ~/.local/share/jeryu/codegraph.sqlite).
+        #[arg(long)]
+        db: Option<PathBuf>,
+        /// Optional repo id filter.
+        #[arg(long)]
+        repo_id: Option<String>,
+        /// Maximum clusters to return.
+        #[arg(long, default_value_t = 50)]
+        top: usize,
+        /// Include ignored clusters in output.
+        #[arg(long)]
+        include_ignored: bool,
+        /// Emit JSON.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Ignore/suppress a cluster with an auditable reason.
+    Ignore {
+        /// SQLite database path (defaults to ~/.local/share/jeryu/codegraph.sqlite).
+        #[arg(long)]
+        db: Option<PathBuf>,
+        /// Cluster id to ignore.
+        cluster_id: String,
+        /// Required ignore reason.
+        #[arg(long)]
+        reason: String,
+        /// Actor recording feedback.
+        #[arg(long, default_value = "operator")]
+        ignored_by: String,
+        /// Emit JSON.
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+fn resolve_db(db: Option<PathBuf>) -> Result<PathBuf> {
+    match db {
+        Some(path) => Ok(path),
+        None => Err(anyhow::anyhow!(
+            "--db is required for jeryu-codegraph commands"
+        )),
+    }
+}
+
+fn main() -> Result<()> {
+    let cli = Cli::parse();
+    match cli.command {
+        Commands::Index { root, db } => {
+            let store = CodeGraphStore::open(resolve_db(db)?).context("open store")?;
+            let graph = CodeGraph::index(&root).context("index workspace")?;
+            graph.persist(&store).context("persist graph")?;
+            let snapshot = graph.snapshot();
+            println!(
+                "indexed {} symbols, {} crate-dep edges -> {}",
+                snapshot.symbols.len(),
+                snapshot.crate_deps.len(),
+                store.path().display()
+            );
+        }
+        Commands::Impact { root, db, paths } => {
+            let _store = CodeGraphStore::open(resolve_db(db)?).context("open store")?;
+            let workspace = WorkspaceGraph::load(&root).context("load workspace")?;
+            let graph = CodeGraph::index_workspace(&workspace).context("index workspace")?;
+            let report = graph.impact_of(&workspace, &paths);
+            println!("changed_crates:");
+            for c in &report.changed_crates {
+                println!("  {c}");
+            }
+            println!("affected_crates:");
+            for c in &report.affected_crates {
+                println!("  {c}");
+            }
+            println!("affected_symbols: {}", report.affected_symbols.len());
+        }
+        Commands::Query {
+            root,
+            db,
+            changed,
+            intent,
+            question,
+            max_tokens,
+            ref_name,
+            json,
+        } => {
+            let store = CodeGraphStore::open(resolve_db(db)?).context("open store")?;
+            let service = CodeGraphService::new(root.clone(), store);
+            let repo = CodeGraphRepoIdentity::local(&root);
+            let query = CodeGraphQuery {
+                ref_name,
+                changed_paths: changed,
+                intent,
+                question,
+                max_tokens,
+            };
+            let commit = git_head(&root).unwrap_or_else(|| "working-tree".to_string());
+            let pack = service
+                .query(repo, commit, query)
+                .context("build codegraph impact pack")?;
+            if json {
+                println!("{}", serde_json::to_string_pretty(&pack)?);
+            } else {
+                println!(
+                    "{}@{} changed={} affected={} must_read={}",
+                    pack.repo.id,
+                    pack.commit,
+                    pack.changed_crates.len(),
+                    pack.affected_crates.len(),
+                    pack.must_read_files.len()
+                );
+                for file in &pack.must_read_files {
+                    println!("  must_read: {}", file.path);
+                }
+            }
+        }
+        Commands::SliceCheck {
+            prefixes_csv,
+            changed_csv,
+        } => {
+            let prefixes = split_csv(&prefixes_csv);
+            let changed = split_csv(&changed_csv);
+            let slice = Slice::new(prefixes);
+            match slice.slice_permits(&changed) {
+                Ok(()) => println!("slice OK: all {} path(s) in slice", changed.len()),
+                Err(out) => {
+                    eprintln!("slice DENIED:");
+                    for p in &out.out_of_slice_paths {
+                        eprintln!("  out-of-slice: {p}");
+                    }
+                    std::process::exit(1);
+                }
+            }
+        }
+        Commands::Validate { db } => {
+            let store = CodeGraphStore::open(resolve_db(db)?).context("open store")?;
+            let snapshot = store.load_snapshot().context("load snapshot")?;
+            println!(
+                "valid: {} symbols, {} crate-dep edges",
+                snapshot.symbols.len(),
+                snapshot.crate_deps.len()
+            );
+        }
+        Commands::ToolBuild { command } => match command {
+            ToolBuildCommands::Scan {
+                root,
+                db,
+                repo_id,
+                commit,
+                window_lines,
+                min_occurrences,
+                top,
+                json,
+            } => {
+                let store = CodeGraphStore::open(resolve_db(db)?).context("open store")?;
+                let repo_id = match repo_id {
+                    Some(repo_id) => repo_id,
+                    None => match root.file_name().and_then(|name| name.to_str()) {
+                        Some(name) => name.to_string(),
+                        None => "local".to_string(),
+                    },
+                };
+                let commit = match commit {
+                    Some(commit) => commit,
+                    None => match git_head(&root) {
+                        Some(head) => head,
+                        None => "working-tree".to_string(),
+                    },
+                };
+                let report = scan_tool_build_clusters(
+                    &root,
+                    repo_id,
+                    commit,
+                    ToolBuildScanConfig {
+                        window_lines,
+                        min_occurrences,
+                        max_clusters: top,
+                        ..ToolBuildScanConfig::default()
+                    },
+                )
+                .context("scan tool-build clusters")?;
+                store
+                    .persist_tool_build_report(&report)
+                    .context("persist tool-build clusters")?;
+                if json {
+                    println!("{}", serde_json::to_string_pretty(&report)?);
+                } else {
+                    println!(
+                        "tool-build scan: files={} skipped={} clusters={} -> {}",
+                        report.scanned_files,
+                        report.skipped_files,
+                        report.clusters.len(),
+                        store.path().display()
+                    );
+                    for cluster in &report.clusters {
+                        println!(
+                            "  {} score={} occurrences={} files={} {}",
+                            cluster.cluster_id,
+                            cluster.score,
+                            cluster.occurrence_count,
+                            cluster.file_count,
+                            cluster.insight
+                        );
+                    }
+                }
+            }
+            ToolBuildCommands::ScanFamily {
+                manifest,
+                db,
+                repo_id,
+                commit,
+                window_lines,
+                min_occurrences,
+                min_repos,
+                top,
+                json,
+            } => {
+                let store = CodeGraphStore::open(resolve_db(db)?).context("open store")?;
+                let roots = manifest_repo_roots(&manifest)
+                    .with_context(|| format!("read repo roots from {}", manifest.display()))?;
+                if roots.is_empty() {
+                    anyhow::bail!("{} lists no repo roots to scan", manifest.display());
+                }
+                let report = scan_tool_build_family(
+                    &roots,
+                    repo_id,
+                    commit,
+                    ToolBuildScanConfig {
+                        window_lines,
+                        min_occurrences,
+                        min_repo_count: min_repos,
+                        max_clusters: top,
+                        ..ToolBuildScanConfig::default()
+                    },
+                )
+                .context("scan tool-build family clusters")?;
+                store
+                    .persist_tool_build_report(&report)
+                    .context("persist tool-build family clusters")?;
+                if json {
+                    println!("{}", serde_json::to_string_pretty(&report)?);
+                } else {
+                    println!(
+                        "tool-build family scan: repos={} files={} skipped={} cross-repo-clusters={} -> {}",
+                        roots.len(),
+                        report.scanned_files,
+                        report.skipped_files,
+                        report.clusters.len(),
+                        store.path().display()
+                    );
+                    for cluster in &report.clusters {
+                        println!(
+                            "  {} score={} repos={} occurrences={} files={} {}",
+                            cluster.cluster_id,
+                            cluster.score,
+                            cluster.repo_count,
+                            cluster.occurrence_count,
+                            cluster.file_count,
+                            cluster.insight
+                        );
+                    }
+                }
+            }
+            ToolBuildCommands::ScanSystem {
+                manifest_parents,
+                db,
+                repo_id,
+                commit,
+                window_lines,
+                min_occurrences,
+                min_repos,
+                top,
+                threads,
+                no_merge_overlaps,
+                json,
+                progress,
+            } => {
+                let store = CodeGraphStore::open(resolve_db(db)?).context("open store")?;
+                let roots = discover_system_repo_roots(&manifest_parents)
+                    .context("discover split-family repos")?;
+                if roots.is_empty() {
+                    anyhow::bail!(
+                        "no split-family repos discovered under {}",
+                        manifest_parents
+                            .iter()
+                            .map(|parent| parent.display().to_string())
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    );
+                }
+                let mut options = ToolBuildScanOptions::system_default();
+                options.base.window_lines = window_lines;
+                options.base.min_occurrences = min_occurrences;
+                options.base.min_repo_count = min_repos;
+                options.base.max_clusters = top;
+                options.threads = threads;
+                options.merge_overlaps = !no_merge_overlaps;
+                let started = std::time::Instant::now();
+                let on_progress = move |event: jeryu_codegraph::ToolBuildScanProgress| {
+                    if progress {
+                        eprintln!(
+                            "[{}] {}/{} repos {} files={} skipped={} clusters={}",
+                            event.phase.as_str(),
+                            event.repos_done,
+                            event.repo_total,
+                            event.current_repo,
+                            event.files_scanned,
+                            event.files_skipped,
+                            event.clusters_so_far,
+                        );
+                    }
+                };
+                let report =
+                    scan_tool_build_system(&roots, repo_id, commit, &options, &on_progress)
+                        .context("scan system tool-build clusters")?;
+                store
+                    .persist_tool_build_report(&report)
+                    .context("persist system tool-build clusters")?;
+                let inherited = store
+                    .propagate_ignores_to_merged(&report.clusters)
+                    .context("propagate ignore feedback onto merged clusters")?;
+                if json {
+                    println!("{}", serde_json::to_string_pretty(&report)?);
+                } else {
+                    println!(
+                        "tool-build system scan: repos={} files={} skipped={} clusters={} families={} inherited-ignores={} elapsed={:.1}s -> {}",
+                        roots.len(),
+                        report.scanned_files,
+                        report.skipped_files,
+                        report.clusters.len(),
+                        report.families.len(),
+                        inherited,
+                        started.elapsed().as_secs_f64(),
+                        store.path().display()
+                    );
+                    for family in report.families.iter().take(15) {
+                        println!(
+                            "  {} [{}] {} clusters={} repos={} loc_saved~{}",
+                            family.family_id,
+                            family.category.as_str(),
+                            family.label,
+                            family.cluster_count,
+                            family.repo_ids.len(),
+                            family.anticipated_loc_saved_total,
+                        );
+                    }
+                }
+            }
+            ToolBuildCommands::Clusters {
+                db,
+                repo_id,
+                top,
+                include_ignored,
+                json,
+            } => {
+                let store = CodeGraphStore::open(resolve_db(db)?).context("open store")?;
+                let clusters = store
+                    .tool_build_clusters(repo_id.as_deref(), top, include_ignored)
+                    .context("load tool-build clusters")?;
+                if json {
+                    println!("{}", serde_json::to_string_pretty(&clusters)?);
+                } else {
+                    println!("tool-build clusters: {}", clusters.len());
+                    for cluster in &clusters {
+                        let ignored = match cluster.ignored.as_ref() {
+                            Some(ignored) => format!(" ignored={}", ignored.reason),
+                            None => String::new(),
+                        };
+                        println!(
+                            "  {} score={} occurrences={} files={}{}",
+                            cluster.cluster_id,
+                            cluster.score,
+                            cluster.occurrence_count,
+                            cluster.file_count,
+                            ignored
+                        );
+                    }
+                }
+            }
+            ToolBuildCommands::Ignore {
+                db,
+                cluster_id,
+                reason,
+                ignored_by,
+                json,
+            } => {
+                let store = CodeGraphStore::open(resolve_db(db)?).context("open store")?;
+                let ignored = store
+                    .ignore_tool_build_cluster(&cluster_id, &reason, &ignored_by)
+                    .context("ignore tool-build cluster")?;
+                if json {
+                    println!("{}", serde_json::to_string_pretty(&ignored)?);
+                } else {
+                    println!(
+                        "ignored {} by {}: {}",
+                        ignored.cluster_id, ignored.ignored_by, ignored.reason
+                    );
+                }
+            }
+        },
+    }
+    Ok(())
+}
+
+/// Minimal view of `repos.manifest.toml`: just enough to drive a family scan.
+/// We deliberately parse only `[[repo]].path`/`name` so the codegraph binary
+/// stays decoupled from the full split-manifest schema owned by jeryu-deploy.
+#[derive(Debug, Deserialize)]
+struct SplitManifest {
+    #[serde(default)]
+    repo: Vec<SplitManifestRepo>,
+}
+
+#[derive(Debug, Deserialize)]
+struct SplitManifestRepo {
+    path: String,
+    name: Option<String>,
+}
+
+/// Read the `(repo_id, root)` pairs to feed the family scan. `repo_id` is the
+/// repo `name` (falling back to the directory name); roots that do not exist on
+/// disk are skipped so a partially-cloned family still scans cleanly.
+fn manifest_repo_roots(manifest: &PathBuf) -> Result<Vec<(String, PathBuf)>> {
+    let text = std::fs::read_to_string(manifest)
+        .with_context(|| format!("read {}", manifest.display()))?;
+    let parsed: SplitManifest = toml::from_str(&text)
+        .with_context(|| format!("parse {} as a split manifest", manifest.display()))?;
+    let mut roots = Vec::new();
+    for repo in parsed.repo {
+        let path = PathBuf::from(&repo.path);
+        if !path.is_dir() {
+            continue;
+        }
+        let repo_id = repo.name.clone().unwrap_or_else(|| {
+            path.file_name()
+                .and_then(|name| name.to_str())
+                .unwrap_or("repo")
+                .to_string()
+        });
+        roots.push((repo_id, path));
+    }
+    Ok(roots)
+}
+
+fn split_csv(value: &str) -> Vec<String> {
+    value
+        .split(',')
+        .map(str::trim)
+        .filter(|part| !part.is_empty())
+        .map(str::to_string)
+        .collect()
+}
+
+fn git_head(root: &PathBuf) -> Option<String> {
+    let output = Command::new("git")
+        .arg("-C")
+        .arg(root)
+        .arg("rev-parse")
+        .arg("HEAD")
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    Some(String::from_utf8_lossy(&output.stdout).trim().to_string())
+}

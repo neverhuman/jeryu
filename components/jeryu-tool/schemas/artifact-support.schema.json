@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://git.neverhuman.org/jeryu/jeryu-tool/schemas/artifact-support.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "repository", "head_sha", "tree_sha",
+    "source_archive_sha256", "publication_performed", "installation_performed"
+  ],
+  "properties": {
+    "schema_version": { "const": "jeryu.tool.artifact-support/v1" },
+    "repository": { "const": "jeryu/jeryu-tool" },
+    "head_sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "tree_sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "source_archive_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "publication_performed": { "const": false },
+    "installation_performed": { "const": false }
+  }
+}

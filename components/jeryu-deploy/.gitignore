@@ -1,0 +1,21 @@
+/target/
+/.worktrees/
+/.jankurai/
+/agent/repo-score.json
+/agent/repo-score.md
+/.cargo-home/
+/.cache/
+*.receipt.json
+*.bench.json
+.DS_Store
+/target
+**/target
+node_modules
+dist
+# Vendored pre-built SPA: release tags must be self-contained (the fused
+# binary serves it via the relative --spa-dir default). Regenerate with
+# scripts/stage-web-dist.sh from the sibling jeryu-web build.
+!/apps/web/dist/
+!/apps/web/dist/**
+!/packages/ux-qa/dist/
+!/packages/ux-qa/dist/cli.js

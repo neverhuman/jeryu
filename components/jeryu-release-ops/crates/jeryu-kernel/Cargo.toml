@@ -1,0 +1,21 @@
+[package]
+name = "jeryu-kernel"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+jeryu-phase11-core = { workspace = true }
+jeryu-phase11-audit = { workspace = true }
+jeryu-ops = { workspace = true }
+jeryu-compliance-export = { workspace = true }
+jeryu-lifecycle = { workspace = true }
+jeryu-tenant = { workspace = true }
+jeryu-replay-verifier = { workspace = true }
+
+[lib]
+path = "src/lib.rs"
+
+[lints]
+workspace = true

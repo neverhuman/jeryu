@@ -1,0 +1,16 @@
+/target/
+/.worktrees/
+/.jankurai/
+/agent/repo-score.json
+/agent/repo-score.md
+/.cargo-home/
+/.cache/
+*.receipt.json
+*.bench.json
+.DS_Store
+/target
+**/target
+node_modules
+dist
+!/packages/ux-qa/dist/
+!/packages/ux-qa/dist/cli.js

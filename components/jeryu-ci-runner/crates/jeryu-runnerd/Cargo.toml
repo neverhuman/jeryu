@@ -1,0 +1,22 @@
+[package]
+name = "jeryu-runnerd"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+jeryu-ci-ir = { workspace = true }
+jeryu-runner-core = { workspace = true }
+jeryu-runner-native = { workspace = true }
+jeryu-runner-microvm = { workspace = true }
+jeryu-runner-oci = { workspace = true }
+jeryu-runner-protocol = { workspace = true }
+jeryu-runner-registry = { workspace = true }
+serde = { workspace = true }
+
+[dev-dependencies]
+serde_json.workspace = true
+
+[lints]
+workspace = true

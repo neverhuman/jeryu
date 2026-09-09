@@ -1,0 +1,10 @@
+job_id=phase4_t1_hot
+repo_id=jeryu/jeryu
+commit_sha=abc123
+workspace=/tmp/jeryu-phase4-t1-hot
+command=/bin/echo
+args=hello,native-hot
+trust_tier=T1
+network_policy=deny
+secret_policy=default
+token_policy=read-only

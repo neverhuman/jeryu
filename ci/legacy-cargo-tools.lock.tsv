@@ -1,0 +1,5 @@
+# crate version — prerequisites for the complete owning PR wrappers
+cargo-nextest	0.9.137
+just	1.58.0
+cargo-llvm-cov	0.8.7
+cargo-mutants	25.3.1

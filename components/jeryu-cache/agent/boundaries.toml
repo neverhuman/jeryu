@@ -1,0 +1,29 @@
+schema_version = "1.0.0"
+workspace = "jeryu-cache"
+profile = "rust-workspace"
+required_check = "jeryu-cache/required"
+
+[split]
+cross_repo_dependency_policy = "pinned-public-git-tags"
+local_path_patches = false
+
+[contracts]
+schema_paths = ["schemas/jeryu-cache-core-receipt.schema.json"]
+source_types = ["jeryu_cache_core::CacheReceipt"]
+drift_command = "just contract-schema"
+
+cargo_members = [
+  "crates/jeryu-cache-core",
+  "crates/jeryu-cache-service",
+  "crates/jeryu-cache-cli",
+  "crates/jeryu-cache-adversary",
+  "crates/jeryu-cache",
+]
+
+[python]
+allowed_non_product_paths = ["ops/split/"]
+
+[db]
+root_paths = ["db"]
+migration_paths = ["db/migrations"]
+constraint_paths = ["db/constraints"]

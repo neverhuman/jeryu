@@ -1,0 +1,71 @@
+[[lane]]
+name = "fast"
+command = "just fast"
+purpose = "locked deterministic workspace compile check"
+requires_network = false
+
+[[lane]]
+name = "check"
+command = "just check"
+purpose = "full locked workspace format, lint, metadata, and test gate"
+requires_network = false
+
+[[lane]]
+name = "score"
+command = "just score"
+purpose = "pinned full Jankurai repository score and hard-finding gate"
+requires_network = false
+
+[[lane]]
+name = "security"
+command = "just security"
+purpose = "fixed-version secret, workflow, advisory, source, and SBOM checks"
+requires_network = true
+
+[[lane]]
+name = "contract"
+command = "just contract-drift"
+purpose = "runner wire Rust-to-schema drift and hostile mutation checks"
+requires_network = false
+
+[[lane]]
+name = "artifact-support"
+command = "just artifact-support"
+purpose = "source-repository artifact support metadata check"
+requires_network = false
+
+[[lane]]
+name = "security-check"
+command = "just security && just check"
+purpose = "hosted dependency policy followed by local metadata validation"
+requires_network = true
+
+[[lane]]
+name = "ci-basic"
+command = "just fast && just check && just score"
+purpose = "compatibility CI metadata and score route"
+requires_network = false
+
+[[lane]]
+name = "protocol-contract"
+command = "just contract-drift && cargo test --locked -p jeryu-runner-protocol"
+purpose = "runner protocol schema drift plus complete protocol crate tests"
+requires_network = false
+
+[[lane]]
+name = "runnerd"
+command = "cargo test --locked -p jeryu-runnerd"
+purpose = "complete runner daemon and hosted transport hostile tests"
+requires_network = false
+
+[[lane]]
+name = "docs"
+command = "just check && just score"
+purpose = "documentation navigation and audit routing"
+requires_network = false
+
+[[lane]]
+name = "ci"
+command = "just fast && just check && just security && just score"
+purpose = "host CI wrapper compile, metadata, security, and score parity"
+requires_network = true

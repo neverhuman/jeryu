@@ -1,0 +1,54 @@
+[workspace]
+resolver = "2"
+members = [
+  "crates/jeryu-api",
+  "crates/jeryu-cli",
+  "crates/jeryu-split-tool",
+]
+exclude = [
+  "fixtures/rust-small",
+]
+
+[workspace.package]
+version = "5.0.0"
+edition = "2024"
+license = "Apache-2.0"
+repository = "https://github.com/neverhuman/jeryu"
+authors = ["Jeryu"]
+rust-version = "1.95"
+
+[workspace.dependencies]
+anyhow = "1"
+blake3 = "1"
+chrono = { version = "0.4", default-features = false, features = ["clock", "serde"] }
+clap = { version = "4", features = ["derive"] }
+hex = "0.4"
+hmac = "0.12"
+jeryu-repogate = { git = "https://github.com/neverhuman/jeryu-release-ops.git", tag = "jeryu-release-ops-v5.0.0-split.0" }
+parking_lot = "0.12"
+proptest = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+tempfile = "3"
+thiserror = "1"
+toml = "0.8"
+uuid = { version = "1", features = ["v4", "serde"] }
+vt100 = "0.16"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_docs = "allow"
+
+[workspace.lints.clippy]
+pedantic = { level = "allow", priority = -1 }
+
+# Release graph unification. Historical sibling releases still name the GitHub
+# Core source at split.0; redirect only those two transitive packages to the
+# reviewed local-forge split.5 tag so Cargo has one immutable Core identity.
+[patch."https://github.com/neverhuman/jeryu-core.git"]
+jeryu-core = { git = "http://127.0.0.1:8787/git/jeryu/jeryu-core.git", tag = "jeryu-core-v5.0.0-split.5" }
+jeryu-proof = { git = "http://127.0.0.1:8787/git/jeryu/jeryu-core.git", tag = "jeryu-core-v5.0.0-split.5" }
+
+[patch."https://github.com/neverhuman/jeryu-intelligence.git"]
+jeryu-rustjet = { git = "http://127.0.0.1:8787/git/jeryu/jeryu-intelligence.git", tag = "jeryu-intelligence-v5.0.0-split.1" }

@@ -1,0 +1,12 @@
+job_id=phase4_oci
+repo_id=jeryu/jeryu
+commit_sha=fedcba
+workspace=/tmp/jeryu-phase4-oci
+command=/bin/echo
+args=hello,oci
+trust_tier=T4
+requested_runner=oci-docker
+fork=true
+network_policy=deny
+secret_policy=none
+token_policy=read-only

@@ -1,0 +1,18 @@
+[package]
+name = "jeryu-ci-governor"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Load-aware authority that decides how many CI/build workers may run, overriding any user or repo request"
+
+[lib]
+name = "jeryu_ci_governor"
+path = "src/lib.rs"
+
+[[bin]]
+name = "jeryu-ci-governor"
+path = "src/bin/jeryu-ci-governor.rs"
+
+[lints]
+workspace = true

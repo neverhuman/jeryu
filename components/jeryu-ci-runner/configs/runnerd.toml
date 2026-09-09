@@ -1,0 +1,31 @@
+[jeryu-runnerd]
+node_id = "phase4-local"
+receipt_dir = "/var/lib/jeryu/receipts"
+default_timeout_ms = 600000
+fail_closed = true
+
+[native]
+enable_native_hot = true
+enable_native_clean = true
+enable_agent_guard = true
+enable_release_hermetic = true
+require_user_namespace = true
+require_mount_namespace = true
+require_pid_namespace = true
+require_seccomp = true
+require_landlock_when_available = true
+forbid_host_docker_socket = true
+forbid_host_ssh_agent = true
+
+[microvm]
+enabled = true
+runtime = "firecracker"
+kernel = "/var/lib/jeryu/microvm/vmlinux"
+rootfs = "/var/lib/jeryu/microvm/rust-rootfs.ext4"
+plan_only_by_default = true
+
+[oci]
+enabled = true
+runtime = "podman"
+default_image = "docker.io/library/rust:latest"
+plan_only_by_default = true

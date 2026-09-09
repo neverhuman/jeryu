@@ -1,6 +1,8 @@
 # Release
 
-`neverhuman/jeryu-deploy` publishes all signed release artifacts.
+`jeryu/jeryu-deploy` on `git.neverhuman.org` governs all signed release
+artifacts. Source hosting and artifact publication are separate boundaries;
+the candidate posture does not imply that a hosted artifact feed is active.
 
 Version source is `VERSION` plus the split tag recorded in
 `repos.manifest.toml` when present. Release notes are recorded in

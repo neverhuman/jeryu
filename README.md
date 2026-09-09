@@ -1,119 +1,92 @@
 # Jeryu
 
-**A 100% Rust, local-first GitHub replacement built for AI agents.**
+Jeryu is a self-hosted forge with repositories, issues, pull requests,
+protected merges, checks, a browser interface, and optional CI runners.
+Jeryu source is licensed under Apache-2.0. Bundled JetBrains Mono fonts retain
+the SIL Open Font License 1.1; see the
+[bundled font notice](components/jeryu-web/apps/web/public/THIRD_PARTY_NOTICES.txt).
+[Web dependency notices](docs/notices/web-bundles.md) accompany the current
+application and preserved historical bundles.
 
-Jeryu is your own forge on localhost — repositories, pull requests, checks, CI,
-reviews, gated merges, and releases — with agents as first-class users. It
-speaks GitHub's REST dialect (the real `gh` CLI works against it), runs your
-CI on your own hardware, and pushes merged work back to GitHub when you want a
-public mirror.
+**This branch is a monorepo migration candidate. Anonymous installation and
+release qualification are incomplete.** See
+[migration status](docs/migration/STATUS.md) for the remaining gates. The
+currently installed service and existing release tags have not changed.
+The [migration plan](docs/migration/PLAN.md) accounts for every original
+repository and support directory, CI qualification, mirrors and relocation.
 
-## Highlights
-
-- **Agents in sandboxed web terminals** — start a session from the web UI and
-  an agent runs in a hardened container (read-only rootfs, pid/memory caps,
-  no-new-privileges) on its own branch of your repo, with per-session
-  credential seeding and live PTY streaming.
-- **Full PR lifecycle** — branch protection, required status checks, reviews,
-  linear-history gating, and a merge endpoint that refuses to move `main`
-  without green checks (`main` only advances through gated merges).
-- **GitHub-compatible REST edge** — point `gh`, scripts, or CI at
-  `http://127.0.0.1:8787` and they work.
-- **Local CI, your runners** — workflows compile to an IR and run host-native
-  or in containers; adversarial suites (sandbox-escape and cache-poisoning
-  matrices) guard the substrate itself.
-- **Content-addressed build cache** with poisoning defenses and receipts.
-- **Codegraph / MCP intelligence** — impact oracles, repeated-code clusters,
-  and MCP tools served straight from your forge.
-- **Signed releases** — SHA256SUMS, cosign signatures, SBOMs, provenance, and
-  rollback evidence.
-- **Direct GitHub mirroring** — merging into `main` pushes the new tip to
-  `github.com/<your-org>` automatically; the outcome is recorded as a
-  `jeryu/github-mirror` check-run next to your CI.
-
-## Install
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/neverhuman/jeryu/main/scripts/install.sh | bash
-```
-
-Pin a release or install somewhere else:
-
-```bash
-JERYU_VERSION=jeryu-v5.0.0-split.0 JERYU_INSTALL_DIR="$HOME/.local/bin" \
-  bash scripts/install.sh
-```
-
-The installer downloads the `jeryu` binary from `neverhuman/jeryu-deploy`
-releases, verifies `SHA256SUMS`, and runs cosign verification when
-`jeryu.sig`, `jeryu.pem`, and `cosign` are available.
-
-## Quickstart
-
-```bash
-jeryu serve --bind 127.0.0.1:8787
-# then open http://127.0.0.1:8787 — repos, PRs, checks, and agent sessions
-```
-
-## Clone The Split Family
-
-Product source lives in the split member repositories; this portal carries the
-installer, the clone entrypoint, and audit metadata. To hack on Jeryu itself:
+The intended public source installation is:
 
 ```bash
 git clone https://github.com/neverhuman/jeryu.git
 cd jeryu
-scripts/clone-family.sh "$HOME/jeryu-split"
+./scripts/build.sh
+./scripts/install.sh --from-source
+jeryu serve
 ```
 
-Existing checkouts are updated with `git fetch` and `git pull --ff-only`.
-The portal repository is skipped by default so the command can be run from an
-already-cloned portal checkout.
+Source builds initially target Linux x86_64. Install Git, a C compiler,
+pkg-config, OpenSSL development headers, rustup with the toolchain specified
+in `rust-toolchain.toml`, and Node.js 22.19+ on the 22.x line or Node.js 24+
+with npm. CI uses Node.js 26.1.0. On Ubuntu, native
+prerequisites are provided by `build-essential pkg-config libssl-dev git`.
+SQLite is bundled with the Rust application; no database service or RedlineDB
+checkout is required. The governed auditor artifacts and portable verification
+still need qualification before complete credential-free CI can pass.
 
-## Split Repository Map
+`build.sh` installs locked npm dependencies, builds the web application, and
+builds the locked Rust CLI with embedded assets. It records source and binary
+digests. The source installer rejects missing, modified, or stale artifacts.
+It defaults to `~/.local/bin`; override this with
+`--install-dir PATH` or `JERYU_INSTALL_DIR`. Add that directory to `PATH`.
+The binary installer remains closed until central signed releases qualify.
 
-| Repository | Role | GitHub | Purpose |
-| --- | --- | --- | --- |
-| `jeryu` | Public portal | `neverhuman/jeryu` | Public portal, installer, and split-family clone entrypoint. |
-| `jeryu-core` | Split member | `neverhuman/jeryu-core` | Forge/domain truth, git storage, read models, TUI, durable DB migrations. |
-| `jeryu-ci-runner` | Split member | `neverhuman/jeryu-ci-runner` | CI IR, scheduler, runner fabric, workcells, sandboxing, agent execution substrate. |
-| `jeryu-cache` | Split member | `neverhuman/jeryu-cache` | JeryuCache policy, CAS, receipts, and adversarial poisoning tests. |
-| `jeryu-intelligence` | Split member | `neverhuman/jeryu-intelligence` | Codegraph, RustJet, MCP intelligence, review, and autonomy analysis. |
-| `jeryu-jira` | Split member | `neverhuman/jeryu-jira` | Work Tracker model, SQLite store, generated contracts, and issue bridge DTOs. |
-| `jeryu-web` | Split member | `neverhuman/jeryu-web` | Vite/React/TypeScript app, rendered UX QA, and generated contract mirror. |
-| `jeryu-release-ops` | Split member | `neverhuman/jeryu-release-ops` | Release, signing, governance, observability, and compliance tooling. |
-| `jeryu-deploy` | Split member | `neverhuman/jeryu-deploy` | Integration, end-user binary build, split lock, and release bundle logic. |
+Run `jeryu serve` from any directory, then open `http://127.0.0.1:8787`.
+Storage selection is `--data-dir`, then `JERYU_DATA_DIR`, then
+`$XDG_DATA_HOME/jeryu`, or `~/.local/share/jeryu` when XDG storage is unset.
+SQLite and Git repositories persist there across restarts. `--spa-dir PATH`
+explicitly serves a development bundle. Without it, the server uses embedded
+assets and does not trust files in the current directory.
 
-The release authority is `neverhuman/jeryu-deploy`. Cross-repo Rust
-dependencies are pinned `*-v5.0.0-split.0` git tags; see `docs/architecture.md`
-for how the family fits together.
+The first start creates only `jeryu-admin`. Its one-time password is written
+to `bootstrap-credentials.json` in the data directory with owner-only access;
+log in, change the password, and remove that credential receipt. An explicit
+`JERYU_BOOTSTRAP_ADMIN_PASSWORD` retains the operator provisioning/reset flow;
+unset it after provisioning. No personal accounts are created automatically.
 
-## Release Evidence
+CLI HTTP operations use `--api-url`, then `JERYU_API_URL`, then
+`http://127.0.0.1:8787`. Create a personal access token in the authenticated
+web interface and provide it through `JERYU_TOKEN_FILE` or `JERYU_TOKEN`.
+Connection and authorization failures return errors. Historical commands
+without server transports also return errors; their remaining implementation
+is tracked in the migration status.
 
-Release receipts, binary checksums, SBOMs, provenance, witness artifacts, and
-rollback evidence are published by `neverhuman/jeryu-deploy`:
+All 65 Rust packages live in the root Cargo workspace. The web application
+and UX tooling use the root npm workspace. Component ownership remains under
+`components/jeryu-core`, `jeryu-cache`, `jeryu-ci-runner`,
+`jeryu-intelligence`, `jeryu-jira` (Work), `jeryu-web`, `jeryu-tool`,
+`jeryu-tool-finder`, `jeryu-deploy`, and `jeryu-release-ops`.
+Original manifests and locks are archived as provenance; their paths are not
+active workspace configuration.
 
-- https://github.com/neverhuman/jeryu-deploy/releases
-- `SHA256SUMS`
-- `release-receipt.json`
-- `artifact-support-evidence.tar.gz`
+RedlineDB compatibility is an explicit optional proof:
+`bash scripts/ci.sh redline`. Its isolated test harness and lockfile keep
+RedlineDB out of normal builds, all-feature workspace tests, and required
+SQLite release checks. See [the contract scope](components/jeryu-release-ops/tests/redline/README.md).
+The server uses SQLite; this proof command does not switch its backend.
 
-## Local Commands
+Read [AGENTS.md](AGENTS.md) before contributing. Changes target this monorepo;
+the split repositories will be maintained as deterministic downstream mirrors
+after qualification. The root manifest records a pending protected authority
+handover, preserving the `jeryu-split` identity and immutable v5 lineage.
 
-- `just fast`
-- `just check`
-- `just score`
-- `just security`
-- `just artifact-support`
-- `bash ops/ci/pr-ci.sh` — the canonical PR gate (host CI and the hosted
-  workflow both run exactly this)
-
-## License
-
-Apache-2.0 — see [LICENSE](LICENSE).
-
-## Governed auditor
-
-CI invokes only the receipt-verified `/home/ubuntu/.jeryu/bin/jankurai` identity
-rendered by `jeryu-tool`. The 1.6.11 auditor cutover is CI authority only; it
-does not change this repository's product version, release tag, or artifacts.
+Prepare a component export with `cargo run --locked -p jeryu-split-tool --bin
+jeryu-split -- export-tree --component jeryu-web --source FULL_COMMIT_SHA
+--resolve-lock`. This writes a Git tree and source provenance without updating
+remote refs. Rust exports bind external Jeryu packages to that monorepo commit;
+npm exports preserve dependency integrities and relocate workspace links.
+Lock resolution rejects changed external package versions and duplicate
+Jeryu package identities. `bash scripts/test-split-exports.sh` reproduces every
+export twice and runs its standalone checks in automatically removed Git
+clones. The source commit and external dependencies must be available first;
+passing these checks does not authorize publication.

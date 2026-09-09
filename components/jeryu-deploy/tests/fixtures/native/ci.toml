@@ -1,0 +1,22 @@
+[[job]]
+id = "check"
+name = "cargo check"
+runner_class = "native-rust-clean"
+run = ["cargo check --workspace --all-targets"]
+cache_mounts = ["target/", ".cargo/registry"]
+
+[[job]]
+id = "test"
+name = "cargo test"
+runner_class = "native-rust-clean"
+needs = ["check"]
+run = ["cargo test --workspace"]
+artifact_paths = ["target/nextest/default/junit.xml"]
+
+[[job]]
+id = "package"
+name = "cargo package"
+runner_class = "release-hermetic"
+needs = ["test"]
+run = ["cargo package --allow-dirty"]
+artifact_paths = ["target/package"]

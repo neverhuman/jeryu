@@ -1,0 +1,20 @@
+schema_version = "1.0.0"
+workspace = "jeryu-jira"
+profile = "rust-workspace"
+required_check = "jeryu-jira/required"
+
+[split]
+cross_repo_dependency_policy = "pinned-public-git-tags"
+local_path_patches = false
+
+cargo_members = [
+  "crates/jeryu-jira",
+]
+
+[python]
+allowed_non_product_paths = ["ops/split/"]
+
+[db]
+root_paths = ["db"]
+migration_paths = ["db/migrations"]
+constraint_paths = ["db/constraints"]

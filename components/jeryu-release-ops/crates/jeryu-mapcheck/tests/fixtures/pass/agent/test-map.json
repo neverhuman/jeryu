@@ -1,0 +1,112 @@
+{
+  "routes": [
+    {
+      "paths": [
+        "agent/**"
+      ],
+      "commands": [
+        "just fast"
+      ],
+      "proof_lane": "lane"
+    },
+    {
+      "paths": [
+        "bins/**"
+      ],
+      "commands": [
+        "just fast"
+      ],
+      "proof_lane": "lane"
+    },
+    {
+      "paths": [
+        "config/**"
+      ],
+      "commands": [
+        "just fast"
+      ],
+      "proof_lane": "lane"
+    },
+    {
+      "paths": [
+        "configs/**"
+      ],
+      "commands": [
+        "just fast"
+      ],
+      "proof_lane": "lane"
+    },
+    {
+      "paths": [
+        "crates/**"
+      ],
+      "commands": [
+        "just fast"
+      ],
+      "proof_lane": "lane"
+    },
+    {
+      "paths": [
+        "docs/**"
+      ],
+      "commands": [
+        "just fast"
+      ],
+      "proof_lane": "lane"
+    },
+    {
+      "paths": [
+        "examples/**"
+      ],
+      "commands": [
+        "just fast"
+      ],
+      "proof_lane": "lane"
+    },
+    {
+      "paths": [
+        "fixtures/**"
+      ],
+      "commands": [
+        "just fast"
+      ],
+      "proof_lane": "lane"
+    },
+    {
+      "paths": [
+        "ops/**"
+      ],
+      "commands": [
+        "just fast"
+      ],
+      "proof_lane": "lane"
+    },
+    {
+      "paths": [
+        "policies/**"
+      ],
+      "commands": [
+        "just fast"
+      ],
+      "proof_lane": "lane"
+    },
+    {
+      "paths": [
+        "scripts/**"
+      ],
+      "commands": [
+        "just fast"
+      ],
+      "proof_lane": "lane"
+    },
+    {
+      "paths": [
+        "tests/**"
+      ],
+      "commands": [
+        "just fast"
+      ],
+      "proof_lane": "lane"
+    }
+  ]
+}

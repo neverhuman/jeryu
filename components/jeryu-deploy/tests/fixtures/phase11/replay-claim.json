@@ -1,0 +1,16 @@
+{
+  "claim_id": "bench_phase11_fixture",
+  "competitor": "baseline-runner-container",
+  "jeryu_runner": "native-rust-hot",
+  "fixture": "rust-medium",
+  "scenario": "private-function-change-warm-cache",
+  "hardware": "32c/128gb/nvme",
+  "cache_state": "warm_project_cache",
+  "git_sha": "abc123",
+  "pipeline_ir_hash": "blake3:fixture",
+  "duration_ms": 18231,
+  "speedup_vs_baseline": 4.8,
+  "false_cache_hits": 0,
+  "artifact_digest": "sha256:fixture",
+  "reproduce": "jit bench replay bench_phase11_fixture"
+}

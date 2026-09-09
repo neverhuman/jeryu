@@ -1,0 +1,11 @@
+[package]
+name = "core"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+default = ["fast"]
+fast = []
+
+[dependencies]
+macro_magic = { path = "../macro_magic" }

@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+input=$(cat)
+if printf '%s\n' "$input" | awk '$3 == "refs/heads/main" { found = 1 } END { exit found ? 0 : 1 }'; then
+  printf '%s\n' "jeryu-gitd: direct pushes to refs/heads/main are blocked; open a pull request and merge through Jeryu" >&2
+  exit 1
+fi
+
+bin=${JERYU_GITD_BIN:-jeryu-gitd}
+if command -v "$bin" >/dev/null 2>&1; then
+  repo_dir=$(pwd -P)
+  repo_git=${repo_dir##*/}
+  owner_dir=${repo_dir%/*}
+  owner=${owner_dir##*/}
+  root=${owner_dir%/*}
+  repo=${repo_git%.git}
+  printf '%s\n' "$input" | "$bin" pre-receive --root "$root" --actor "${JERYU_ACTOR:-wire-client}" "$owner" "$repo"
+fi

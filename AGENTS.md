@@ -1,12 +1,46 @@
-# jeryu Agent Instructions
+# Jeryu development instructions
 
-This is the public portal for the Jeryu split family.
+This branch assembles the standalone Jeryu monorepo. Read `README.md` and
+`docs/migration/STATUS.md` before changing source or making release claims.
+The public development destination is `neverhuman/jeryu`. Changes belong in
+`components/<repository>/`; split repositories will receive one-way exports.
 
-Before editing, read `README.md`, `agent/owner-map.json`,
-`agent/test-map.json`, `agent/generated-zones.toml`,
-`agent/proof-lanes.toml`, `agent/audit-policy.toml`, and
-`agent/boundaries.toml`.
+Use the root Cargo workspace and lockfile for all 65 Rust packages, and the
+root npm workspace and lockfile for the web application and UX tooling.
+Internal Jeryu dependencies use `[workspace.dependencies]`. Preserve package
+names and the existing 5.0.0 / 5.1.0 version distinctions. Bundled SQLite is
+the default runtime. Redline is an optional compatibility proof in the excluded
+`components/jeryu-release-ops/tests/redline` harness with its own lockfile.
+It must not enter the product graph or block the SQLite release. Its immutable
+source authority and two-consumer proof still govern Redline qualification
+and original-checkout retirement.
 
-Keep this repository lightweight: installer, clone-family entrypoint, local CI
-wrappers, and audit metadata only. Product source belongs in the split member
-repositories, and release authority belongs in `jeryu-deploy`.
+The root manifest describes the candidate handover. Its `handover.status`
+must remain pending until the protected review and qualification gates pass.
+The existing released Release Ops authority and installed service are unchanged
+by source assembly. A public source candidate does not activate production.
+
+Component guidance retains ownership, contract generators, security policies,
+and proof thresholds. Its historical split-only source-routing instructions
+apply to standalone exports; they do not prohibit workspace dependencies in
+this explicitly authorized monorepo. Generated contracts must come from their
+owning Rust packages. Historical manifests and lockfiles under
+`docs/migration/original-manifests` are provenance, not active configuration.
+
+Do not create Git worktrees, copied source checkouts, or compatibility symlinks.
+Use the claimed canonical checkout. Disposable exact-commit Git clones used
+for qualification must be removed by a cleanup guard. Preserve all refs and
+untracked material, verify restoration, and obtain an explicit stopped-head
+handoff before retiring any original checkout. Local family coordination and
+checkout-holder rules continue to apply during the transition.
+
+Keep candidate branches linear and preserve existing GitHub ancestry and
+immutable tags. Never force-push, weaken protection, fabricate checks, or
+self-review. Author, reviewer, and merger must remain independent. CI must
+report unavailable capabilities or skipped required proofs as failures.
+
+Never commit credentials, runtime exports, `.work`, custody bundles, or build
+output. Durable standalone state resolves through `--data-dir`,
+`JERYU_DATA_DIR`, and XDG storage. Normal builds must eventually work without
+personal Git configuration, private forge access, or adjacent repositories;
+the migration status records remaining qualification blockers honestly.

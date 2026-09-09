@@ -1,0 +1,6 @@
+{
+  "owners": [
+    { "paths": ["agent/**"], "owners": ["team"], "required_reviews": 1 },
+    { "paths": ["bins/**"], "owners": [], "required_reviews": 1 }
+  ]
+}

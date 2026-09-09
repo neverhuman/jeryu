@@ -1,0 +1,22 @@
+schema_version = "1.0.0"
+workspace = "jeryu-tool"
+profile = "public-portal"
+required_check = "jeryu-tool/required"
+
+[stack]
+id = "jeryu-tool-control-plane"
+version = "5.1.0"
+
+[queues]
+adapter_paths = []
+event_contract_paths = []
+generated_type_paths = []
+client_markers = []
+
+[split]
+cross_repo_dependency_policy = "pinned-public-git-tags"
+local_path_patches = false
+
+cargo_members = [
+  "crates/jeryu-tool-control",
+]

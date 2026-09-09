@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jeryu.local/schemas/redline-consumer-evidence.schema.json",
+  "title": "Jeryu Redline consumer evidence",
+  "description": "Reviewed, checksummed compatibility evidence consumed by Redline proof refresh.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "consumer",
+    "family",
+    "generated_at",
+    "status",
+    "source_commit",
+    "required_check",
+    "engine_tag",
+    "engine_commit",
+    "proof_lock_id",
+    "family_ci_receipt_sha256",
+    "manifest_sha256",
+    "policy_sha256",
+    "consumer_manifest_sha256",
+    "consumer_policy_sha256",
+    "test_log",
+    "test_log_sha256",
+    "tool_version"
+  ],
+  "properties": {
+    "schema_version": { "const": "redline.consumer-evidence/v1" },
+    "consumer": { "const": "jeryu-split" },
+    "family": { "const": "redline-split" },
+    "generated_at": { "type": "string", "format": "date-time" },
+    "status": { "const": "pass" },
+    "source_commit": { "$ref": "#/$defs/gitCommit" },
+    "required_check": { "const": "jeryu-split/redline-consumer" },
+    "engine_tag": {
+      "description": "Immutable Redline tag selected by the reviewed producer and present in the bound family CI receipt.",
+      "type": "string",
+      "pattern": "^redline-core-v[0-9]+\\.[0-9]+\\.[0-9]+-jain\\.[0-9]+$"
+    },
+    "engine_commit": {
+      "description": "Exact commit resolved jointly by Cargo.lock, engine_tag, and the passing family CI receipt.",
+      "$ref": "#/$defs/gitCommit"
+    },
+    "proof_lock_id": {
+      "type": "string",
+      "pattern": "^redline-proof/v[0-9]+/[0-9]+\\.[0-9]+\\.[0-9]+/[0-9a-f]{40}$"
+    },
+    "family_ci_receipt_sha256": { "$ref": "#/$defs/sha256" },
+    "manifest_sha256": { "$ref": "#/$defs/sha256" },
+    "policy_sha256": { "$ref": "#/$defs/sha256" },
+    "consumer_manifest_sha256": {
+      "description": "SHA-256 of the canonical Jeryu split-family manifest supplied by the operator.",
+      "$ref": "#/$defs/sha256"
+    },
+    "consumer_policy_sha256": {
+      "description": "SHA-256 of jeryu-release-ops/agent/audit-policy.toml at source_commit.",
+      "$ref": "#/$defs/sha256"
+    },
+    "test_log": { "type": "string", "pattern": "^[^/]+\\.test\\.log$" },
+    "test_log_sha256": { "$ref": "#/$defs/sha256" },
+    "tool_version": { "const": "jeryu-redline-consumer/v1" }
+  },
+  "$defs": {
+    "gitCommit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+  }
+}

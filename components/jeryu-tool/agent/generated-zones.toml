@@ -1,0 +1,6 @@
+[[zone]]
+path = "generated/jankurai-pin.env"
+source = "tool-manifest.toml"
+command = "bash ops/render-tool-manifest.sh"
+read_only = true
+write_policy = "generator_only"
