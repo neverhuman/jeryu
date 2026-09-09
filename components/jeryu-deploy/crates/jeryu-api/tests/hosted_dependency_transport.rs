@@ -11,17 +11,26 @@ fn jeryu_packages_have_one_workspace_identity_and_sqlite_needs_no_redline() {
         .expect("workspace lock");
     let output = Command::new("cargo")
         .current_dir(root)
+        .env_remove("CARGO")
+        .env_remove("CARGO_PRIMARY_PACKAGE")
+        .env_remove("CARGO_MANIFEST_DIR")
         .args([
             "metadata",
+            "--manifest-path",
+            root.join("Cargo.toml").to_str().expect("utf8 root"),
             "--locked",
-            "--offline",
             "--all-features",
             "--format-version",
             "1",
         ])
         .output()
         .expect("cargo metadata");
-    assert!(output.status.success(), "locked metadata failed");
+    assert!(
+        output.status.success(),
+        "locked metadata failed: {}\n{}",
+        String::from_utf8_lossy(&output.stderr),
+        String::from_utf8_lossy(&output.stdout)
+    );
     let metadata: Value = serde_json::from_slice(&output.stdout).unwrap();
     let packages = metadata["packages"].as_array().unwrap();
     let internal: Vec<_> = packages

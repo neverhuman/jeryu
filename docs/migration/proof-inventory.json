@@ -2703,7 +2703,7 @@
       "kind": "proof-implementation-or-input",
       "path": "components/jeryu-deploy/crates/jeryu-api/tests/hosted_dependency_transport.rs",
       "port_status": "pending-equivalence-proof",
-      "sha256": "0f2e9add82a917e8c9de2cdb47529a27e22e2788df460a7776a670fc5f26f61b"
+      "sha256": "be8cc902ce73ec58a4745b152e699d131ba7f1bbf96fcc5719361d9d241919fa"
     },
     {
       "component": "jeryu-deploy",
