@@ -26,8 +26,9 @@ pkg-config, OpenSSL development headers, rustup with the toolchain specified
 in `rust-toolchain.toml`, and Node.js 22.19+ on the 22.x line or Node.js 24+
 with npm. CI uses Node.js 26.1.0. On Ubuntu, native
 prerequisites are provided by `build-essential pkg-config libssl-dev git`.
-The exact external Redline and governed auditor dependencies still need public
-publication before a credential-free build can be qualified.
+The immutable Redline source tag is public. The governed auditor source and
+artifacts still need publication before complete credential-free CI can be
+qualified.
 
 `build.sh` installs locked npm dependencies, builds the web application, and
 builds the locked Rust CLI with embedded assets. It records source and binary

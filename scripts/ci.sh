@@ -48,6 +48,9 @@ case ${1:-all} in
     bash scripts/build.sh
     JERYU_REQUIRE_WEB=1 bash scripts/test-source-install.sh
     ;;
+  product)
+    bash scripts/test-product-proofs.sh
+    ;;
   splits)
     bash scripts/test-split-exports.sh
     ;;
@@ -55,7 +58,7 @@ case ${1:-all} in
     bash scripts/bootstrap-ci-tools.sh
     npm ci
     npm audit --audit-level=high
-    cargo audit --file Cargo.lock
+    cargo audit --deny warnings --file Cargo.lock
     cargo deny check
     gitleaks git --redact=100 --log-opts=HEAD
     actionlint .github/workflows/ci.yml
@@ -89,7 +92,7 @@ case ${1:-all} in
     done
     ;;
   all)
-    for lane in source public rust web runtime security sandbox splits legacy; do "$0" "$lane"; done
+    for lane in source public rust web runtime product security sandbox splits legacy; do "$0" "$lane"; done
     ;;
-  *) printf 'usage: scripts/ci.sh {source|public|rust|web|runtime|security|sandbox|splits|legacy|all}\n' >&2; exit 2 ;;
+  *) printf 'usage: scripts/ci.sh {source|public|rust|web|runtime|product|security|sandbox|splits|legacy|all}\n' >&2; exit 2 ;;
 esac

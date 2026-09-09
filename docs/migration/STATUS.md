@@ -32,25 +32,20 @@ claim that the complete publication audit has finished.
 
 Remaining release gates include:
 
-- Publish the audited canonical Redline tag
-  `redline-core-v4.1.0-jain.6` at
-  `d0de59930141baffcfa2b514480e75b14627f24d` and the governed Jankurai source
-  and tool artifacts. Neither required tag was anonymously available on
-  GitHub at the initial readback. Cargo regenerated the four-crate Redline
-  closure with the public URL and the same immutable commit. This local
-  preparation fetched the canonical producer through an explicit temporary
-  Git transport override; it is not anonymous build evidence. The public
-  preflight independently reads tags without credentials or personal Git
-  configuration and still fails until publication.
-  GitHub rejected the initial exact Redline tag mirror because that OAuth
-  connection lacked `workflow` scope. Anonymous readback proved no public ref
-  changed. The owner subsequently supplied a separate workflow-capable
-  credential explicitly; the independent dependency publisher has the scoped
-  mirror task. Publication still requires exact anonymous readback. Independent
-  reviewer and merger identities remain unresolved.
+- Publish the governed Jankurai source and tool artifacts. The canonical
+  Redline tag `redline-core-v4.1.0-jain.6` is now anonymously available from
+  `neverhuman/redline-core` at the exact
+  `d0de59930141baffcfa2b514480e75b14627f24d` commit; independent readback also
+  confirmed unchanged public main. Cargo's four-crate closure retains that
+  immutable identity. This removes the Redline transport blocker; anonymous
+  qualification of the complete source and governed auditor remains required.
+  No production storage backend or Redline consumer lock was changed.
 - Complete portable CI and split-export implementation, proof-lane mapping,
   full source/history/license audit, dependency advisory repair, and every
   ordinary and privileged local proof. Missing capabilities must fail closed.
+  [CI coverage](CI-COVERAGE.md) records each retained assertion, explicit root
+  command and unported gate. Source inventory now includes proof implementations
+  and inputs; agreement of those hashes cannot substitute for execution.
 - Qualify clone/build/install/runtime with an unprivileged empty-cache Linux
   environment, then the exact GitHub candidate, merged main, and release tag.
 - Obtain independent review and a separate merger for protected authority
@@ -126,15 +121,31 @@ test assumptions. Runner's standalone closure does not consume Gitd, and
 Deploy does not inherit the external Obs package's Redline dev-dependency.
 The repaired tests retain the full monorepo assertions and verify those
 standalone closures. Targeted tests and warning-denied Clippy passed;
-independent verification of the resulting commit remains required. No
-component mirror has been published or marked qualified.
+the full `a9c5e5a2` run then passed nine components. Deploy revealed a further
+standalone governance-root assumption and a real live-HTTP readiness defect:
+the nonexistent `/healthz` route could be satisfied by the monorepo's SPA.
+Its readiness test now requires the actual `/health` backend JSON identity.
+All five HTTP tests and Clippy passed, followed by the independent Deploy
+export at `2073b366`. Thus all ten components have passed across repaired
+candidates. A complete final-commit rerun and anonymous qualification remain
+required. No component mirror has been published or marked qualified.
 
 All six duplicate Redline tips and their reflog commits are reachable from
 their full canonical repositories, with no missing commit objects or
 uncommitted paths. This read-only comparison and the prior restoration proof
 do not waive fresh producer/two-consumer evidence or authorize retirement.
 
-Every original checkout and support directory remains retained. Ten existing
-public Jeryu repository graphs were independently bundled and restored with
-matching refs. No hosted branch, tag, protection, mirror writer, release
-authority, service, or installed boundary has been changed by this candidate.
+Every original canonical checkout remains retained. Seventy-two abandoned
+test scratch directories, two empty support directories, and seven redundant
+legacy partial-source copies were removed only after private preservation,
+restoration and final symlink/mount/inode/open-handle checks. All 214 partial
+source files and all 107 target blobs declared by the two old patches have
+verified private Git recovery histories and restored bundles. Raw patches,
+reports and archives remain retained; recovery is distinct from product
+review/integration. No linked worktrees were found in the eleven Jeryu
+checkouts. Active CI output and unowned scratch were excluded from cleanup.
+
+Ten existing public Jeryu repository graphs were independently bundled and
+restored with matching refs. No Jeryu hosted branch, tag, protection, mirror
+writer, release authority, service, or installed boundary has been changed by
+this candidate. The separately authorized Redline tag mirror is recorded above.
