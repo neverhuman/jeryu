@@ -1,9 +1,14 @@
+# Replacement for .github/workflows/ci.yml on the public-monorepo candidate
+# AFTER Codex publish ACK. Owner-authorized required-check split:
+# jeryu/required aggregates only lanes that can actually run on ubuntu-24.04.
+# sandbox / oci / splits / legacy stay in CI (visible, not waived) but are
+# host/VM/nightly proofs. Local `scripts/ci.sh all` still runs the full union.
 name: Jeryu
 
 on:
   pull_request:
   push:
-    branches: [main, 'codex/public-monorepo-*']
+    branches: [main, 'codex/public-monorepo-*', 'cursor/public-monorepo-*']
   workflow_dispatch:
 
 permissions:
@@ -14,14 +19,14 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  verify:
+  required_lanes:
     name: verify / ${{ matrix.lane }}
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
-        lane: [source, public, rust, web, runtime, product, security, sandbox, oci, splits, legacy]
+        lane: [source, public, rust, web, runtime, product, security]
     env:
       CARGO_BUILD_JOBS: '2'
       CI: 'true'
@@ -38,6 +43,32 @@ jobs:
       - name: Run shared local command
         env:
           JERYU_CI_LANE: ${{ matrix.lane }}
+        run: bash ops/ci/monorepo.sh "$JERYU_CI_LANE"
+
+  host_or_nightly:
+    name: host-or-nightly / ${{ matrix.lane }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        lane: [sandbox, oci, splits, legacy]
+    env:
+      CARGO_BUILD_JOBS: '2'
+      CI: 'true'
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '26.1.0'
+      - name: Install pinned Rust toolchain
+        run: rustup show active-toolchain
+      - name: Run shared local command (host/VM/nightly; not in jeryu/required)
+        env:
+          JERYU_CI_LANE: ${{ matrix.lane }}
         run: |
           if [ "$JERYU_CI_LANE" = sandbox ] || [ "$JERYU_CI_LANE" = oci ]; then
             sudo -n env PATH="$PATH" CARGO_HOME="$HOME/.cargo" RUSTUP_HOME="$HOME/.rustup" \
@@ -49,10 +80,10 @@ jobs:
   required:
     name: jeryu/required
     if: ${{ always() }}
-    needs: [verify]
+    needs: [required_lanes]
     runs-on: ubuntu-24.04
     steps:
-      - name: Require every proof job to succeed
+      - name: Require GHA-runnable lanes
         env:
-          RESULT: ${{ needs.verify.result }}
+          RESULT: ${{ needs.required_lanes.result }}
         run: test "$RESULT" = success
