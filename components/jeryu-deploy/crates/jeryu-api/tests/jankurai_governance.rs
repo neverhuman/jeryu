@@ -147,11 +147,23 @@ fn integration_receipt_and_release_broker_contract_remain_fail_closed() {
 
 #[test]
 fn monorepo_dependencies_share_the_root_workspace_and_lock() {
-    let root = repository_root().join("../..");
+    let component = repository_root().canonicalize().unwrap();
+    let provenance = component.join(".jeryu-source.json");
+    let source = provenance.is_file().then(|| {
+        let value: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&provenance).unwrap()).unwrap();
+        assert_eq!(value["component"], "jeryu-deploy");
+        value["source_commit"].as_str().unwrap().to_owned()
+    });
+    let root = if source.is_some() {
+        component
+    } else {
+        component.join("../..")
+    };
     let cargo: toml::Value =
         toml::from_str(&fs::read_to_string(root.join("Cargo.toml")).unwrap()).unwrap();
     assert!(
-        cargo.get("patch").is_none(),
+        source.is_some() || cargo.get("patch").is_none(),
         "monorepo must not need source identity patches"
     );
     let api: toml::Value = toml::from_str(&read("crates/jeryu-api/Cargo.toml")).unwrap();
@@ -166,11 +178,19 @@ fn monorepo_dependencies_share_the_root_workspace_and_lock() {
             "{name} must inherit its source"
         );
         assert!(dependency.get("git").is_none() && dependency.get("path").is_none());
-        let path = cargo["workspace"]["dependencies"][name]["path"]
-            .as_str()
-            .unwrap();
-        assert!(path.starts_with("components/") && !path.contains(".."));
-        assert!(root.join(path).join("Cargo.toml").is_file());
+        let declaration = &cargo["workspace"]["dependencies"][name];
+        if let Some(source) = &source {
+            assert_eq!(
+                declaration["git"].as_str(),
+                Some("https://github.com/neverhuman/jeryu.git")
+            );
+            assert_eq!(declaration["rev"].as_str(), Some(source.as_str()));
+            assert!(declaration.get("path").is_none());
+        } else {
+            let path = declaration["path"].as_str().unwrap();
+            assert!(path.starts_with("components/") && !path.contains(".."));
+            assert!(root.join(path).join("Cargo.toml").is_file());
+        }
     }
     let lock: toml::Value =
         toml::from_str(&fs::read_to_string(root.join("Cargo.lock")).unwrap()).unwrap();
@@ -179,12 +199,33 @@ fn monorepo_dependencies_share_the_root_workspace_and_lock() {
         let name = package["name"].as_str().unwrap();
         if name.starts_with("jeryu-") {
             *counts.entry(name).or_insert(0) += 1;
-            assert!(
-                package.get("source").is_none(),
-                "{name} must have one local source"
-            );
+            if let Some(source) = &source
+                && !matches!(name, "jeryu-api" | "jeryu-cli" | "jeryu-split-tool")
+            {
+                assert_eq!(
+                    package["source"].as_str(),
+                    Some(
+                        format!(
+                            "git+https://github.com/neverhuman/jeryu.git?rev={source}#{source}"
+                        )
+                        .as_str()
+                    )
+                );
+            } else {
+                assert!(
+                    package.get("source").is_none(),
+                    "{name} must have one local source"
+                );
+            }
         }
     }
-    assert_eq!(counts.len(), 65);
+    if source.is_none() {
+        assert_eq!(counts.len(), 65);
+    } else {
+        assert!(
+            counts.len() > 3,
+            "standalone Deploy must retain its external Jeryu closure"
+        );
+    }
     assert!(counts.values().all(|count| *count == 1));
 }
