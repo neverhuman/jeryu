@@ -63,7 +63,7 @@ fn authenticated_admin_account(login: &str) -> Extension<AccountSummary> {
 /// Seed a repo + open PR + one failing check, build `WebState`, and assert
 /// the model served by `/api/v1/bootstrap.tui` (i.e. `state.tui`) reflects the
 /// seeded load: a populated `RepoActivity` with `failed_jobs == 1`, a non-empty
-/// pool fabric, and Healthy system components — NOT the empty fixture.
+/// pool fabric, and unverified health until component probes are available.
 #[tokio::test]
 async fn bootstrap_tui_reflects_seeded_repo_pr_and_failing_check() {
     let core = ForgeCore::new();
@@ -117,13 +117,22 @@ async fn bootstrap_tui_reflects_seeded_repo_pr_and_failing_check() {
     assert_eq!(activity.pools[0].pool, "default");
     assert_eq!(activity.pools[0].failed_jobs, 1);
 
-    // System health is Healthy (core is open), never the Unknown fixture.
-    assert!(matches!(state.tui.system.scm.status, HealthLevel::Healthy));
-
     // The actual `/api/v1/bootstrap.tui` handler serves exactly this model.
     let served = bootstrap_tui(State(state.clone())).await.0;
     assert_eq!(served.pool_activity, *activity);
     assert_eq!(served.pool_activity.repos[0].failed_jobs, 1);
+    // Observed work does not prove the health or latency of unprobed services.
+    for component in [
+        &served.system.scm,
+        &served.system.database,
+        &served.system.sandbox,
+        &served.system.cache,
+        &served.system.vault,
+    ] {
+        assert_eq!(component.status, HealthLevel::Unknown);
+        assert_eq!(component.latency_ms, None);
+        assert_eq!(component.detail.as_deref(), Some("not yet checked"));
+    }
     assert!(served.workcells.items.is_empty());
     // Sanity: this is NOT the empty default model.
     assert_ne!(

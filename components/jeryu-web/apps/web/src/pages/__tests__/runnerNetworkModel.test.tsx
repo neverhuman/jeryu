@@ -167,4 +167,59 @@ describe('runnerNetworkModel', () => {
     ).toBe('third line');
     expect(lastTtyLine({ state: 'missing', lines: [] })).toBeNull();
   });
+
+  it.each(['unknown', 'unrecognized-state', 'registering', ''])(
+    'does not promote node state %s to online',
+    (nodeState) => {
+      const state = runnerNetworkFromResponse({ ...EMPTY_RUNNERS, local: {
+        ...EMPTY_RUNNERS.local, state: 'fresh', nodeDetails: [{
+          runnerId: 'observed', source: 'runnerd', state: nodeState,
+          capacity: 4, inFlight: 0, labels: [], classes: [], activeTaskCount: 0,
+          lastUpdated: null, activeTasks: [],
+        }],
+      } });
+      expect(state.nodes[0].availability).toBe('unknown');
+      expect(state.nodes[0].activityState).toBe('unknown');
+      expect(state.totals.onlineNodes).toBe(0);
+      expect(state.totals.idleNodes).toBe(0);
+    }
+  );
+
+  it.each(['unknown', 'fresh'] as const)(
+    'preserves workcell task observations without inventing registration (%s)',
+    (localState) => {
+      const state = runnerNetworkFromResponse({ ...EMPTY_RUNNERS, local: {
+        ...EMPTY_RUNNERS.local, state: localState, nodeDetails: [{
+          runnerId: 'observed', source: 'workcell', state: 'active', capacity: 0,
+          inFlight: 0, labels: [], classes: [], activeTaskCount: 1, lastUpdated: null,
+          activeTasks: [{
+            taskId: 'run-observed', jobId: 'cell-observed', agentRunId: 'run-observed',
+            workcellId: 'cell-observed', repo: 'owner/repo', label: 'observed task',
+            program: '/usr/bin/agent', state: 'running', startedAt: null,
+            updatedAt: '2026-09-10T00:00:00Z',
+            ttyPreview: { state: 'fresh', lines: ['observed output'] },
+          }],
+        }],
+      } });
+      expect(state.nodes[0].availability).toBe('unknown');
+      expect(state.nodes[0].activityState).toBe('active');
+      expect(state.totals.activeTasks).toBe(1);
+      expect(state.totals.onlineNodes).toBe(0);
+      expect(state.nodes[0].tasks[0]).toMatchObject({ taskId: 'run-observed',
+        workcellId: 'cell-observed', repo: 'owner/repo', lastTtyLine: 'observed output' });
+    }
+  );
+
+  it('does not treat a missing node capacity field as measured zero', () => {
+    const raw: unknown = { ...EMPTY_RUNNERS, local: {
+      ...EMPTY_RUNNERS.local, state: 'fresh', nodeDetails: [{
+        runnerId: 'incomplete', source: 'runnerd', state: 'active',
+        inFlight: 0, labels: [], classes: [], activeTaskCount: 0,
+        lastUpdated: null, activeTasks: [],
+      }],
+    } };
+    const state = runnerNetworkFromResponse(raw as RunnerFabricResponse);
+    expect(state.nodes[0].availability).toBe('unknown');
+    expect(state.totals.onlineNodes).toBe(0);
+  });
 });

@@ -48,7 +48,7 @@ pub fn dispatch_with_api_url_env(
         Commands::Forge(cmd) => {
             commands::forge::run(client, api_url.as_deref(), &owner, json, cmd, out)
         }
-        Commands::Ci(cmd) => commands::ci::run(client, json, cmd, out),
+        Commands::Ci(cmd) => commands::ci::run(client, api_url.as_deref(), &owner, json, cmd, out),
         Commands::Runner(cmd) => commands::runner::run(client, json, cmd, out),
         Commands::Agent(cmd) => commands::agent::run(client, json, api_url.as_deref(), cmd, out),
         Commands::Proof(cmd) => commands::proof::run(client, json, cmd, out),

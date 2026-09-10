@@ -1,8 +1,12 @@
 //! Authenticated HTTP JSON transport for live operator commands.
 
-use std::time::Duration;
+use std::{io::Read, time::Duration};
 
-use reqwest::{Method, Url, blocking::Client, redirect::Policy};
+use reqwest::{
+    Method, Url,
+    blocking::{Client, Response},
+    redirect::Policy,
+};
 use serde_json::Value;
 
 use crate::client::{ClientError, ClientResult};
@@ -63,6 +67,32 @@ impl ApiClient {
         self.request(Method::GET, path, None)
     }
 
+    /// A caller can bound the entire paginated read, including response bytes.
+    pub(crate) fn get_bounded(
+        &self,
+        path: &str,
+        timeout: Duration,
+        max_bytes: usize,
+    ) -> ClientResult<(Value, usize)> {
+        if timeout.is_zero() || max_bytes == 0 {
+            return Err(ClientError::Invalid("API read budget exhausted".into()));
+        }
+        let response = self.send(Method::GET, path, None, Some(timeout))?;
+        let mut bytes = Vec::new();
+        response
+            .take(max_bytes as u64 + 1)
+            .read_to_end(&mut bytes)
+            .map_err(|_| ClientError::NotWired("API response read failed".into()))?;
+        if bytes.len() > max_bytes {
+            return Err(ClientError::Invalid(
+                "API response exceeds read byte budget".into(),
+            ));
+        }
+        let value = serde_json::from_slice(&bytes)
+            .map_err(|_| ClientError::Invalid("API returned invalid JSON".into()))?;
+        Ok((value, bytes.len()))
+    }
+
     pub(crate) fn post(&self, path: &str, body: Value) -> ClientResult<Value> {
         self.request(Method::POST, path, Some(body))
     }
@@ -72,11 +102,26 @@ impl ApiClient {
     }
 
     fn request(&self, method: Method, path: &str, body: Option<Value>) -> ClientResult<Value> {
+        self.send(method, path, body, None)?
+            .json()
+            .map_err(|_| ClientError::Invalid("API returned invalid JSON".into()))
+    }
+
+    fn send(
+        &self,
+        method: Method,
+        path: &str,
+        body: Option<Value>,
+        timeout: Option<Duration>,
+    ) -> ClientResult<Response> {
         let url = format!("{}{}", self.base.as_str().trim_end_matches('/'), path);
         let mut request = self
             .client
             .request(method, &url)
             .header("Accept", "application/json");
+        if let Some(timeout) = timeout {
+            request = request.timeout(timeout);
+        }
         if let Some(token) = &self.token {
             request = request.bearer_auth(token);
         }
@@ -90,9 +135,7 @@ impl ApiClient {
         if !status.is_success() {
             return Err(ClientError::Conflict(format!("API returned HTTP {status}")));
         }
-        response
-            .json()
-            .map_err(|_| ClientError::Invalid("API returned invalid JSON".into()))
+        Ok(response)
     }
 }
 
@@ -144,5 +187,44 @@ mod tests {
                 .get("/repos")
                 .is_err()
         );
+    }
+
+    #[test]
+    fn bounded_read_rejects_oversized_body() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let url = format!("http://{}", listener.local_addr().unwrap());
+        let server = std::thread::spawn(move || {
+            let deadline = std::time::Instant::now() + Duration::from_secs(5);
+            let mut stream = loop {
+                match listener.accept() {
+                    Ok((stream, _)) => break stream,
+                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                        assert!(std::time::Instant::now() < deadline, "missing bounded read");
+                        std::thread::sleep(Duration::from_millis(5));
+                    }
+                    Err(error) => panic!("fixture accept failed: {error}"),
+                }
+            };
+            stream
+                .set_read_timeout(Some(Duration::from_secs(2)))
+                .unwrap();
+            stream
+                .set_write_timeout(Some(Duration::from_secs(2)))
+                .unwrap();
+            let mut byte = [0];
+            let mut request = Vec::new();
+            while !request.ends_with(b"\r\n\r\n") {
+                assert!(request.len() < 16 * 1024);
+                stream.read_exact(&mut byte).unwrap();
+                request.push(byte[0]);
+            }
+            stream.write_all(b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 4\r\nConnection: close\r\n\r\nnull").unwrap();
+        });
+        let api = ApiClient::with_token(&url, None).unwrap();
+        assert!(
+            matches!(api.get_bounded("/checks", Duration::from_secs(2), 2), Err(ClientError::Invalid(message)) if message.contains("byte budget"))
+        );
+        server.join().unwrap();
     }
 }

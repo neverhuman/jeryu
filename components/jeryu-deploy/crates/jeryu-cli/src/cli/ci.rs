@@ -1,5 +1,6 @@
 //! `jeryu ci` taxonomy: compile a workflow to IR, schedule a run, inspect, and
-//! explain.
+//! explain. Operational status reads authenticated repository check runs from
+//! the configured API; it reports UUID evidence, not workflow scheduling state.
 //!
 //! CI is a compile -> IR -> schedule model. `ci run` takes a workflow *file*
 //! and a *ref*, never a remote pipeline id to poll. The only accepted input
@@ -43,7 +44,7 @@ pub enum CiCommands {
         #[arg(long, value_enum, default_value_t = CiKindArg::Native)]
         kind: CiKindArg,
     },
-    /// Report queued and scheduled runs for a repository.
+    /// Read repository check runs, including UUIDs, commit heads and conclusions.
     Status {
         /// Repository name (under the acting owner).
         #[arg(long)]

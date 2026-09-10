@@ -56,17 +56,24 @@ fn health_style(health: HealthLevel) -> Style {
 
 fn draw_header(f: &mut Frame, input: &PoolHealthInput, area: Rect) {
     let t = &input.totals;
-    let text = format!(
-        "Pools/Health — {} pools · {} repos · {}% util · {} queued · {} running · {} failed · {} online · {} stuck",
-        t.pools,
-        t.repos,
-        input.fleet_utilization_pct(),
-        t.queued_jobs,
-        t.running_jobs,
-        t.failed_jobs,
-        t.online_runners,
-        t.stuck_runners,
-    );
+    let text = if input.health == HealthLevel::Unknown {
+        format!(
+            "Pools/Health — capacity unknown · {} pools · {} repos · {} queued · {} running · {} failed",
+            t.pools, t.repos, t.queued_jobs, t.running_jobs, t.failed_jobs,
+        )
+    } else {
+        format!(
+            "Pools/Health — {} pools · {} repos · {}% util · {} queued · {} running · {} failed · {} online · {} stuck",
+            t.pools,
+            t.repos,
+            input.fleet_utilization_pct(),
+            t.queued_jobs,
+            t.running_jobs,
+            t.failed_jobs,
+            t.online_runners,
+            t.stuck_runners,
+        )
+    };
     f.render_widget(
         Paragraph::new(text).block(
             Block::default()
@@ -133,7 +140,11 @@ fn draw_pool_grid(f: &mut Frame, input: &PoolHealthInput, area: Rect) {
     ])
     .style(Style::default().add_modifier(Modifier::BOLD));
 
-    let rows: Vec<Row> = input.pools.iter().map(pool_row).collect();
+    let rows: Vec<Row> = input
+        .pools
+        .iter()
+        .map(|pool| pool_row(pool, input.health == HealthLevel::Unknown))
+        .collect();
 
     let table = Table::new(
         rows,
@@ -153,32 +164,48 @@ fn draw_pool_grid(f: &mut Frame, input: &PoolHealthInput, area: Rect) {
     f.render_widget(table, area);
 }
 
-fn pool_row(p: &PoolHealthRow) -> Row<'_> {
-    let state = if p.paused {
+fn pool_row(p: &PoolHealthRow, capacity_unknown: bool) -> Row<'_> {
+    let state = if capacity_unknown {
+        "UNKNOWN"
+    } else if p.paused {
         "PAUSED"
     } else if p.saturated {
         "SATURATED"
     } else {
         "active"
     };
-    let runners = if p.stuck_runners > 0 {
+    let runners = if capacity_unknown {
+        "unknown".to_string()
+    } else if p.stuck_runners > 0 {
         format!("{} ({}stuck)", p.online_runners, p.stuck_runners)
     } else {
         format!("{} online", p.online_runners)
     };
+    let (utilization, slots, trust, style) = if capacity_unknown {
+        (
+            "—".to_string(),
+            "unknown".to_string(),
+            "unknown".to_string(),
+            health_style(HealthLevel::Unknown),
+        )
+    } else {
+        (
+            format!("{}%", p.utilization_pct),
+            format!("{}/{}idle", p.active_slots, p.idle_slots),
+            p.trust_tier.clone(),
+            pool_util_style(p),
+        )
+    };
     Row::new(vec![
         Cell::from(p.pool.clone()),
-        Cell::from(Span::styled(
-            format!("{}%", p.utilization_pct),
-            pool_util_style(p),
-        )),
-        Cell::from(format!("{}/{}idle", p.active_slots, p.idle_slots)),
+        Cell::from(Span::styled(utilization, style)),
+        Cell::from(slots),
         Cell::from(format!(
             "{}/{}/{}",
             p.queued_jobs, p.running_jobs, p.failed_jobs
         )),
         Cell::from(runners),
-        Cell::from(p.trust_tier.clone()),
+        Cell::from(trust),
         Cell::from(state),
     ])
 }
@@ -244,7 +271,12 @@ fn draw_node_grid(f: &mut Frame, input: &RunnersLensInput, area: Rect) {
 
 fn draw_footer(f: &mut Frame, input: &PoolHealthInput, area: Rect) {
     let stuck = input.totals.stuck_runners;
-    let line = if stuck > 0 {
+    let line = if input.health == HealthLevel::Unknown {
+        Line::from(format!(
+            "capacity unknown · cursor={} · Keys: d drain · p pause · s scale · e evidence",
+            input.event_cursor
+        ))
+    } else if stuck > 0 {
         Line::from(Span::styled(
             format!(
                 "⚠ {stuck} runner(s) STUCK — capacity at risk · cursor={} · Keys: d drain · p pause · s scale",
@@ -254,7 +286,12 @@ fn draw_footer(f: &mut Frame, input: &PoolHealthInput, area: Rect) {
         ))
     } else {
         Line::from(format!(
-            "fleet healthy · cursor={} · Keys: d drain · p pause · s scale · e evidence",
+            "{} · cursor={} · Keys: d drain · p pause · s scale · e evidence",
+            if input.health == HealthLevel::Healthy {
+                "fleet healthy"
+            } else {
+                "fleet needs attention"
+            },
             input.event_cursor
         ))
     };
@@ -321,7 +358,10 @@ mod tests {
         assert!(out.contains("Pools/Health"));
         assert!(out.contains("UNKNOWN"));
         assert!(out.contains("No runner pools"));
-        assert!(out.contains("fleet healthy"));
+        assert!(out.contains("capacity unknown"));
+        assert!(!out.to_lowercase().contains("fleet healthy"));
+        assert!(!out.contains("% util"));
+        assert!(!out.contains("0 online"));
     }
 
     #[test]
@@ -346,5 +386,91 @@ mod tests {
     #[test]
     fn renders_at_220x60_without_panic() {
         let _ = ink(220, 60, &degraded_model());
+    }
+
+    fn unknown_capacity_model() -> TuiReadModel {
+        TuiReadModel {
+            pool_activity: PoolActivity {
+                freshness: Some(jeryu_readmodel::SourceFreshness {
+                    source: jeryu_readmodel::SourceKind::Broker,
+                    state: jeryu_readmodel::FreshnessState::Unknown,
+                    observed_at: None,
+                    age_ms: None,
+                    cursor: None,
+                    ttl_ms: None,
+                    confidence: 0.0,
+                    last_error: None,
+                    degraded_reason: Some("runner capacity registry is not connected".into()),
+                }),
+                ..PoolActivity::default()
+            },
+            ..TuiReadModel::default()
+        }
+    }
+
+    #[test]
+    fn renders_unknown_capacity_with_observed_jobs() {
+        let mut model = unknown_capacity_model();
+        let mut observed = PoolRollup::new("build");
+        observed.queued_jobs = 5;
+        observed.running_jobs = 2;
+        observed.failed_jobs = 3;
+        model.pool_activity.pools = vec![observed, PoolRollup::new("idle-pool")];
+        model.pool_activity.repos = vec![RepoActivity {
+            repo: "owner/repo".into(),
+            ..RepoActivity::default()
+        }];
+        // Independent per-node observations remain visible even though the
+        // aggregate registered capacity cannot be verified.
+        model.runners = sample_read_model().runners;
+        let out = ink(180, 40, &model);
+        assert!(out.contains("capacity unknown"));
+        assert!(out.contains("5 queued"));
+        assert!(out.contains("2 running"));
+        assert!(out.contains("3 failed"));
+        assert!(out.contains("build"));
+        assert!(out.contains("idle-pool"));
+        assert!(out.contains("5/2/3"));
+        assert!(out.contains("0/0/0"));
+        assert!(out.contains("UNKNOWN"));
+        assert!(out.contains("oci-runner-1"));
+        assert!(!out.contains("SATURATED"));
+        assert!(!out.to_lowercase().contains("fleet healthy"));
+        assert!(!out.contains("% util"));
+        assert!(!out.contains("0%"));
+        assert!(!out.contains("0 online"));
+        assert!(!out.contains("0/0idle"));
+    }
+
+    #[test]
+    fn renders_unknown_capacity_without_observations() {
+        let out = ink(140, 24, &unknown_capacity_model());
+        assert!(out.contains("capacity unknown"));
+        assert!(out.contains("UNKNOWN"));
+        assert!(out.contains("No runner pools"));
+        assert!(out.contains("No per-node runner telemetry"));
+        assert!(!out.to_lowercase().contains("fleet healthy"));
+        assert!(!out.contains("SATURATED"));
+        assert!(!out.contains("% util"));
+        assert!(!out.contains("0 online"));
+    }
+
+    #[test]
+    fn renders_known_capacity_and_healthy_pool() {
+        let mut model = TuiReadModel::default();
+        let mut pool = PoolRollup::new("build");
+        pool.active_slots = 4;
+        pool.running_jobs = 1;
+        pool.online_runners = 4;
+        model.pool_activity.pools = vec![pool];
+        let out = ink(180, 40, &model);
+        assert!(out.contains("25% util"));
+        assert!(out.contains("4 online"));
+        assert!(out.contains("4/3idle"));
+        assert!(out.contains("0/1/0"));
+        assert!(out.contains("Fleet healthy"));
+        assert!(out.contains("fleet healthy"));
+        assert!(!out.contains("capacity unknown"));
+        assert!(!out.contains("SATURATED"));
     }
 }

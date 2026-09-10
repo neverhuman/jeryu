@@ -110,11 +110,20 @@ fn repo_graph_contains_ci_runner_and_mirror_clusters() {
 }
 
 #[test]
-fn runner_fabric_reports_local_capacity() {
-    let state = seeded_state();
+fn runner_fabric_reports_unknown_capacity_without_a_registry() {
+    let state = Arc::new(WebState::new(ForgeCore::new()));
     let runners = runner_fabric(&state);
-    assert_eq!(runners.local.state, EvidenceState::Fresh);
-    assert!(runners.local.total_slots >= runners.local.active_slots);
+    assert_eq!(runners.local.state, EvidenceState::Unknown);
+    assert_eq!(runners.local.nodes, 0);
+    assert_eq!(runners.local.online_runners, 0);
+    assert_eq!(runners.local.offline_runners, 0);
+    assert_eq!(runners.local.busy_runners, 0);
+    assert_eq!(runners.local.idle_runners, 0);
+    assert_eq!(runners.local.total_slots, 0);
+    assert_eq!(runners.local.active_slots, 0);
+    assert_eq!(runners.local.utilization, 0.0);
+    assert!(runners.local.node_details.is_empty());
+    assert!(runners.local.last_updated.is_none());
     assert_eq!(runners.mirror.state, EvidenceState::Missing);
 }
 
@@ -152,7 +161,7 @@ fn mcp_facade_returns_limited_graph_jobs_and_blockers() {
     let artifacts = mcp_artifacts_latest(&state);
     assert_eq!(artifacts["absenceIsSuccess"], false);
     let runners = mcp_runner_fabric_status(&state);
-    assert_eq!(runners["local"]["state"], "fresh");
+    assert_eq!(runners["local"]["state"], "unknown");
 
     let jobs = mcp_ci_run_jobs(&state, &json!({ "ci_run_id": "run-1" }));
     assert_eq!(jobs["ci_run_id"], "run-1");

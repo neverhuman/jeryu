@@ -108,10 +108,13 @@ function availabilityFromState(state: string): RunnerAvailability {
     case 'offline':
     case 'quarantined':
       return 'offline';
-    case '':
-      return 'unknown';
-    default:
+    case 'active':
+    case 'busy':
+    case 'idle':
+    case 'online':
       return 'online';
+    default:
+      return 'unknown';
   }
 }
 
@@ -146,9 +149,14 @@ function taskFromRaw(raw: RunnerTaskSummary): RunnerNetworkTask {
   };
 }
 
-function nodeFromRaw(raw: RunnerNodeSummary): RunnerNetworkNode {
+function nodeFromRaw(
+  raw: RunnerNodeSummary,
+  capacityKnown: boolean
+): RunnerNetworkNode {
   const tasks = raw.activeTasks.map(taskFromRaw);
-  const availability = availabilityFromState(raw.state);
+  const availability = capacityKnown && raw.source !== 'workcell'
+    ? availabilityFromState(raw.state)
+    : 'unknown';
   const activeTaskCount = tasks.length || raw.activeTaskCount;
   const lastUpdated =
     raw.lastUpdated ??
@@ -200,10 +208,12 @@ function totalsFromNodes(nodes: RunnerNetworkNode[]): RunnerNetworkTotals {
 }
 
 export function runnerNetworkFromResponse(
-  response: RunnerFabricResponse | null | undefined
+  response: RunnerFabricResponse | null | undefined,
+  snapshotAvailable = true
 ): RunnerNetworkState {
   const raw = asRecord(response);
   const local = asRecord(raw?.local);
+  const capacityKnown = snapshotAvailable && local?.state === 'fresh';
   const nodeDetails = Array.isArray(local?.nodeDetails) ? local.nodeDetails : [];
   const nodes = nodeDetails
     .map((node) => {
@@ -250,7 +260,8 @@ export function runnerNetworkFromResponse(
             } satisfies RunnerTaskSummary;
           })
           .filter((task): task is RunnerTaskSummary => task !== undefined),
-      });
+      }, capacityKnown && typeof record.capacity === 'number' &&
+        Number.isFinite(record.capacity) && record.capacity >= 0);
     })
     .filter((node): node is RunnerNetworkNode => node !== undefined)
     .sort((a, b) => a.runnerId.localeCompare(b.runnerId));
@@ -267,7 +278,7 @@ export function runnerNetworkFromResponse(
 
   return {
     state:
-      typeof local?.state === 'string'
+      snapshotAvailable && typeof local?.state === 'string'
         ? (local.state as EvidenceState)
         : 'unknown',
     nodes,

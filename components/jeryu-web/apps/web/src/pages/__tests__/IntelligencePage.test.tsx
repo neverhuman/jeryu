@@ -1,7 +1,7 @@
 // IntelligencePage.test.tsx - render smoke for the JMCP page.
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 
@@ -13,11 +13,23 @@ import type {
   ToolBuildClustersResponse,
 } from '../../api/types';
 
-function renderIntelligence(snapshot: ControlPlaneSnapshot): void {
+function renderIntelligence(
+  snapshot: ControlPlaneSnapshot,
+  options: { updatedAt?: number; error?: Error } = {}
+): void {
   const client = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
+    defaultOptions: { queries: { retry: false, refetchOnMount: false } },
   });
-  client.setQueryData(CONTROL_PLANE_QUERY_KEY, snapshot);
+  client.setQueryData(CONTROL_PLANE_QUERY_KEY, snapshot, {
+    updatedAt: options.updatedAt,
+  });
+  if (options.error) {
+    const query = client.getQueryCache().find({
+      queryKey: CONTROL_PLANE_QUERY_KEY,
+    });
+    if (!query) throw new Error('Control-plane cache entry missing');
+    query.setState({ status: 'error', error: options.error });
+  }
   client.setQueryData(['ecosystem'], sampleEcosystem());
   client.setQueryData(['tool-build-clusters', 10], sampleToolBuildClusters());
   render(
@@ -27,6 +39,12 @@ function renderIntelligence(snapshot: ControlPlaneSnapshot): void {
       </MemoryRouter>
     </QueryClientProvider>
   );
+}
+
+function runnersCard(): HTMLElement {
+  const card = screen.getByText('Runners').closest('article');
+  if (!card) throw new Error('Runners metric card missing');
+  return card;
 }
 
 describe('IntelligencePage', () => {
@@ -50,6 +68,69 @@ describe('IntelligencePage', () => {
     expect(
       screen.getAllByText(/GitHub mirror evidence unavailable/i).length
     ).toBeGreaterThan(0);
+  });
+
+  it.each([
+    ['unknown', 0, 0],
+    ['unknown', 17, 9],
+    ['missing', 17, 9],
+    ['queued', 17, 9],
+    ['failed', 17, 9],
+  ] as const)(
+    'hides unavailable runner counts for %s (%i online, %i offline)',
+    (state, onlineRunners, offlineRunners) => {
+      const snapshot = sampleSnapshot();
+      Object.assign(snapshot.runners.local, { state, onlineRunners, offlineRunners });
+      renderIntelligence(snapshot);
+      const card = runnersCard();
+      expect(card).toHaveClass(`is-${state}`);
+      expect(card).not.toHaveClass('is-fresh');
+      expect(within(card).getByText('—')).toBeInTheDocument();
+      expect(card).toHaveTextContent(
+        state === 'unknown' ? 'Runner capacity unknown' : 'Runner capacity unavailable'
+      );
+      expect(within(card).queryByText(String(onlineRunners))).not.toBeInTheDocument();
+      expect(card).not.toHaveTextContent(`${offlineRunners} offline`);
+    }
+  );
+
+  it('hides expired cached runner counts until the snapshot is refreshed', () => {
+    renderIntelligence(sampleSnapshot(), { updatedAt: Date.now() - 60_000 });
+    const card = runnersCard();
+    expect(card).toHaveClass('is-unknown');
+    expect(card).toHaveTextContent('Runner snapshot out of date');
+    expect(within(card).getByText('—')).toBeInTheDocument();
+    expect(within(card).queryByText('4')).not.toBeInTheDocument();
+    expect(card).not.toHaveTextContent('1 offline');
+  });
+
+  it('shows the query failure instead of cached runner health', () => {
+    renderIntelligence(sampleSnapshot(), {
+      error: new Error('Runner snapshot request failed'),
+    });
+    expect(screen.getByText('Runner snapshot request failed')).toBeInTheDocument();
+    expect(screen.queryByText('Runners')).not.toBeInTheDocument();
+  });
+
+  it('keeps measured offline runners visible as a failure', () => {
+    renderIntelligence(sampleSnapshot());
+    const card = runnersCard();
+    expect(card).toHaveClass('is-failed');
+    expect(within(card).getByText('4')).toBeInTheDocument();
+    expect(card).toHaveTextContent('1 offline');
+    expect(within(card).queryByText('—')).not.toBeInTheDocument();
+  });
+
+  it('keeps a fresh measured zero distinct from unknown capacity', () => {
+    const snapshot = sampleSnapshot();
+    snapshot.runners.local.onlineRunners = 0;
+    snapshot.runners.local.offlineRunners = 0;
+    renderIntelligence(snapshot);
+    const card = runnersCard();
+    expect(card).toHaveClass('is-fresh');
+    expect(within(card).getByText('0')).toBeInTheDocument();
+    expect(card).toHaveTextContent('0 offline');
+    expect(within(card).queryByText('—')).not.toBeInTheDocument();
   });
 });
 

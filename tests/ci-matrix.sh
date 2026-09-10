@@ -36,7 +36,7 @@ done
 printf 'CI matrix and aggregation checks passed: %s scenarios\n' "$passed"
 
 # Exercise the actual Rust/sandbox case bodies with closed command transports.
-# No Cargo, auditor, kernel sandbox or product receipt runs in these fixtures.
+# Receipt data below is synthetic; no Cargo, auditor or kernel sandbox executes.
 source "$root/tests/scratch.sh"
 fixture=$(mktemp -d)
 chmod 700 "$fixture"
@@ -57,6 +57,9 @@ fixture_call() {
   printf '%s\n' "$*" >>"$calls_file"
   [[ $* != "$fail_call" ]] || return 23
 }
+fixture_receipt_json() {
+  printf '%s\n' '{"false_skips":0,"escapes":[{"verdict":"blocked"},{"verdict":"blocked"},{"verdict":"blocked"},{"verdict":"blocked"}]}'
+}
 fixture_cargo() {
   fixture_call cargo "$@" || return $?
   case "$*" in
@@ -66,7 +69,23 @@ fixture_cargo() {
       ;;
     'run --locked -p jeryu-sandbox-linux --example required_capabilities') ;;
     'test --locked -p jeryu-sandbox-linux --all-features -- --include-ignored --nocapture --test-threads=1')
+      if [[ $scenario == native-zero ]]; then
+        printf 'test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n'
+        return 0
+      fi
       printf 'test result: ok. 28 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s\n'
+      if [[ $scenario != stale-receipt && $scenario != missing-receipt ]]; then
+        fixture_receipt_json >"$JERYU_SANDBOX_ENFORCEMENT_DIR/enforcement.json"
+      fi
+      case $scenario in
+        stale-receipt|missing-producer) ;;
+        prefixed-producer) printf 'extra enforcement receipt: %s/enforcement.json\n' "$JERYU_SANDBOX_ENFORCEMENT_DIR" ;;
+        suffixed-producer) printf 'enforcement receipt: %s/enforcement.json extra\n' "$JERYU_SANDBOX_ENFORCEMENT_DIR" ;;
+        *) printf '\nenforcement receipt: %s/enforcement.json\n' "$JERYU_SANDBOX_ENFORCEMENT_DIR" ;;
+      esac
+      if [[ $scenario == duplicate-producer ]]; then
+        printf 'enforcement receipt: %s/enforcement.json\n' "$JERYU_SANDBOX_ENFORCEMENT_DIR"
+      fi
       [[ $scenario != native-skip ]] || printf 'SKIP: unavailable kernel primitive\n'
       ;;
     'test --locked -p jeryu-agentbridge --test '* )
@@ -101,8 +120,8 @@ fixture_rg() {
   command rg "$@"
 }
 {
-  printf '#!/usr/bin/env bash\nset -euo pipefail\nscenario=$2\ncalls_file=$3\nfail_call=$4\n'
-  declare -f fixture_call fixture_cargo fixture_rg
+  printf '#!/usr/bin/env bash\nset -euo pipefail\nroot=$PWD\nscenario=$2\ncalls_file=$3\nfail_call=$4\n'
+  declare -f fixture_call fixture_receipt_json fixture_cargo fixture_rg
   cat <<'MOCKS'
 cargo() { fixture_cargo "$@"; }
 rg() { fixture_rg "$@"; }
@@ -114,8 +133,9 @@ bootstrap_public_jankurai() {
 }
 jq() {
   [[ $1 == -e && $2 == '.false_skips == 0 and (.escapes | length) == 4 and all(.escapes[]; .verdict == "blocked")' &&
-     $3 == components/jeryu-ci-runner/target/jankurai/runner-sandbox/enforcement.json ]] || return 95
-  fixture_call jq
+     $3 == "$PWD/target/ci/sandbox-receipt."*/enforcement.json ]] || return 95
+  fixture_call jq || return $?
+  command jq "$@"
 }
 case $1 in
 MOCKS
@@ -154,6 +174,9 @@ while IFS= read -r fail_call; do
   [[ $(tail -n 1 "$fixture/calls") == "$fail_call" ]]
 done <"$fixture/expected"
 
+# A cached green legacy receipt must never satisfy the fresh invocation gate.
+mkdir -p "$fixture/components/jeryu-ci-runner/target/jankurai/runner-sandbox"
+fixture_receipt_json >"$fixture/components/jeryu-ci-runner/target/jankurai/runner-sandbox/enforcement.json"
 run_coverage_case sandbox normal 0
 cat >"$fixture/expected" <<'CALLS'
 cargo run --locked -p jeryu-sandbox-linux --example required_capabilities
@@ -168,7 +191,7 @@ while IFS= read -r fail_call; do
   run_coverage_case sandbox failure 23 "$fail_call"
   [[ $(tail -n 1 "$fixture/calls") == "$fail_call" ]]
 done <"$fixture/expected"
-for scenario in native-skip driver-skip pty-skip optout-skip empty wrong-count ignored duplicate missing-summary scan-error; do
+for scenario in native-skip driver-skip pty-skip optout-skip empty wrong-count ignored duplicate missing-summary scan-error native-zero stale-receipt missing-receipt missing-producer duplicate-producer prefixed-producer suffixed-producer; do
   run_coverage_case sandbox "$scenario" 1
   ! rg -q '^jq$' "$fixture/calls"
 done

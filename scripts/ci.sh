@@ -116,7 +116,17 @@ case ${1:-all} in
     }
     mkdir -p target/ci
     cargo run --locked -p jeryu-sandbox-linux --example required_capabilities
-    cargo test --locked -p jeryu-sandbox-linux --all-features -- --include-ignored --nocapture --test-threads=1 2>&1 | tee target/ci/sandbox.log
+    sandbox_receipt_dir=$(mktemp -d "$root/target/ci/sandbox-receipt.XXXXXXXX")
+    [[ -O $sandbox_receipt_dir && ! -L $sandbox_receipt_dir &&
+       $(realpath -e -- "$sandbox_receipt_dir") == "$sandbox_receipt_dir" ]] || exit 1
+    JERYU_SANDBOX_ENFORCEMENT_DIR="$sandbox_receipt_dir" \
+      cargo test --locked -p jeryu-sandbox-linux --all-features -- --include-ignored --nocapture --test-threads=1 2>&1 | tee target/ci/sandbox.log
+    # Only the escape producer writes here. A previous cached receipt cannot
+    # satisfy this invocation, and zero executed producer tests cannot pass.
+    [[ $(rg -F -x -c -- "enforcement receipt: $sandbox_receipt_dir/enforcement.json" target/ci/sandbox.log) == 1 &&
+       -f $sandbox_receipt_dir/enforcement.json && ! -L $sandbox_receipt_dir/enforcement.json ]] || {
+      printf 'sandbox escape producer did not publish this invocation receipt\n' >&2; exit 1
+    }
     # Ordinary hosts may return early from these eight tests. Require their
     # actual execution here; the paid external-model smoke remains separate.
     sandbox_logs=(target/ci/sandbox.log)
@@ -148,7 +158,7 @@ case ${1:-all} in
       printf 'sandbox proof was skipped or its output could not be checked\n' >&2; exit 1
     }
     jq -e '.false_skips == 0 and (.escapes | length) == 4 and all(.escapes[]; .verdict == "blocked")' \
-      components/jeryu-ci-runner/target/jankurai/runner-sandbox/enforcement.json >/dev/null
+      "$sandbox_receipt_dir/enforcement.json" >/dev/null
     ;;
   legacy)
     # Matrix jobs and direct local lanes have independent prerequisite state.

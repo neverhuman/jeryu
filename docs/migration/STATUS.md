@@ -4,13 +4,19 @@ This is an unqualified source candidate. GitHub source authority, release
 authority, split publication, relocation, and the running service have not
 been cut over. `handover.status` remains `pending-protected-review`.
 
-The September 9 continuation audit does not establish a complete CI pass. The
-ten-step ordinary run at `ea65912f` recorded every selected step and
-closed with a clean source tree and no remaining owned processes or CI locks.
-Nine of ten steps passed; Rust failed before tests because the auditor refused
-the shared, group-writable source ancestors. Those permissions allow another CI
-account to write and will remain intact. Rust needs a disposable exact-commit Git
-clone under a private directory, with the same custody checks and guarded cleanup.
+The latest complete Rust command passed at `b4206091` in a private exact-commit
+Git clone, while the actual root auditor remained red at 64/85 with 71 hard
+findings. The reporting, receipt and CI-status corrections passed their selected
+local checks across two runs at identical frozen source. Complete local and
+hosted CI, anonymous final-source installation, split publication and release
+qualification remain open.
+
+Earlier, the ten-step ordinary run at `ea65912f` recorded every selected step
+and closed with a clean source tree and no remaining owned processes or CI
+locks. Nine of ten steps passed; Rust stopped because the auditor refused the
+shared, group-writable source ancestors. Those shared permissions remain intact.
+The later private-clone qualification resolved that source-custody admission
+problem without weakening the auditor checks.
 Sandbox, OCI, splits, legacy and auxiliary were outside this selected run.
 GitHub main contains the source through `4c93436a`, merged as PR 64 without an
 approving review. Its reduced aggregate and ignored host tests do not establish
@@ -112,6 +118,39 @@ Git, protected review/check/merge and restart persistence. Source remained
 unchanged and all owned processes and three locks closed. Earlier failed
 attempts remain preserved. These are focused preparation results; the complete
 local matrix, anonymous installation and hosted qualification remain open.
+
+At `b4206091`, the complete shared Rust lane passed in a private exact-commit
+Git clone: 2,309 test passes across 267 summaries, no failures, formatting,
+warning-denied workspace Clippy and the separately required no-web API tests
+and Clippy. The two explicit ignores are the paid external-model smoke and
+the hardened OCI matrix, which remains mandatory in its separate lane.
+Ordinary Agentbridge tests can return early on an incapable host; their output
+does not replace the eight required no-skip sandbox behaviors. The pinned
+public auditor bootstrap and all four Runner transport tests passed. The real
+root audit completed and still failed at 64/85, raw 76, eight caps, 94 findings
+and 71 hard findings. That failure remains open. Source, owned processes,
+three locks and exact builder-container closure were verified, and the private
+clone was removed after custody. This is a Rust-lane pass, not full CI or
+anonymous fresh-user qualification.
+
+The next reviewed correction removes the deterministic personal runner fleet
+from live API capacity. Until a registry is connected, API, CLI, TUI and Web
+report unknown capacity while retaining observed workcell, task and check jobs.
+Web capacity freshness follows its own observation timestamp; unrelated live
+events cannot refresh it. The five unprobed system components likewise report
+unknown health with no invented latency. The sandbox lane requires a unique
+receipt from the current test invocation, and receipt I/O errors fail the
+producer. Prior cached receipts and missing, duplicate or inexact producer
+markers cannot satisfy the gate. The selected ten-phase command set passed
+across two runs at the same frozen source (`b4206091` plus recorded source diff
+`8a50bee0`). Coverage includes API, TUI and CLI checks, 209 Web tests,
+typechecking, lint, 74 CI-matrix assertions and five Fleet browser cases.
+The original combined run passed nine phases and all 32 split-tool binary
+tests, then failed because its wrapper incorrectly expected 37 binary tests.
+That failure remains recorded. A separate follow-up passed the 32 binary and
+five CLI-compatibility tests, warning-denied split-tool Clippy and the owning
+inventory check. This selected result does not establish complete CI or the
+full disposable native sandbox proof.
 
 The successor retains the public `--store` / `JERYU_STORE` interface: SQLite is
 the default, and Redline aliases visibly select that same durable engine. A
@@ -563,11 +602,16 @@ Remaining release gates include:
 - Prepare and verify the installed runtime projection before the coordinated
   relocation and maintenance gate. Preserve Jain's immutable consumer pins.
 
-The CLI now routes implemented forge/agent/control-plane operations to the
-configured HTTP API. Historical CI, runner mutation, proof, release, cache
-self-test and agent-auth commands that had only in-memory simulations return
-explicit errors until server transports are implemented. They cannot report
-successful operations against discarded temporary state.
+The CLI routes implemented forge, agent and control-plane operations, including
+`ci status`, to the configured HTTP API. CI status reads repository check records;
+an empty result does not assert that CI passed. Its five HTTP process tests,
+three transport tests and six standalone process tests passed during the
+focused run. The remaining selected checks passed in a separate follow-up
+at identical source; complete CI remains unqualified.
+`ci run`, `ci explain`, runner mutation, proof, release, cache self-test and
+agent-auth commands without server transports continue to return explicit
+errors. They cannot report successful operations against discarded temporary
+state.
 
 The frozen candidate `169659957435fb896aa748574d58c0f51c7a50d2` passed the
 ordinary Rust, web and source-install/runtime commands, followed by a separate
@@ -665,7 +709,30 @@ reports and archives remain retained; recovery is distinct from product
 review/integration. No linked worktrees were found in the eleven Jeryu
 checkouts. Active CI output and unowned scratch were excluded from cleanup.
 
+A separate peer-deleted-clone custody gap remains documented. The preserved
+SQLite patch exactly matches commit `5dd31eda`, so that feature is recoverable
+from immutable history. No deletion-time byte inventories or restoration
+receipts exist for the complete dirty states of `/tmp/jeryu-pub-114` and
+`/tmp/jeryu-pub-d87`. Earlier clean observations of the b9 peer clone do not
+establish its deletion-time state. These residual states and the discarded
+target contents remain unverified. This does not establish unique source
+loss, and it does not establish complete preservation.
+
+The four retained roots from failed qualification `DTRUeeXO` were separately
+preserved in owner-only archives. Each archive was restored and its byte,
+type and mode inventory matched the original, which was rechecked afterward.
+A separately coordinated retirement then removed exactly those four originals
+and four verification restorations after fresh archive, manifest, physical
+identity, symlink, mount and root-visible open-handle checks. All four private
+archives remain retained. The original failed qualification evidence and
+preservation receipt remain unchanged.
+
 Ten existing public Jeryu repository graphs were independently bundled and
-restored with matching refs. No Jeryu hosted branch, tag, protection, mirror
-writer, release authority, service, or installed boundary has been changed by
-this candidate. The separately authorized Redline tag mirror is recorded above.
+restored with matching refs. Public main currently contains `4c93436a`, and its
+branch protection was strengthened to require the complete matrix and independent
+review as recorded above. Those hosted changes do not qualify that source or
+the current local candidate. No component mirror publication, qualified
+central release, release-authority handover, installed service cutover or
+installed boundary cutover has been
+completed by this migration. The separately authorized Redline tag mirror is
+recorded above.

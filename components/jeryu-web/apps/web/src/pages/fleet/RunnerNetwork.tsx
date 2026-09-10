@@ -34,12 +34,13 @@ export function RunnerNetworkBoard({
 }
 
 function RunnerNodeBox({ node }: { node: RunnerNetworkNode }): JSX.Element {
+  const capacityKnown = node.availability !== 'unknown';
   const nodeId = testIdSegment(node.runnerId);
   const usedSlots = Math.min(
     Math.max(node.inFlight, node.activeTaskCount),
     Math.max(node.capacity, 0)
   );
-  const visibleSlots = Math.min(Math.max(node.capacity, 1), 24);
+  const visibleSlots = Math.min(Math.max(node.capacity, 0), 24);
   return (
     <article
       className={`fleet__node-box is-${node.availability} is-${node.activityState}`}
@@ -49,18 +50,20 @@ function RunnerNodeBox({ node }: { node: RunnerNetworkNode }): JSX.Element {
       <div className="fleet__node-box-top">
         <span className="fleet__node-box-name">{node.runnerId}</span>
         <span className="fleet__node-box-count">
-          {usedSlots}/{node.capacity}
+          {capacityKnown ? `${usedSlots}/${node.capacity}` : 'capacity unknown'}
         </span>
       </div>
-      <div className="fleet__slot-grid" aria-hidden="true">
-        {Array.from({ length: visibleSlots }).map((_, index) => (
-          <span
-            // Slot positions are stable because capacity is stable per node.
-            key={`${node.runnerId}-slot-${index}`}
-            className={`fleet__slot${index < usedSlots ? ' is-used' : ''}`}
-          />
-        ))}
-      </div>
+      {capacityKnown ? (
+        <div className="fleet__slot-grid" aria-hidden="true">
+          {Array.from({ length: visibleSlots }).map((_, index) => (
+            <span
+              // Slot positions are stable because capacity is stable per node.
+              key={`${node.runnerId}-slot-${index}`}
+              className={`fleet__slot${index < usedSlots ? ' is-used' : ''}`}
+            />
+          ))}
+        </div>
+      ) : null}
       <div className="fleet__node-box-foot">
         <span>{node.source}</span>
         <span>{node.activityState}</span>
@@ -70,6 +73,7 @@ function RunnerNodeBox({ node }: { node: RunnerNetworkNode }): JSX.Element {
 }
 
 export function RunnerNodeCard({ node }: { node: RunnerNetworkNode }): JSX.Element {
+  const capacityKnown = node.availability !== 'unknown';
   const nodeId = testIdSegment(node.runnerId);
   return (
     <article
@@ -91,11 +95,11 @@ export function RunnerNodeCard({ node }: { node: RunnerNetworkNode }): JSX.Eleme
       <dl className="fleet__node-stats">
         <div className="fleet__node-stat">
           <dt>Capacity</dt>
-          <dd>{node.capacity}</dd>
+          <dd>{capacityKnown ? node.capacity : 'unknown'}</dd>
         </div>
         <div className="fleet__node-stat">
           <dt>In flight</dt>
-          <dd>{node.inFlight}</dd>
+          <dd>{capacityKnown ? node.inFlight : 'unknown'}</dd>
         </div>
         <div className="fleet__node-stat">
           <dt>Active tasks</dt>

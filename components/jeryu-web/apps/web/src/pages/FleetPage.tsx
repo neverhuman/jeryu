@@ -69,11 +69,25 @@ export function FleetPage(): JSX.Element {
     [tui, events]
   );
   const runnerNetwork = useMemo(
-    () => runnerNetworkFromResponse(runnersQuery.data),
-    [runnersQuery.data]
+    () =>
+      runnerNetworkFromResponse(
+        runnersQuery.data,
+        !runnersQuery.isError && !runnersQuery.isStale
+      ),
+    [runnersQuery.data, runnersQuery.isError, runnersQuery.isStale]
   );
 
   const outOfDate = isOutOfDate(state.lastUpdated, FLEET_FRESHNESS_TTL_MS);
+  const capacityOutOfDate = isOutOfDate(
+    state.capacityUpdatedAt,
+    FLEET_FRESHNESS_TTL_MS
+  );
+  const poolCapacityKnown =
+    !state.capacityUnknown && state.health !== 'unknown' &&
+    !capacityOutOfDate && !bootstrap.isError && !bootstrap.isStale;
+  const runnerCapacityKnown =
+    runnerNetwork.state === 'fresh' &&
+    runnerNetwork.nodes.every((node) => node.availability !== 'unknown');
   const runnerNetworkNote = runnersQuery.isError
     ? runnersQuery.error?.message ?? 'Runner network snapshot unavailable.'
     : runnersQuery.isLoading
@@ -85,15 +99,17 @@ export function FleetPage(): JSX.Element {
       <header className="page__header">
         <div className="fleet__header-bar">
           <h1 className="page__title">Fleet</h1>
-          <HealthBadge health={state.health} />
-          {outOfDate ? (
+          <HealthBadge health={poolCapacityKnown ? state.health : 'unknown'} />
+          {outOfDate || capacityOutOfDate ? (
             <span
               className="page__pill page__pill--warning"
               data-testid="fleet-freshness-badge"
               title={
-                state.lastUpdated
-                  ? `Last updated ${state.lastUpdated}`
-                  : 'No data received yet'
+                capacityOutOfDate
+                  ? (state.capacityUpdatedAt
+                    ? `Capacity last observed ${state.capacityUpdatedAt}`
+                    : 'No capacity observation received yet')
+                  : `Activity last updated ${state.lastUpdated}`
               }
             >
               out of date
@@ -109,7 +125,7 @@ export function FleetPage(): JSX.Element {
         <div className="fleet__header-bar">
           <div className="fleet__util">
             <span className="fleet__util-value">
-              {Math.round(state.utilization * 100)}%
+              {poolCapacityKnown ? `${Math.round(state.utilization * 100)}%` : 'unknown'}
             </span>
             <span className="fleet__util-label">fleet utilization</span>
           </div>
@@ -124,33 +140,46 @@ export function FleetPage(): JSX.Element {
           >
             {state.totals.failedJobs} failed
           </span>
-          <span
-            className={`page__pill${
-              state.stuckRunnerTotal > 0 ? ' page__pill--danger' : ''
-            }`}
-          >
-            {state.totals.onlineRunners} runners · {state.stuckRunnerTotal} stuck
-          </span>
+          {poolCapacityKnown ? (
+            <span
+              className={`page__pill${
+                state.stuckRunnerTotal > 0 ? ' page__pill--danger' : ''
+              }`}
+            >
+              {state.totals.onlineRunners} runners · {state.stuckRunnerTotal} stuck
+            </span>
+          ) : (
+            <span className="page__pill">Pool capacity unknown</span>
+          )}
           <span className="page__pill">
             {runnerNetwork.totals.nodes} node(s)
           </span>
           <span className="page__pill">
             {runnerNetwork.totals.activeTasks} active task(s)
           </span>
-          <span className="page__pill">
-            {runnerNetwork.totals.onlineNodes} online
-          </span>
-          <span
-            className={`page__pill${
-              runnerNetwork.totals.offlineNodes > 0 ? ' page__pill--warning' : ''
-            }`}
-          >
-            {runnerNetwork.totals.offlineNodes} offline
-          </span>
+          {runnerCapacityKnown ? (
+            <>
+              <span className="page__pill">
+                {runnerNetwork.totals.onlineNodes} online
+              </span>
+              <span
+                className={`page__pill${
+                  runnerNetwork.totals.offlineNodes > 0 ? ' page__pill--warning' : ''
+                }`}
+              >
+                {runnerNetwork.totals.offlineNodes} offline
+              </span>
+            </>
+          ) : (
+            <span className="page__pill">Runner availability unknown</span>
+          )}
         </div>
       </header>
 
-      <BottleneckBanner health={state.health} bottlenecks={state.bottlenecks} />
+      <BottleneckBanner
+        health={poolCapacityKnown ? state.health : 'unknown'}
+        bottlenecks={poolCapacityKnown ? state.bottlenecks : []}
+      />
 
       <section className="page__section" aria-labelledby="fleet-runners">
         <div className="fleet__section-head">
@@ -161,10 +190,10 @@ export function FleetPage(): JSX.Element {
             {runnerNetwork.state}
           </span>
           <span className="page__pill">
-            {runnerNetwork.totals.capacity} slots
+            {runnerCapacityKnown ? `${runnerNetwork.totals.capacity} slots` : 'Runner capacity unknown'}
           </span>
           <span className="page__pill">
-            {runnerNetwork.totals.inFlight} in flight
+            {runnerCapacityKnown ? `${runnerNetwork.totals.inFlight} in flight` : 'In-flight count unknown'}
           </span>
         </div>
         {runnerNetworkNote ? (
@@ -198,7 +227,11 @@ export function FleetPage(): JSX.Element {
         ) : (
           <div className="page__cards">
             {state.pools.map((pool) => (
-              <PoolCard key={pool.pool} pool={pool} />
+              <PoolCard
+                key={pool.pool}
+                pool={pool}
+                capacityAvailable={poolCapacityKnown}
+              />
             ))}
           </div>
         )}

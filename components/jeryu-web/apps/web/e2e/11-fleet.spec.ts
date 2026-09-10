@@ -6,6 +6,8 @@
 // line, and the rule that `local` only appears when the backend payload
 // actually includes it.
 
+import { readFileSync } from 'node:fs';
+
 import { expect, test, type Page } from '@playwright/test';
 
 import { AppShellPage } from './pages/AppShellPage';
@@ -248,6 +250,77 @@ test.describe('Fleet runner-network dashboard (Slice C-web)', () => {
     await expect(localTask).toBeVisible();
     const tagName = await localTask.evaluate((el) => el.tagName.toLowerCase());
     expect(tagName).toBe('article');
+  });
+
+  test('retains observed jobs and tasks without inventing runner capacity @action:fleet.render', async ({ page }, testInfo) => {
+    await blockFleetWebSocket(page);
+    await mockBootstrap(page);
+    const now = new Date().toISOString();
+    const bootstrap = JSON.parse(readFileSync(
+      new URL('./fixtures/data/bootstrap.json', import.meta.url), 'utf8'
+    )) as Record<string, unknown>;
+    bootstrap.tui = {
+      generated_at: now,
+      pool_activity: {
+        repos: [{ repo: 'jeryu/veox', pools: ['trusted'] }],
+        pools: [{
+          pool: 'trusted', tags: [], trust_tier: 'unverified', paused: false,
+          queued_jobs: 5, running_jobs: 2, failed_jobs: 3,
+          active_slots: 0, configured_max_slots: 0, online_runners: 0,
+          stuck_runners: 0,
+        }],
+        unplaceable: [],
+        freshness: {
+          source: 'broker', state: 'unknown', observed_at: null, age_ms: null,
+          cursor: null, ttl_ms: null, confidence: 0, last_error: null,
+          degraded_reason: 'runner capacity registry is not connected',
+        },
+      },
+      system: {},
+    };
+    await page.route('**/api/v1/bootstrap', (route) => route.fulfill({
+      status: 200, contentType: 'application/json', body: JSON.stringify(bootstrap),
+    }));
+    const runners = runnerFabric(false);
+    runners.local = {
+      ...runners.local,
+      state: 'unknown', onlineRunners: 0, offlineRunners: 0, busyRunners: 0,
+      idleRunners: 0, totalSlots: 0, activeSlots: 0, utilization: 0,
+      lastUpdated: now,
+      nodeDetails: runners.local.nodeDetails.map((node) => ({
+        ...node, source: 'workcell', state: 'unknown', capacity: 0,
+        inFlight: 0, lastUpdated: now,
+      })),
+    };
+    await mockControlPlaneRunners(page, runners);
+    const shell = new AppShellPage(page);
+    await shell.goto('/fleet');
+    await shell.assertShellLoaded();
+
+    const fleet = page.getByTestId('fleet-page');
+    const pool = page.getByTestId('fleet-pool-trusted');
+    await expect(pool).toBeVisible();
+    await expect(pool).toContainText('capacity unknown');
+    await expect(pool).not.toHaveClass(/is-saturated/);
+    await expect(pool.getByRole('progressbar')).toHaveCount(0);
+    for (const [label, value] of [['Queued', '5'], ['Running', '2'], ['Failed', '3']]) {
+      await expect(pool.locator('.fleet__stat').filter({ has: page.getByText(label, { exact: true }) }).locator('dd')).toHaveText(value);
+    }
+    await expect(page.getByTestId('fleet-banner')).toContainText('Awaiting fleet telemetry.');
+    await expect(page.getByTestId('fleet-banner')).not.toHaveAttribute('role', 'alert');
+    await expect(fleet).toContainText('Runner capacity unknown');
+    await expect(fleet).not.toContainText(/0%|0 slots|0 online|All pools healthy/);
+    const node = page.getByTestId('fleet-node-xbabe0');
+    await expect(node).toContainText(/Capacity\s*unknown/);
+    await expect(page.getByTestId('fleet-node-box-xbabe0')).toHaveClass(/is-unknown/);
+    await expect(page.getByTestId('fleet-node-box-xbabe0').locator('.fleet__slot-grid')).toHaveCount(0);
+    const task = page.getByTestId('fleet-task-ar-000001');
+    await expect(task).toContainText('publishing patch');
+    await expect(task).toHaveAttribute('href', '/repos/jeryu/jeryu%2Fveox/agents/ar-000001');
+
+    const screenshot = testInfo.outputPath('fleet-capacity-unknown.png');
+    await page.screenshot({ path: screenshot, fullPage: true });
+    await testInfo.attach('fleet-capacity-unknown', { path: screenshot, contentType: 'image/png' });
   });
 
 });

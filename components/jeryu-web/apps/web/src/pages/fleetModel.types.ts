@@ -14,6 +14,8 @@ export type FleetHealth =
 
 /** A single runner pool, rolled up across every repo on the server. */
 export interface FleetPool {
+  /** Numeric capacity fields are present and usable; separate from observed jobs. */
+  capacityKnown: boolean;
   pool: string;
   tags: string[];
   trustTier: string;
@@ -54,6 +56,10 @@ export interface FleetComponent {
 
 /** The fully-folded view the page renders. */
 export interface FleetState {
+  /** Bootstrap registry availability; activity-only frames cannot establish it. */
+  capacityUnknown: boolean;
+  /** Timestamp of capacity evidence; unrelated activity cannot refresh it. */
+  capacityUpdatedAt: string | null;
   /** Overall pool-fabric health. */
   health: FleetHealth;
   totals: FleetTotals;
