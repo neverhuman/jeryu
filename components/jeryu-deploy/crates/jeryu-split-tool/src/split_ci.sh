@@ -54,15 +54,10 @@ case ${1:-ordinary} in
     bash scripts/test-oci.sh
     ;;
   sandbox)
-    [[ $component == jeryu-ci-runner && ${JERYU_DISPOSABLE_SANDBOX:-0} == 1 ]] || {
-      printf 'sandbox proof requires the runner component on a disposable capable Linux host\n' >&2; exit 1;
+    [[ $component == jeryu-ci-runner ]] || {
+      printf 'sandbox proof requires the runner component\n' >&2; exit 1;
     }
-    cargo run --locked -p jeryu-sandbox-linux --example required_capabilities
-    mkdir -p target/ci
-    cargo test --locked -p jeryu-sandbox-linux --all-features -- --include-ignored --nocapture --test-threads=1 2>&1 | tee target/ci/sandbox.log
-    if rg -i '(^|[[:space:]])skip[:[:space:]]|skipping|=> skipped|[1-9][0-9]* ignored' target/ci/sandbox.log; then exit 1; fi
-    jq -e '.false_skips == 0 and (.escapes | length) == 4 and all(.escapes[]; .verdict == "blocked")' \
-      target/jankurai/runner-sandbox/enforcement.json >/dev/null
+    bash scripts/test-native-sandbox.sh --workspace-root "$(pwd -P)"
     ;;
   *) printf 'usage: bash scripts/split-ci.sh [ordinary|sandbox|oci]\n' >&2; exit 2 ;;
 esac

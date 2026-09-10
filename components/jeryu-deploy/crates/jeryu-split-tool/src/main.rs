@@ -13,6 +13,7 @@ use clap::{Parser, Subcommand};
 use serde::Serialize;
 use toml::Value;
 
+mod audit_score;
 mod build_config;
 mod canonical_json;
 mod monorepo;
@@ -29,6 +30,15 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Command {
+    /// Admit an existing auditor report using its owning score policy.
+    AuditScoreCheck {
+        #[arg(long, value_enum)]
+        owner: audit_score::Owner,
+        #[arg(long)]
+        policy: PathBuf,
+        #[arg(long)]
+        report: PathBuf,
+    },
     /// Validate one local identity for every Jeryu package in the monorepo.
     MonorepoCheck,
     /// Check component compiler/config projections; explicitly refresh with --write.
@@ -222,6 +232,11 @@ fn parse_manifest_compat(args: &[OsString]) -> std::result::Result<Cli, Manifest
 
 fn run(cli: Cli) -> Result<()> {
     match cli.command {
+        Command::AuditScoreCheck {
+            owner,
+            policy,
+            report,
+        } => audit_score::run(owner, &policy, &report),
         Command::MonorepoCheck => monorepo::check(Path::new(".")),
         Command::BuildConfig { write } => build_config::run(Path::new("."), write),
         Command::PublicPreflight => monorepo::public_preflight(Path::new(".")),
