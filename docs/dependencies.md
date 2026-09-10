@@ -44,9 +44,19 @@ attempt uses private output outside the source tree; failures remain available
 for review. Component, published mirror and external dependency results are
 distinct. Missing source is `source_unavailable`, not a numeric score.
 
+External audit sources now have an anonymous acquisition adapter. Supporting
+dependencies require an exact commit; an unpinned standalone mirror may resolve
+its declared maintained branch and records that observation separately. Each
+scope fetches only the selected commit's full ancestor graph, verifies Git
+objects, and creates a disposable `git clone --no-local` from that verified
+input. Receipts retain the public URL, full commit/tree and object-set digest.
+No personal Git configuration or credentials enter acquisition. Failed sources
+and cleanup refusals remain private for inspection. Actual public-origin
+execution of this adapter remains a qualification obligation.
+
 The current census runs the pinned producer in a read-only Linux filesystem and
 records report, source, policy, lockfile, executable and receipt hashes. Linux
-Bubblewrap and GNU timeout are executor prerequisites. The independent protected
+Bubblewrap, GNU timeout, Git and `prlimit` are executor prerequisites. The independent protected
 predecessor adapter is still pending, so the required audit lane fails closed.
 Supplying a Git SHA for policy comparison cannot authenticate that predecessor.
 

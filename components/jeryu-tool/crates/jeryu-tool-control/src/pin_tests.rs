@@ -142,3 +142,74 @@ fn public_distribution_rejects_transport_substitution_and_producer_changes() {
         toml::Value::String(PUBLIC_SOURCE_REPOSITORY.to_owned());
     assert!(parse_value(&replaced_producer).is_err());
 }
+
+#[test]
+fn manifest_profile_floors_reject_weaker_limits_in_both_schemas() {
+    for schema in ["1", "2"] {
+        let mut valid = parsed_canonical();
+        valid["schema_version"] = toml::Value::String(schema.to_owned());
+        if schema == "1" {
+            valid
+                .as_table_mut()
+                .expect("manifest")
+                .remove("distribution");
+        }
+        parse_value(&valid).expect("valid floor fixture");
+        for (field, minimum) in [
+            ("default", 85),
+            ("public-portal", 85),
+            ("jeryu-ci-runner", 91),
+            ("jeryu-tool", 85),
+        ] {
+            for value in [-1, 0, minimum - 1, 101] {
+                let mut invalid = valid.clone();
+                invalid["floors"][field] = toml::Value::Integer(value);
+                let error = parse_value(&invalid).expect_err("out-of-policy floor accepted");
+                assert_eq!(
+                    error,
+                    format!(
+                        "tool-manifest.toml [floors].{field} must be between {minimum} and 100"
+                    ),
+                    "schema {schema}: {field}={value}"
+                );
+            }
+            for value in [
+                toml::Value::String(minimum.to_string()),
+                toml::Value::Float(85.0),
+                toml::Value::Boolean(true),
+            ] {
+                let mut invalid = valid.clone();
+                invalid["floors"][field] = value;
+                let error = parse_value(&invalid).expect_err("noninteger floor accepted");
+                assert_eq!(
+                    error,
+                    format!("tool-manifest.toml [floors].{field} must be an integer")
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn stronger_profile_floors_preserve_every_generated_auditor_identity() {
+    let valid = parsed_canonical();
+    let original = parse_value(&valid).expect("canonical pin");
+    for (field, minimum) in [
+        ("default", 85),
+        ("public-portal", 85),
+        ("jeryu-ci-runner", 91),
+        ("jeryu-tool", 85),
+    ] {
+        for score in [minimum, 100] {
+            let mut stronger = valid.clone();
+            stronger["floors"][field] = toml::Value::Integer(score);
+            let pin = parse_value(&stronger).expect("stronger floor must remain supported");
+            for (_, name) in PIN_ENV_FIELDS {
+                assert_eq!(pin.get(name), original.get(name), "{field}={score}: {name}");
+            }
+            assert_eq!(pin.env_text(), original.env_text());
+            assert_eq!(pin.shell_block(), original.shell_block());
+            assert_eq!(pin.workflow_block(), original.workflow_block());
+        }
+    }
+}

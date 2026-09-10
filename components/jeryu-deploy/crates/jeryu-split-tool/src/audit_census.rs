@@ -35,6 +35,7 @@ struct Inventory {
 #[derive(Serialize)]
 struct Row {
     source: Source,
+    acquisition: Option<Value>,
     status: &'static str,
     reason: String,
     commit: Option<String>,
@@ -248,6 +249,9 @@ use bootstrap::{pin, verify_auditor};
 mod execution;
 use execution::{Executor, execute};
 
+#[path = "audit_acquisition.rs"]
+mod acquisition;
+
 #[allow(clippy::too_many_arguments)]
 pub(super) fn run(
     root: &Path,
@@ -348,6 +352,7 @@ pub(super) fn run(
     for (index, source) in sources.into_iter().enumerate() {
         let mut row = Row {
             source,
+            acquisition: None,
             status: "not_executed",
             reason: String::new(),
             commit: None,
@@ -358,27 +363,60 @@ pub(super) fn run(
             report_sha256: None,
             summary: None,
         };
-        if row.source.path.is_none() {
-            row.status = "source_unavailable";
-            row.reason = row.source.reason.clone().unwrap_or_else(|| {
-                "acquire and verify the exact public immutable source in the project cache".into()
-            });
-        } else if let Err(reason) = &admission {
-            row.reason.clone_from(reason);
-        } else if let Some(auditor) = held_path.as_deref() {
-            let executor = Executor {
-                root: &root,
-                out: &out,
-                auditor,
-                binary_hash,
-                version,
-                timeout_seconds,
-                governing,
-            };
-            if let Err(error) = execute(&executor, &mut row, index) {
-                row.status = "tool_error";
-                row.reason = format!("{error:#}");
+        // A failed source/auditor bootstrap performs no network acquisition.
+        // Every scope still receives its explicit not-executed reason.
+        let acquired = if row.source.path.is_none() && admission.is_ok() {
+            match acquisition::acquire(&root, &out, &row.source, index, timeout_seconds) {
+                Ok(acquired) => {
+                    row.commit = Some(acquired.commit().to_owned());
+                    row.tree = Some(acquired.tree().to_owned());
+                    row.acquisition = Some(acquired.receipt.clone());
+                    Some(acquired)
+                }
+                Err(error) => {
+                    row.status = if error.downcast_ref::<acquisition::TimedOut>().is_some() {
+                        "timed_out"
+                    } else {
+                        "source_unavailable"
+                    };
+                    row.reason = format!("{error:#}");
+                    None
+                }
             }
+        } else {
+            None
+        };
+        if row.source.path.is_some() || acquired.is_some() || admission.is_err() {
+            if let Err(reason) = &admission {
+                row.reason.clone_from(reason);
+            } else if let Some(auditor) = held_path.as_deref() {
+                let executor = Executor {
+                    root: &root,
+                    out: &out,
+                    auditor,
+                    binary_hash,
+                    version,
+                    timeout_seconds,
+                    governing,
+                };
+                let result = match &acquired {
+                    Some(source) => {
+                        execution::execute_at(&executor, &mut row, index, source.path())
+                    }
+                    None => execute(&executor, &mut row, index),
+                };
+                if let Err(error) = result {
+                    row.status = "tool_error";
+                    row.reason = format!("{error:#}");
+                }
+            }
+        }
+        if let Some(acquired) = acquired
+            && let Err(error) = acquired.finish(row.status == "passed")
+        {
+            row.status = "tool_error";
+            row.reason =
+                format!("public source cleanup refused; retained for inspection: {error:#}");
         }
         println!(
             "{} {}: {}",

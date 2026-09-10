@@ -40,3 +40,25 @@ absence does not block the required SQLite matrix.
 Record the exact commit, command, exit status and report identity. Keep original
 failures and retry history. Preserve failed scratch for reviewed custody checks;
 never remove original checkouts or runtime state as part of routine test cleanup.
+
+The real browser server wrapper retains its private `jeryu-browser.*` fixture
+on every exit. Playwright terminates that wrapper after success as well as
+failure, so the wrapper cannot authenticate the browser test result. Its exit
+message reports only the path, original directory identity and wrapper status;
+these are custody metadata, not a passing-test receipt.
+
+Inside that owner-only directory, `fixture-origin.txt` records the original
+device/inode/owner/group/mode tuple, the server binary checksum observed before
+launch and an unknown Playwright result. The checksum identifies an observed
+binary, not qualified source provenance. `server.log` and the databases remain
+private; do not publish them with browser reports. Retain the actual Playwright
+result and run identity separately.
+
+Fixture retirement is a separate reviewed action. Before removing an exact
+fixture, authenticate the corresponding test result, preserve required failure
+evidence, compare its physical path and identity with the original receipt,
+and inspect links, mounts and open handles. The existing
+[`tests/scratch.sh`](../tests/scratch.sh) removal guard checks the recorded root
+identity and symlink/mount boundaries; it does not supply test-success evidence
+or complete preservation admission. Do not re-record a replacement root as if
+it were the original fixture. The browser wrapper never invokes that remover.

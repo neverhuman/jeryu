@@ -54,7 +54,7 @@ impl WorkStore {
     }
 
     pub fn create(&self, request: CreateWorkItemRequest) -> Result<WorkItem> {
-        validate_title(&request.title)?;
+        request.validate()?;
         let labels = normalize_labels(request.labels);
         let assignees = normalize_assignees(request.assignees)?;
         let now = Utc::now();
@@ -123,8 +123,22 @@ impl WorkStore {
     }
 
     pub fn detail(&self, key: &str) -> Result<WorkItemDetail> {
-        let item = self.get(key)?;
-        let comments = self.comments_for_number(item.number)?;
+        let number = parse_key(key)?;
+        let mut conn = self.connect()?;
+        let tx = conn.transaction().map_err(WorkError::storage)?;
+        let item = tx
+            .query_row(
+                "SELECT * FROM work_items WHERE number = ?1",
+                params![number],
+                row_to_item,
+            )
+            .optional()
+            .map_err(WorkError::storage)?
+            .ok_or_else(|| WorkError::NotFound(key.to_string()))?;
+        #[cfg(test)]
+        tests::after_detail_item_read();
+        let comments = Self::comments_for_number(&tx, item.number)?;
+        tx.commit().map_err(WorkError::storage)?;
         Ok(WorkItemDetail { item, comments })
     }
 
@@ -301,8 +315,7 @@ impl WorkStore {
         .map_err(WorkError::storage)
     }
 
-    fn comments_for_number(&self, number: u64) -> Result<Vec<WorkComment>> {
-        let conn = self.connect()?;
+    fn comments_for_number(conn: &Connection, number: u64) -> Result<Vec<WorkComment>> {
         let mut stmt = conn
             .prepare(
                 r#"

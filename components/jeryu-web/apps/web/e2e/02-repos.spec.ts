@@ -54,7 +54,7 @@ test.describe('Repositories list (W-T-10)', () => {
 
   test('SPA renders mocked list, filters/sorts/toggles view, navigates, opens Create dialog @action:repos.filter @action:repos.sort @action:repos.view_toggle @action:repos.open_repo @action:repos.create_dialog', async ({
     page,
-  }) => {
+  }, testInfo) => {
     await mockBootstrap(page);
     await mockRepoList(page, REPOS);
     // Mock the overview-page resolver (which re-fetches /repos with a host
@@ -116,10 +116,18 @@ test.describe('Repositories list (W-T-10)', () => {
     // The dialog mounts as a role="dialog" panel — assert it appears.
     const dialog = page.getByRole('dialog');
     await expect(dialog).toBeVisible({ timeout: 5_000 });
+    await expect(dialog.getByRole('option', { name: 'local (unavailable)', exact: true })).toBeDisabled();
+    await expect(dialog.getByRole('option', { name: 'internal (unavailable)', exact: true })).toBeDisabled();
+    await expect(dialog.getByLabel('Topics (unavailable)', { exact: true })).toBeDisabled();
+    const visibility = dialog.getByLabel('Visibility', { exact: true });
+    await visibility.selectOption('public');
+    await expect(visibility).toHaveValue('public');
+    await visibility.selectOption('private');
+    await expect(visibility).toHaveValue('private');
 
-    await page.screenshot({
-      path: 'playwright-report/repos-page.png',
-      fullPage: true,
+    await testInfo.attach('repository-create-controls', {
+      body: await page.screenshot({ fullPage: true }),
+      contentType: 'image/png',
     });
   });
 });

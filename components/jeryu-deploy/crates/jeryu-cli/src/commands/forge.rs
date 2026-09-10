@@ -78,6 +78,13 @@ fn run_pr(
     cmd: PrCommands,
     out: &mut dyn Write,
 ) -> ClientResult<()> {
+    if let PrCommands::Merge { trust_tier, .. } = &cmd
+        && trust_tier != "trusted"
+    {
+        return Err(ClientError::Invalid(
+            "--trust-tier only supports trusted; the server enforces merge policy".to_string(),
+        ));
+    }
     if let Some(api_url) = api_url {
         return run_pr_live(api_url, owner, json, cmd, out);
     }
@@ -127,14 +134,7 @@ fn run_pr(
                 &format!("pull request #{} is {:?}", pull.number, pull.state),
             )
         }
-        PrCommands::Merge {
-            repo,
-            pr,
-            trust_tier,
-        } => {
-            // trust_tier is the risk-gate input; the in-memory client admits
-            // all tiers.
-            let _ = trust_tier;
+        PrCommands::Merge { repo, pr, .. } => {
             let outcome = client.merge_pull_request(owner, &repo, pr)?;
             render(out, json, &outcome, &outcome.message)
         }
@@ -282,12 +282,7 @@ fn run_pr_live(
                 &format!("pull request #{} is {:?}", pull.number, pull.state),
             )
         }
-        PrCommands::Merge {
-            repo,
-            pr,
-            trust_tier,
-        } => {
-            let _ = trust_tier;
+        PrCommands::Merge { repo, pr, .. } => {
             let value = api.put(
                 &format!("/repos/{owner}/{repo}/pulls/{pr}/merge"),
                 json!({}),

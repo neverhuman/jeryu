@@ -86,9 +86,10 @@ impl Pin {
                 .get(field)
                 .and_then(toml::Value::as_integer)
                 .ok_or_else(|| format!("tool-manifest.toml [floors].{field} must be an integer"))?;
-            if !(0..=100).contains(&value) {
+            let minimum = if field == "jeryu-ci-runner" { 91 } else { 85 };
+            if !(minimum..=100).contains(&value) {
                 return Err(format!(
-                    "tool-manifest.toml [floors].{field} must be between 0 and 100"
+                    "tool-manifest.toml [floors].{field} must be between {minimum} and 100"
                 ));
             }
         }

@@ -194,6 +194,7 @@ impl Fixture {
 
     fn execute(&self, timeout_seconds: u64) -> (Row, Result<()>) {
         let mut row = Row {
+            acquisition: None,
             source: Source {
                 repository: "neverhuman/jeryu-jira".into(),
                 scope: "component".into(),

@@ -13,6 +13,9 @@ use std::{
 };
 use tempfile::TempDir;
 
+#[path = "support/recovery.rs"]
+mod recovery;
+
 fn private_temp_dir() -> TempDir {
     tempfile::Builder::new()
         .permissions(std::fs::Permissions::from_mode(0o700))
@@ -22,10 +25,26 @@ fn private_temp_dir() -> TempDir {
 
 struct Server(Child);
 
+impl Server {
+    fn stop(mut self) {
+        if self
+            .0
+            .try_wait()
+            .expect("server process identity")
+            .is_none()
+        {
+            self.0.kill().expect("stop fixture server before backup");
+        }
+        self.0.wait().expect("reap fixture server before backup");
+    }
+}
+
 impl Drop for Server {
     fn drop(&mut self) {
-        let _ = self.0.kill();
-        let _ = self.0.wait();
+        if !matches!(self.0.try_wait(), Ok(Some(_))) {
+            let _ = self.0.kill();
+            let _ = self.0.wait();
+        }
     }
 }
 
@@ -110,7 +129,9 @@ fn git_output(directory: &Path, token: &str, args: &[&str]) -> std::process::Out
         .env("PATH", "/usr/bin:/bin")
         .env("GIT_CONFIG_GLOBAL", "/dev/null")
         .env("GIT_CONFIG_NOSYSTEM", "1")
-        .env("GIT_CONFIG_COUNT", "1")
+        .env("GIT_TERMINAL_PROMPT", "0")
+        // Empty tokens exercise anonymous requests with no Authorization header.
+        .env("GIT_CONFIG_COUNT", if token.is_empty() { "0" } else { "1" })
         .env("GIT_CONFIG_KEY_0", "http.extraHeader")
         .env(
             "GIT_CONFIG_VALUE_0",
@@ -337,6 +358,30 @@ fn authenticated_protected_review_checks_merge_and_restart_preserve_exact_head()
         );
     }
     let git_url = format!("{url}/git/jeryu-admin/protected-repo.git");
+    let anonymous_clone = temp.path().join("anonymous-private-clone");
+    let denied = git_output(
+        temp.path(),
+        "",
+        &[
+            "clone",
+            "--branch",
+            "main",
+            &git_url,
+            anonymous_clone.to_str().unwrap(),
+        ],
+    );
+    assert!(
+        !denied.status.success(),
+        "anonymous private clone was accepted"
+    );
+    assert!(!anonymous_clone.join("README.md").exists());
+    assert_eq!(
+        http.get(format!("{git_url}/info/refs?service=git-upload-pack"))
+            .send()
+            .unwrap()
+            .status(),
+        401
+    );
     git(
         temp.path(),
         &author,
@@ -652,10 +697,14 @@ fn unconfigured_first_start_changes_password_and_preserves_default_state() {
 
 #[test]
 fn startup_cli_and_restart_use_durable_state_from_any_directory() {
-    let temp = private_temp_dir();
+    let temp = recovery::RecoveryFixture::temporary();
     let home = temp.path().join("home");
     let data = temp.path().join("durable");
     std::fs::create_dir(&home).unwrap();
+    std::fs::DirBuilder::new()
+        .mode(0o700)
+        .create(&data)
+        .unwrap();
     std::fs::write(home.join("index.html"), "untrusted-current-directory").unwrap();
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let address = listener.local_addr().unwrap().to_string();
@@ -750,7 +799,7 @@ fn startup_cli_and_restart_use_durable_state_from_any_directory() {
     let login: Value = login.json().unwrap();
     let token: Value = http
         .post(format!("{url}/api/v1/auth/tokens"))
-        .header("cookie", cookie)
+        .header("cookie", &cookie)
         .header("x-jeryu-csrf", login["csrfToken"].as_str().unwrap())
         .json(&json!({"name":"standalone-test"}))
         .send()
@@ -784,6 +833,7 @@ fn startup_cli_and_restart_use_durable_state_from_any_directory() {
         &["forge", "repo", "create", "durable-repo"],
     );
     assert_eq!(repo["name"], "durable-repo");
+    assert_eq!(repo["private"], false);
     let source = temp.path().join("git-client");
     std::fs::create_dir(&source).unwrap();
     git(&source, token, &["init", "-b", "topic"]);
@@ -818,6 +868,57 @@ fn startup_cli_and_restart_use_durable_state_from_any_directory() {
         std::fs::read_to_string(clone.join("README.md")).unwrap(),
         "durable Git fixture\n"
     );
+    let anonymous_clone = temp.path().join("anonymous-public-clone");
+    git(
+        temp.path(),
+        "",
+        &[
+            "clone",
+            "--branch",
+            "topic",
+            &git_url,
+            anonymous_clone.to_str().unwrap(),
+        ],
+    );
+    assert_eq!(
+        std::fs::read_to_string(anonymous_clone.join("README.md")).unwrap(),
+        "durable Git fixture\n"
+    );
+    let invalid_token_clone = temp.path().join("invalid-token-public-clone");
+    let rejected = git_output(
+        temp.path(),
+        "invalid-fixture-token",
+        &[
+            "clone",
+            "--branch",
+            "topic",
+            &git_url,
+            invalid_token_clone.to_str().unwrap(),
+        ],
+    );
+    assert!(
+        !rejected.status.success(),
+        "invalid token clone was accepted"
+    );
+    assert!(!invalid_token_clone.join("README.md").exists());
+    let denied = git_output(
+        &source,
+        "",
+        &["push", &git_url, "HEAD:refs/heads/anonymous-attempt"],
+    );
+    assert!(
+        !denied.status.success(),
+        "anonymous public push was accepted"
+    );
+    assert!(
+        git(
+            temp.path(),
+            "",
+            &["ls-remote", &git_url, "refs/heads/anonymous-attempt"],
+        )
+        .is_empty(),
+        "denied anonymous push changed repository refs"
+    );
     cli(
         &home,
         &url,
@@ -847,7 +948,7 @@ fn startup_cli_and_restart_use_durable_state_from_any_directory() {
     assert_eq!(users.len(), 1);
     assert_eq!(users[0]["login"], "jeryu-admin");
     drop(server);
-    let _server = start(&home, &data, &address, false);
+    let server = start(&home, &data, &address, false);
     let runners = cli(&home, &url, token, &["runners", "status"]);
     assert_eq!(runners["local"]["state"], "unknown");
     assert_eq!(runners["local"]["totalSlots"], 0);
@@ -858,11 +959,130 @@ fn startup_cli_and_restart_use_durable_state_from_any_directory() {
         &["forge", "issue", "list", "--repo", "durable-repo"],
     );
     assert_eq!(issues[0]["title"], "survives restart");
+
+    // Bind Work and its generated issue to the same durable repository. The
+    // saved PAT/session must survive restoration along with both SQLite stores.
+    // The CLI repository view omits the storage identity; resolve it from the
+    // authenticated repository API used by the Work route.
+    let stored_repo = request(
+        &http,
+        Method::GET,
+        &format!("{url}/api/v3/repos/jeryu-admin/durable-repo"),
+        token,
+        Value::Null,
+        200,
+    );
+    assert_eq!(stored_repo["full_name"], "jeryu-admin/durable-repo");
+    let work = request(
+        &http,
+        Method::POST,
+        &format!(
+            "{url}/api/v1/repos/{}/work",
+            stored_repo["id"].as_str().unwrap()
+        ),
+        token,
+        json!({"title":"survives stopped backup", "body":"runtime restore fixture"}),
+        201,
+    );
+    let work_url = format!("{url}/api/v1/work/{}", work["key"].as_str().unwrap());
+    request(
+        &http,
+        Method::POST,
+        &format!("{work_url}/comments"),
+        token,
+        json!({"body":"comment before stopped backup"}),
+        201,
+    );
+    let expected_work = request(&http, Method::GET, &work_url, token, Value::Null, 200);
+    assert_eq!(expected_work["comments"][0]["author"]["id"], "jeryu-admin");
+    server.stop();
+
+    // The archive includes every data file and sidecar after the owning process
+    // is reaped. Restore into a new runtime directory; preserve the original.
+    let original = temp.snapshot(&data).unwrap();
+    let restored = temp.path().join("restored-data");
+    temp.restore_stopped_data(&data, &restored).unwrap();
+    let server = start(&home, &restored, &address, false);
+    let authenticated: Value = http
+        .get(format!("{url}/api/v1/auth/me"))
+        .header("cookie", &cookie)
+        .send()
+        .unwrap()
+        .error_for_status()
+        .unwrap()
+        .json()
+        .unwrap();
+    assert_eq!(authenticated["login"], "jeryu-admin");
+    assert_eq!(authenticated["role"], "admin");
+    assert_eq!(http.get(&work_url).send().unwrap().status(), 401);
+    assert!(
+        request(&http, Method::GET, &work_url, token, Value::Null, 200) == expected_work,
+        "restored Work item, repository binding, or comments changed"
+    );
+    let issues = cli(
+        &home,
+        &url,
+        token,
+        &["forge", "issue", "list", "--repo", "durable-repo"],
+    );
+    assert!(
+        issues
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|issue| issue["title"] == "survives restart")
+    );
+    assert!(
+        issues
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|issue| issue["title"] == "survives stopped backup")
+    );
+    let restored_clone = temp.path().join("restored-git-clone");
+    git(
+        temp.path(),
+        "",
+        &[
+            "clone",
+            "--branch",
+            "topic",
+            &git_url,
+            restored_clone.to_str().unwrap(),
+        ],
+    );
+    assert_eq!(
+        std::fs::read_to_string(restored_clone.join("README.md")).unwrap(),
+        "durable Git fixture\n"
+    );
+    assert_eq!(
+        git(&restored_clone, "", &["rev-parse", "HEAD"]),
+        git(&source, "", &["rev-parse", "HEAD"])
+    );
+    request(
+        &http,
+        Method::POST,
+        &format!("{work_url}/comments"),
+        token,
+        json!({"body":"accepted after restore"}),
+        201,
+    );
+    server.stop();
+    let server = start(&home, &restored, &address, false);
+    let work = request(&http, Method::GET, &work_url, token, Value::Null, 200);
+    assert_eq!(work["comments"].as_array().unwrap().len(), 2);
+    assert_eq!(work["comments"][1]["body"], "accepted after restore");
+    server.stop();
+    assert!(
+        temp.snapshot(&data).unwrap() == original,
+        "restoration changed original data"
+    );
+    temp.finish();
 }
 
 #[test]
 fn unreachable_api_and_unimplemented_operations_cannot_report_success() {
-    let temp = private_temp_dir();
+    let temp = recovery::RecoveryFixture::temporary();
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let url = format!("http://{}", listener.local_addr().unwrap());
     drop(listener);
@@ -872,12 +1092,49 @@ fn unreachable_api_and_unimplemented_operations_cannot_report_success() {
         .unwrap();
     assert!(!result.status.success());
     assert!(result.stdout.is_empty());
-    let result = isolated_command(temp.path())
-        .args(["cache", "self-test"])
-        .output()
-        .unwrap();
-    assert!(!result.status.success());
-    assert!(result.stdout.is_empty());
+    assert!(std::fs::read_dir(temp.path()).unwrap().next().is_none());
+    let unavailable: &[&[&str]] = &[
+        &["ci", "run", "--repo", "fixture"],
+        &["ci", "explain", "run"],
+        &["runner", "list"],
+        &["runner", "enroll", "node"],
+        &["runner", "drain", "id"],
+        &["runner", "rotate", "id"],
+        &["proof", "verify", "changeset"],
+        &["proof", "explain", "id"],
+        &["release", "--version", "5.0.0"],
+        &["cache", "self-test"],
+        &["agent", "auth", "import", "--from-host", "codex"],
+        &["agent", "auth", "doctor", "codex"],
+        &["onboard", "fixture"],
+    ];
+    for args in unavailable {
+        let result = isolated_command(temp.path())
+            .args(["--api-url", &url])
+            .args(*args)
+            .output()
+            .unwrap();
+        assert_eq!(
+            result.status.code(),
+            Some(5),
+            "unavailable command {args:?}"
+        );
+        assert!(
+            result.stdout.is_empty(),
+            "unavailable command emitted success output: {args:?}"
+        );
+        let error = String::from_utf8(result.stderr).unwrap();
+        assert!(
+            error.contains("not yet wired") && error.contains("server transport"),
+            "unavailable command omitted its transport error: {args:?}"
+        );
+        assert!(
+            std::fs::read_dir(temp.path()).unwrap().next().is_none(),
+            "unavailable command created state: {args:?}"
+        );
+    }
+    // output() reaps each CLI child. The explicit success guard checks references.
+    temp.finish();
 }
 
 #[test]

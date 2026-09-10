@@ -120,8 +120,8 @@ It does not switch the server backend or block SQLite release eligibility.
 Runner installation is also optional; native sandbox and product-image
 qualification remain separate obligations.
 
-See [release and recovery status](docs/release.md), [support](SUPPORT.md)
-and [security reporting](SECURITY.md). Source publication, release authority
+See [release status](docs/release.md), [backup and recovery](docs/recovery.md),
+[support](SUPPORT.md) and [security reporting](SECURITY.md). Source publication, release authority
 handover and installed-service activation each require their own evidence.
 
 Jeryu is licensed under [Apache-2.0](LICENSE). Bundled JetBrains Mono fonts

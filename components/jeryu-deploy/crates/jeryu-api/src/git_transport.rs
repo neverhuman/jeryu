@@ -454,10 +454,6 @@ fn origin_base_url(headers: &HeaderMap) -> String {
     }
 }
 
-fn logical_repo_name(repo: &str) -> &str {
-    repo.strip_suffix(".git").unwrap_or(repo)
-}
-
 fn authorize_git_core(
     state: &WebState,
     peer: SocketAddr,
@@ -469,22 +465,45 @@ fn authorize_git_core(
     if !state.auth_required || (state.trust_local_dev && peer.ip().is_loopback()) {
         return Ok(());
     }
-    let Some(auth) = crate::web::auth::authenticate_headers(state, headers) else {
+    // Use the transport resolver's identity for every authorization decision.
+    // Independently stripping a suffix can authorize a different metadata row
+    // from the bare repository that Git actually opens.
+    let resolved = state
+        .repo_manager
+        .resolve_parts(owner, repo)
+        .map_err(|error| Box::new(gitd_error_to_axum(error)))?;
+    let owner = resolved.id.owner.as_str();
+    let logical_repo = resolved.id.name.as_str();
+    let public_read = !write
+        && state
+            .core
+            .get_repository(owner, logical_repo)
+            .is_ok_and(|repository| !repository.private);
+    let auth = crate::web::auth::authenticate_headers(state, headers).filter(|auth| {
+        !headers.contains_key(header::AUTHORIZATION)
+            || auth.source == crate::web::auth::AuthSource::Bearer
+    });
+    let Some(auth) = auth else {
+        // Public Git reads need no credential. Supplied invalid authorization
+        // still fails so a revoked or mistyped token is never silently accepted.
+        if public_read && !headers.contains_key(header::AUTHORIZATION) {
+            return Ok(());
+        }
         return Err(Box::new(gitd_to_axum_response(
             &GitHttpResponse::text(401, "Requires authentication\n")
                 .with_header("WWW-Authenticate", "Basic realm=\"jeryu\""),
         )));
     };
     let account = auth.account;
-    let logical_repo = logical_repo_name(repo);
     let allowed = if write {
         state
             .core
             .user_can_write_repo(&account.login, owner, logical_repo)
     } else {
-        state
-            .core
-            .user_can_read_repo(&account.login, owner, logical_repo)
+        public_read
+            || state
+                .core
+                .user_can_read_repo(&account.login, owner, logical_repo)
     };
     if allowed {
         Ok(())
@@ -640,7 +659,7 @@ fn snapshot_refs(manager: &RepoManager, owner: &str, repo: &str) -> Vec<jeryu_gi
 mod tests {
     use super::{
         GitRpcBodyError, GitRpcContentEncoding, decode_git_rpc_body, forwarded_git_headers,
-        git_rpc_content_encoding, logical_repo_name, read_git_rpc_body,
+        git_rpc_content_encoding, read_git_rpc_body,
     };
     use axum::body::{Body, Bytes};
     use axum::http::{HeaderMap, HeaderValue, header};
@@ -652,16 +671,6 @@ mod tests {
         let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
         encoder.write_all(bytes).unwrap();
         encoder.finish().unwrap()
-    }
-
-    #[test]
-    fn logical_repo_name_strips_only_the_transport_suffix() {
-        assert_eq!(logical_repo_name("project.git"), "project");
-        assert_eq!(logical_repo_name("project"), "project");
-        assert_eq!(
-            logical_repo_name("project.git.backup"),
-            "project.git.backup"
-        );
     }
 
     #[test]

@@ -46,10 +46,10 @@ build_context_sha256  = "889d19f86fc390b0f0cf0bd6ecb4d451c51a2d6fb328e5520e4310e
 # Per-profile minimum_score. Consumed by the jeryu-managed default policy
 # (policy/default-audit-policy.toml) and the merge-gate floor for repos that
 # carry no policy of their own.
-default        = 85
-"public-portal" = 75   # scripts/docs-only scaffold: product categories don't apply
-"jeryu-ci-runner" = 80 # calibrated for its size (documented in the cutover state)
-"jeryu-tool"   = 65    # the most minimal repo: manifest+scripts+docs, no product code (clean tops out at 66)
+default          = 85
+"public-portal"  = 85
+"jeryu-ci-runner" = 91
+"jeryu-tool"     = 85
 
 [tools]
 # Default adoption mode per jankurai tool id (from TOOL_ADOPTION_CATALOG):

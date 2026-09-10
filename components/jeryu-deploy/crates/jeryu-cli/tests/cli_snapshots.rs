@@ -654,6 +654,71 @@ fn dispatch_forge_pr_merge_uses_put_live_api_url() {
 }
 
 #[test]
+fn dispatch_forge_pr_merge_rejects_unsupported_trust_without_request() {
+    let (addr, captured, server) =
+        spawn_http_fixture(r#"{"merged":true,"message":"pull request #1 merged"}"#.to_string());
+    let api_url = format!("http://{addr}");
+    let client = InMemoryClient::new();
+    for trust_tier in ["untrusted", "TRUSTED", "trusted ", ""] {
+        let (code, out, err) = run_cli(
+            &client,
+            &[
+                "jeryu",
+                "--api-url",
+                &api_url,
+                "forge",
+                "pr",
+                "merge",
+                "--repo",
+                "alpha",
+                "--pr",
+                "1",
+                "--trust-tier",
+                trust_tier,
+            ],
+        );
+        assert_eq!(code, 4, "unsupported trust tier {trust_tier:?}: {err}");
+        assert!(out.is_empty(), "refused merge must not print success");
+        assert!(err.contains("--trust-tier only supports trusted"));
+        assert!(err.contains("server enforces merge policy"));
+        assert!(captured.lock().expect("capture lock").is_none());
+    }
+
+    // The compatibility value sends the ordinary request to the server gate.
+    let (code, out, err) = run_cli(
+        &client,
+        &[
+            "jeryu",
+            "--api-url",
+            &api_url,
+            "forge",
+            "pr",
+            "merge",
+            "--repo",
+            "alpha",
+            "--pr",
+            "1",
+            "--trust-tier",
+            "trusted",
+        ],
+    );
+    assert_eq!(code, 0, "stderr was {err:?}");
+    assert!(err.is_empty());
+    assert!(out.contains("merged"));
+    server.join().expect("fixture server");
+    let captured = captured
+        .lock()
+        .expect("capture lock")
+        .clone()
+        .expect("request captured");
+    assert_eq!(
+        captured.request_line,
+        "PUT /repos/jeryu/alpha/pulls/1/merge HTTP/1.1"
+    );
+    assert_eq!(captured.body, "{}", "trust cannot override server policy");
+}
+
+#[test]
 fn dispatch_ci_run_schedules_then_status_and_explain() {
     let client = InMemoryClient::with_seed_repo("jeryu", "alpha");
     let (code, out, _) = run_cli(

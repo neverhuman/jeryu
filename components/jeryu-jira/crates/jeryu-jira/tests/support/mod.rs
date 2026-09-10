@@ -104,31 +104,48 @@ impl TestDatabase {
 
 impl Drop for TestDatabase {
     fn drop(&mut self) {
+        if std::thread::panicking() {
+            if !self.cleaned {
+                eprintln!(
+                    "Work database fixture retained after panic: {} (device={}, inode={}, uid={}, gid={}, mode={:o})",
+                    self.root.display(),
+                    self.identity.dev(),
+                    self.identity.ino(),
+                    self.identity.uid(),
+                    self.identity.gid(),
+                    self.identity.mode(),
+                );
+            }
+            return;
+        }
         if let Err(error) = self.cleanup() {
-            let message = format!(
+            panic!(
                 "Work database fixture cleanup failed; retained {}: {error}",
                 self.root.display()
             );
-            if std::thread::panicking() {
-                eprintln!("{message}");
-            } else {
-                panic!("{message}");
-            }
         }
     }
 }
 
 #[test]
-fn database_and_sidecars_are_removed_on_return_and_unwind() {
+fn database_and_sidecars_are_cleaned_on_success_and_retained_on_unwind() {
     for unwind in [false, true] {
         let fixture = TestDatabase::temporary();
         let root = fixture.root.clone();
-        for name in [
+        let identity = (
+            fixture.identity.dev(),
+            fixture.identity.ino(),
+            fixture.identity.uid(),
+            fixture.identity.gid(),
+            fixture.identity.mode(),
+        );
+        let names = [
             "work.sqlite",
             "work.sqlite-journal",
             "work.sqlite-wal",
             "work.sqlite-shm",
-        ] {
+        ];
+        for name in names {
             fs::write(root.join(name), b"synthetic cleanup fixture").unwrap();
         }
         let result = std::panic::catch_unwind(move || {
@@ -136,10 +153,37 @@ fn database_and_sidecars_are_removed_on_return_and_unwind() {
             assert!(!unwind, "intentional fixture unwind");
         });
         assert_eq!(result.is_err(), unwind);
-        assert_eq!(
-            fs::symlink_metadata(root).unwrap_err().kind(),
-            io::ErrorKind::NotFound
-        );
+        if unwind {
+            let current = fs::symlink_metadata(&root).unwrap();
+            assert!(current.is_dir() && !current.file_type().is_symlink());
+            assert_eq!(
+                (
+                    current.dev(),
+                    current.ino(),
+                    current.uid(),
+                    current.gid(),
+                    current.mode()
+                ),
+                identity
+            );
+            assert_eq!(current.mode() & 0o7777, 0o700);
+            for name in names {
+                let path = root.join(name);
+                let metadata = fs::symlink_metadata(&path).unwrap();
+                assert!(metadata.is_file() && !metadata.file_type().is_symlink());
+                assert_eq!(metadata.nlink(), 1);
+                assert!(
+                    fs::read(path).unwrap() == b"synthetic cleanup fixture",
+                    "retained fixture bytes changed"
+                );
+            }
+            // The failed fixture stays private for independently reviewed retirement.
+        } else {
+            assert_eq!(
+                fs::symlink_metadata(root).unwrap_err().kind(),
+                io::ErrorKind::NotFound
+            );
+        }
     }
 }
 

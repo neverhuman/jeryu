@@ -1,4 +1,6 @@
+mod git_authorization;
 mod pull_review_routes;
+mod work_authorization;
 
 use super::*;
 use crate::Method;
@@ -1874,8 +1876,13 @@ async fn control_plane_status_priorities_and_absence_states_are_live() {
     let runners = super::control_plane::runners(State(state.clone())).await.0;
     assert_eq!(
         runners.local.state,
-        super::control_plane::EvidenceState::Fresh
+        super::control_plane::EvidenceState::Unknown
     );
+    // Observed CI activity does not establish a registered runner or capacity.
+    assert_eq!(runners.local.online_runners, 0);
+    assert_eq!(runners.local.offline_runners, 0);
+    assert_eq!(runners.local.active_slots, 0);
+    assert!(runners.local.last_updated.is_none());
     assert_eq!(
         runners.mirror.state,
         super::control_plane::EvidenceState::Missing
@@ -4469,6 +4476,7 @@ async fn work_repo_create_persists_item_and_linked_issue() {
     let created = response_json(
         super::work::repo_create(
             State(state.clone()),
+            authenticated_admin_account("alice"),
             AxumPath(repo.id.to_string()),
             Json(jeryu_jira::CreateWorkItemRequest {
                 title: "Fix flaky CI".to_string(),
@@ -4495,6 +4503,7 @@ async fn work_repo_create_persists_item_and_linked_issue() {
     let listed = response_json(
         super::work::repo_list(
             State(state),
+            authenticated_admin_account("alice"),
             AxumPath(repo.id.to_string()),
             Query(super::work::WorkListQuery::default()),
         )

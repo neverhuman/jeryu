@@ -38,5 +38,8 @@ The historical component [release runbook](../components/jeryu-deploy/docs/relea
 and [release process](../components/jeryu-deploy/docs/release-process.md) retain
 existing operational evidence and instructions. Their hosted environment
 assumptions do not establish a qualified standalone upgrade procedure.
-A complete source-bound standalone backup/restore and upgrade/recovery drill
+The [standalone operator guide](recovery.md) describes stopped-server backup,
+restoration into a new data directory, upgrade/rollback admission, interrupted
+repository creation and remote TLS requirements. Its same-binary restore test
+must pass at the exact candidate; cross-version upgrade/recovery qualification
 remains open in [current status](migration/STATUS.md).

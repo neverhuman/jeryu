@@ -94,8 +94,8 @@ pub struct OnboardArgs {
     #[arg(long, default_value = "jeryu")]
     pub owner: String,
 
-    /// Print the plan without executing it. Required: server transport is not
-    /// yet live, so the plan is currently dry-run only.
+    /// Required: print the plan without executing it. Execution is unavailable
+    /// because onboarding has no server transport.
     #[arg(long, default_value_t = false)]
     pub dry_run: bool,
 }

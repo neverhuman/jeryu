@@ -6,8 +6,8 @@ use jeryu_core::{
 };
 use jeryu_jira::{
     CreateWorkCommentRequest, CreateWorkItemRequest, UpdateWorkItemRequest, WorkError,
-    WorkIssueLink, WorkItemKind, WorkPrincipal, WorkPrincipalKind, WorkPriority, WorkRepository,
-    WorkStatus,
+    WorkIssueLink, WorkItem, WorkItemKind, WorkPrincipal, WorkPrincipalKind, WorkPriority,
+    WorkRepository, WorkStatus,
 };
 use serde_json::{Value, json};
 
@@ -150,18 +150,27 @@ impl GithubRouter {
         let Some(store) = &self.work_store else {
             return None;
         };
-        let repo = self
-            .core
-            .get_repository(&issue.owner, &issue.repo)
-            .ok()
-            .map(|repo| WorkRepository {
+        let repo = match self.core.get_repository(&issue.owner, &issue.repo) {
+            Ok(repo) => WorkRepository {
                 id: repo.id.to_string(),
                 host: "jeryu".to_string(),
                 owner: repo.owner,
                 name: repo.name,
-            });
+            },
+            Err(_) => {
+                return Some(work_bridge_repair_message(
+                    "work_bridge_repository_mismatch",
+                    "create issue",
+                    &issue.owner,
+                    &issue.repo,
+                    issue.number,
+                    None,
+                    "the owning repository identity is unavailable",
+                ));
+            }
+        };
         match store.find_by_issue(&issue.owner, &issue.repo, issue.number) {
-            Ok(Some(_)) => return None,
+            Ok(Some(work)) => return self.work_binding_repair(&work, issue, "create issue"),
             Ok(None) => {}
             Err(error) => {
                 return Some(work_bridge_repair(
@@ -174,7 +183,7 @@ impl GithubRouter {
             }
         }
         let request = CreateWorkItemRequest {
-            repo,
+            repo: Some(repo),
             title: issue.title.clone(),
             body: issue.body.clone(),
             status: Some(work_status(&issue.state)),
@@ -235,6 +244,9 @@ impl GithubRouter {
                 ));
             }
         };
+        if let Some(repair) = self.work_binding_repair(&work, issue, "update issue") {
+            return Some(repair);
+        }
         match store.patch(
             &work.key,
             UpdateWorkItemRequest {
@@ -311,6 +323,9 @@ impl GithubRouter {
                 ));
             }
         };
+        if let Some(repair) = self.work_binding_repair(&work, &issue, "create issue comment") {
+            return Some(repair);
+        }
         match store.add_comment(
             &work.key,
             CreateWorkCommentRequest {
@@ -327,6 +342,39 @@ impl GithubRouter {
                 error,
             )),
         }
+    }
+
+    fn work_binding_repair(
+        &self,
+        work: &WorkItem,
+        issue: &Issue,
+        operation: &str,
+    ) -> Option<WorkBridgeRepair> {
+        let matches = self
+            .core
+            .get_repository(&issue.owner, &issue.repo)
+            .ok()
+            .is_some_and(|repo| {
+                work.repo.as_ref().is_some_and(|binding| {
+                    binding.id == repo.id.to_string()
+                        && binding.host == "jeryu"
+                        && binding.owner == repo.owner
+                        && binding.name == repo.name
+                        && work.issue.as_ref().is_some_and(|link| {
+                            link.owner == repo.owner
+                                && link.repo == repo.name
+                                && link.number == issue.number
+                        })
+                        && work
+                            .pull_requests
+                            .iter()
+                            .all(|link| link.owner == repo.owner && link.repo == repo.name)
+                })
+            });
+        (!matches).then(|| work_bridge_repair_message(
+            "work_bridge_repository_mismatch", operation, &issue.owner, &issue.repo, issue.number,
+            None, "the Work item is not bound to this exact repository; administrator repair is required",
+        ))
     }
 }
 

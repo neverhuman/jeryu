@@ -32,7 +32,7 @@ impl From<CiKindArg> for CiKind {
 /// CI command group.
 #[derive(Debug, Subcommand)]
 pub enum CiCommands {
-    /// Compile a workflow file to IR and schedule a run for a ref.
+    /// Unavailable: compile and schedule a CI run (no server transport).
     Run {
         /// Repository name (under the acting owner).
         #[arg(long)]
@@ -50,7 +50,7 @@ pub enum CiCommands {
         #[arg(long)]
         repo: String,
     },
-    /// Explain whether a run is blocked from merging and why.
+    /// Unavailable: explain a CI run blocker (no server transport).
     Explain {
         /// Run identifier to explain.
         run_id: String,

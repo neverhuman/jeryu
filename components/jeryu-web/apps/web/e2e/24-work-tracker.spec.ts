@@ -22,17 +22,28 @@ test.describe('Work Tracker routes', () => {
 
   test('smokes split-wide, detail, repo Work, and repo issues alias routes @action:work.routes @action:work.repo_alias', async ({
     page,
-  }) => {
+  }, testInfo) => {
     const shell = new AppShellPage(page);
 
     await page.goto('/work');
     await shell.assertShellLoaded();
     await expect(page.getByRole('heading', { level: 1, name: 'Work' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Fix cache key' })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Create work item' })).toHaveCount(0);
+    const chooseRepo = page.getByRole('link', { name: 'Choose a repository' });
+    await expect(chooseRepo).toHaveAttribute('href', '/repos');
+    await expect(page.getByText(/Creating work without a repository requires an administrator/)).toBeVisible();
+    await testInfo.attach('work-create-repository-guidance', {
+      body: await page.screenshot({ fullPage: true }),
+      contentType: 'image/png',
+    });
     await expect(page.getByRole('link', { name: '#42' })).toHaveAttribute(
       'href',
       '/repos/jeryu/alice/jeryu/issues#42'
     );
+
+    await chooseRepo.click();
+    await expect(page).toHaveURL(/\/repos$/);
 
     await page.goto('/work/JRY-1');
     await expect(page.getByTestId('work-detail-page')).toBeVisible();
@@ -46,6 +57,7 @@ test.describe('Work Tracker routes', () => {
     await clientNavigate(page, '/repos/jeryu/alice/jeryu/work');
     await expect(page.getByTestId('work-page')).toBeVisible();
     await expect(page.getByText('alice/jeryu work items.')).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Create work item' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Repo scoped follow-up' })).toBeVisible();
 
     await clientNavigate(page, '/repos/jeryu/alice/jeryu/issues');
@@ -57,6 +69,15 @@ test.describe('Work Tracker routes', () => {
   test('filters, creates, edits, comments, links, and surfaces errors @action:work.filters @action:work.create @action:work.detail_save @action:work.comment @action:work.link_pull @action:work.error', async ({
     page,
   }) => {
+    await page.route('**/api/v1/auth/me', async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          login: 'alice', role: 'admin', mustChangePassword: false, csrfToken: 'e2e-csrf',
+        }),
+      });
+    });
     const createBodies: unknown[] = [];
     const patchBodies: unknown[] = [];
     const commentBodies: unknown[] = [];

@@ -5,12 +5,12 @@ use clap::Subcommand;
 /// Proof command group.
 #[derive(Debug, Subcommand)]
 pub enum ProofCommands {
-    /// Verify a changeset and emit an admissibility verdict + plan hash.
+    /// Unavailable: verify a changeset proof (no server transport).
     Verify {
         /// Changeset identifier or inline descriptor to verify.
         changeset: String,
     },
-    /// Explain a proof blocker by identifier.
+    /// Unavailable: explain a proof blocker (no server transport).
     Explain {
         /// Blocker identifier to explain.
         id: String,

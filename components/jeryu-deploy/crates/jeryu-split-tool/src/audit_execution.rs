@@ -14,7 +14,18 @@ pub(super) struct Executor<'a> {
 
 pub(super) fn execute(executor: &Executor<'_>, row: &mut Row, index: usize) -> Result<()> {
     let path = source_path(executor.root, &row.source)?;
-    let git_root = PathBuf::from(git(&path, &["rev-parse", "--show-toplevel"])?);
+    execute_at(executor, row, index, &path)
+}
+
+// Called only with normal source_path admission or a freshly verified Acquired
+// path. Neither reports nor arbitrary CLI path arguments supply this value.
+pub(super) fn execute_at(
+    executor: &Executor<'_>,
+    row: &mut Row,
+    index: usize,
+    path: &Path,
+) -> Result<()> {
+    let git_root = PathBuf::from(git(path, &["rev-parse", "--show-toplevel"])?);
     let before = snapshot(&git_root)?;
     if let Some(expected) = &row.source.commit {
         ensure!(&before.0 == expected, "wrong dependency commit");
@@ -28,6 +39,18 @@ pub(super) fn execute(executor: &Executor<'_>, row: &mut Row, index: usize) -> R
             &["rev-parse", &format!("HEAD:{}", scope_path.display())],
         )?
     };
+    if let Some(expected) = &row.commit {
+        ensure!(
+            &before.0 == expected,
+            "public acquisition commit changed before audit"
+        );
+    }
+    if let Some(expected) = &row.tree {
+        ensure!(
+            &tree == expected,
+            "public acquisition tree changed before audit"
+        );
+    }
     row.commit = Some(before.0.clone());
     row.tree = Some(tree);
     let policy_path = path.join("agent/audit-policy.toml");
@@ -126,7 +149,7 @@ pub(super) fn execute(executor: &Executor<'_>, row: &mut Row, index: usize) -> R
             "--new-session",
             "--chdir",
         ])
-        .arg(&path)
+        .arg(path)
         .arg("/tmp/jeryu-auditor")
         .args([
             "audit",
