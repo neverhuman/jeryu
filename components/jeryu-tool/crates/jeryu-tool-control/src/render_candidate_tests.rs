@@ -338,12 +338,43 @@ fn candidate_source_rejects_wrong_heads_hidden_index_changes_and_linked_outputs(
 
 #[test]
 fn candidate_input_rejects_working_bytes_selected_by_replacement_refs() {
+    const CHILD: &str = "JERYU_TOOL_REPLACEMENT_REF_TEST_CHILD";
+    if std::env::var_os(CHILD).is_none() {
+        let output = Command::new(std::env::current_exe().expect("test executable"))
+            .args([
+                "--exact",
+                "render::candidate::tests::candidate_input_rejects_working_bytes_selected_by_replacement_refs",
+                "--nocapture",
+                "--test-threads=1",
+            ])
+            .env(CHILD, "1")
+            .env_remove("GIT_NO_REPLACE_OBJECTS")
+            .env_remove("GIT_REPLACE_REF_BASE")
+            .output()
+            .expect("isolated replacement-ref test");
+        assert!(
+            output.status.success(),
+            "isolated replacement-ref test failed: {}\n{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let stdout = String::from_utf8(output.stdout).expect("test output");
+        let summaries: Vec<_> = stdout
+            .lines()
+            .filter(|line| line.starts_with("test result:"))
+            .collect();
+        assert_eq!(summaries.len(), 1, "exactly one child test must run");
+        assert!(
+            summaries[0].starts_with("test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured;")
+        );
+        return;
+    }
     let fixture = Fixture::new();
     let original_head = fixture.head();
     let manifest_path = fixture.root.join(MANIFEST_PATH);
     let mut modified = fs::read_to_string(&manifest_path).expect("original fixture manifest");
     modified.push_str("\n# replacement-ref fixture\n");
-    fs::write(&manifest_path, modified).expect("modified fixture manifest");
+    fs::write(&manifest_path, &modified).expect("modified fixture manifest");
     run_fixture_git(&fixture.root, &["add", "."]);
     run_fixture_git(
         &fixture.root,
@@ -356,13 +387,23 @@ fn candidate_input_rejects_working_bytes_selected_by_replacement_refs() {
         &["replace", &original_head, &replacement_head],
     );
 
-    assert!(
-        git_local_output(&fixture.root, &["status", "--porcelain"])
-            .expect("ordinary replacement-aware status")
-            .is_empty()
+    // Select the replacement-aware control explicitly, independent of CI's
+    // Git environment. Candidate reads below must still use the original object.
+    let replacement_view = |arguments: &[&str]| {
+        let output = local_git_command(&fixture.root)
+            .env_remove("GIT_NO_REPLACE_OBJECTS")
+            .env_remove("GIT_REPLACE_REF_BASE")
+            .args(arguments)
+            .output()
+            .expect("replacement-aware fixture Git");
+        assert!(output.status.success(), "replacement-aware Git failed");
+        output.stdout
+    };
+    assert!(replacement_view(&["status", "--porcelain"]).is_empty());
+    assert_eq!(
+        replacement_view(&["show", &format!("HEAD:{MANIFEST_PATH}")]),
+        modified.into_bytes()
     );
-    validate_write_target(&fixture.root, &manifest_path)
-        .expect("legacy target validation sees the replacement tree");
     assert!(
         committed_text(&fixture.root, &original_head, MANIFEST_PATH)
             .expect_err("candidate input must match the unreplaced committed bytes")

@@ -78,6 +78,132 @@ fn ref_service_denies_protected_main_non_fast_forward_before_mutation() {
 }
 
 #[test]
+fn ref_service_create_requires_absence_even_for_identical_existing_value() {
+    assert!(
+        common::git_available(),
+        "real Git is required for ref CAS tests"
+    );
+    let fixture = seed_bare_with_main("jeryu-refs-create-collision");
+    let initial = fixture.main_oid.clone();
+    let advanced = commit_and_push(&fixture.work, &fixture.repo, "advanced\n");
+    let service = RefService::new(fixture.manager.clone());
+    service
+        .update_ref(&fixture.repo, "alice", "refs/tags/release", &advanced, None)
+        .expect("create an absent tag");
+
+    for name in ["refs/heads/main", "refs/tags/release"] {
+        for proposed in [&advanced, &initial] {
+            service
+                .update_ref(&fixture.repo, "alice", name, proposed, None)
+                .expect_err("a create must not adopt or replace an existing ref");
+            assert!(
+                service
+                    .list_refs(&fixture.repo)
+                    .unwrap()
+                    .iter()
+                    .any(|reference| reference.name == name && reference.oid == advanced)
+            );
+        }
+    }
+    fixture.cleanup();
+}
+
+#[test]
+fn ref_service_concurrent_creators_have_one_winner() {
+    assert!(
+        common::git_available(),
+        "real Git is required for ref CAS tests"
+    );
+    let fixture = seed_bare_with_main("jeryu-refs-create-race");
+    let initial = fixture.main_oid.clone();
+    let advanced = commit_and_push(&fixture.work, &fixture.repo, "advanced\n");
+    let service = RefService::new(fixture.manager.clone());
+    let barrier = std::sync::Barrier::new(2);
+    let results = std::thread::scope(|scope| {
+        let handles: Vec<_> = [&initial, &advanced]
+            .into_iter()
+            .map(|oid| {
+                let service = &service;
+                let repo = &fixture.repo;
+                let barrier = &barrier;
+                scope.spawn(move || {
+                    barrier.wait();
+                    service
+                        .update_ref(repo, "alice", "refs/heads/new", oid, None)
+                        .map(|()| oid.clone())
+                })
+            })
+            .collect();
+        handles
+            .into_iter()
+            .map(|handle| handle.join().unwrap())
+            .collect::<Vec<_>>()
+    });
+    let winners: Vec<_> = results
+        .iter()
+        .filter_map(|result| result.as_ref().ok())
+        .collect();
+    assert_eq!(
+        winners.len(),
+        1,
+        "exactly one create may succeed: {results:?}"
+    );
+    assert!(
+        service
+            .list_refs(&fixture.repo)
+            .unwrap()
+            .iter()
+            .any(|reference| reference.name == "refs/heads/new" && &reference.oid == winners[0])
+    );
+    fixture.cleanup();
+}
+
+#[test]
+fn ref_service_updates_and_deletes_require_the_exact_predecessor() {
+    assert!(
+        common::git_available(),
+        "real Git is required for ref CAS tests"
+    );
+    let fixture = seed_bare_with_main("jeryu-refs-exact-predecessor");
+    let initial = fixture.main_oid.clone();
+    let advanced = commit_and_push(&fixture.work, &fixture.repo, "advanced\n");
+    let service = RefService::new(fixture.manager.clone());
+    let name = "refs/heads/topic";
+    service
+        .update_ref(&fixture.repo, "alice", name, &initial, None)
+        .unwrap();
+    service
+        .update_ref(&fixture.repo, "alice", name, &advanced, Some(&initial))
+        .expect("advance the exact predecessor");
+    service
+        .update_ref(&fixture.repo, "alice", name, &initial, Some(&initial))
+        .expect_err("a stale predecessor must not overwrite the current head");
+    for expected in [None, Some(initial.as_str())] {
+        service
+            .update_ref(&fixture.repo, "alice", name, ZERO_OID, expected)
+            .expect_err("deletion needs the current predecessor");
+    }
+    assert!(
+        service
+            .list_refs(&fixture.repo)
+            .unwrap()
+            .iter()
+            .any(|reference| { reference.name == name && reference.oid == advanced })
+    );
+    service
+        .update_ref(&fixture.repo, "alice", name, ZERO_OID, Some(&advanced))
+        .expect("delete the exact predecessor");
+    assert!(
+        !service
+            .list_refs(&fixture.repo)
+            .unwrap()
+            .iter()
+            .any(|reference| reference.name == name)
+    );
+    fixture.cleanup();
+}
+
+#[test]
 fn ref_name_validation_rejects_command_like_and_nul_names() {
     if !common::git_available() {
         return;

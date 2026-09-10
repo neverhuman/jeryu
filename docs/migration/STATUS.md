@@ -74,6 +74,45 @@ Rust qualification is still required. The actual standard root audit reported
 64 against the unchanged minimum 85, eight caps and 71 hard findings among 94
 findings. That failure remains open; producer classification is under review.
 
+At `4754916d`, the public auditor build, four Runner transport tests, production
+Web build, root formatting and warning-denied workspace Clippy passed. The
+workspace test command reported 1,934 passes, one failure and two explicitly
+ignored optional/separate-lane tests before stopping at a Tool replacement-ref
+fixture assertion. Its control Git command inherited CI's replacement disabling
+setting. The correction runs the complete test in a counted child with explicit
+replacement-aware controls; production candidate reads retain their exact
+original-object checks and the test retains its precise raw-blob rejection. The final
+audit timed out after its remaining eleven seconds, so this run has no completed
+audit score. Source, owned processes, all three locks and exact builder-container
+closure were verified; the clean private clone was removed after evidence custody.
+
+The red team also identified missing default/no-web API coverage and eight
+Agentbridge integration behaviors that can return success after printing skip
+markers on an incapable host. Ordinary test summaries do not prove those native
+behaviors ran. API tests and warning-denied Clippy without default features are
+now required, as is execution of all eight cases without skips in the disposable
+sandbox lane. The 67 CI dispatch/aggregation regressions pass; actual execution
+of the complete expanded sandbox lane remains required.
+
+The candidate correction restricts CI-run evidence lookup to repositories the
+authenticated account can read, while retaining the same guided 404 for unknown
+and inaccessible run IDs. A real-auth route matrix covers read grants, unrelated
+accounts, administrators, missing credentials and revoked grants. The independent
+Gitd fix from `f10df129c9cf35b2559fadacad61fa07bba9a64a` requires a ref to be absent
+when no predecessor is supplied, preventing branch/tag adoption or overwrite.
+Its [two-path provenance](gitd-f10df129.tsv) preserves the exact source mapping.
+The intervening Core API/persistence changes remain outside this import pending
+their separate handoff. Focused verification of the frozen corrections on
+`4754916d` passed all seven selected phases: root formatting and 67 matrix cases,
+all 26 Tool binary tests, 91 Gitd tests and Clippy, 43 API tests without default
+features and Clippy, two authenticated evidence route tests and five helpers
+with API/web Clippy, all five real CLI/server process tests under umask `0002`,
+and the owning proof inventory check. Those process tests cover authenticated
+Git, protected review/check/merge and restart persistence. Source remained
+unchanged and all owned processes and three locks closed. Earlier failed
+attempts remain preserved. These are focused preparation results; the complete
+local matrix, anonymous installation and hosted qualification remain open.
+
 The successor retains the public `--store` / `JERYU_STORE` interface: SQLite is
 the default, and Redline aliases visibly select that same durable engine. A
 reviewed sandbox probe correction rejects failed controller delegation before

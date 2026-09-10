@@ -19,7 +19,7 @@
 //! Lookup failure is surfaced structurally as `None`; the handler maps it to a
 //! 404 rather than silently returning an empty list for a non-existent run.
 
-use jeryu_core::{CheckRun, ForgeCore};
+use jeryu_core::{AccountSummary, CheckRun, ForgeCore, UserRole};
 use serde::Serialize;
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
@@ -36,23 +36,34 @@ pub(super) struct EvidenceItem {
     pub payload: Value,
 }
 
-/// Assemble the evidence list for a CI run id, or `None` when no run with that
-/// id exists on the live forge (the handler maps `None` -> 404).
-pub(super) fn run_evidence(core: &ForgeCore, run_id: &str) -> Option<Vec<EvidenceItem>> {
+/// Assemble evidence for a run visible to the authenticated account. Missing
+/// and inaccessible runs both return `None` (the handler maps `None` -> 404).
+pub(super) fn run_evidence(
+    core: &ForgeCore,
+    account: &AccountSummary,
+    run_id: &str,
+) -> Option<Vec<EvidenceItem>> {
     // A run id must be a valid UUID; an ill-formed id can never match a run, so
     // reject it up front rather than scanning every repo for an impossible key.
     let parsed = Uuid::parse_str(run_id).ok()?;
-    let run = find_check_run(core, &parsed)?;
+    let run = find_check_run(core, account, &parsed)?;
     Some(evidence_for_run(run_id, &run))
 }
 
-/// Locate a check-run by id across every repository on the forge.
-fn find_check_run(core: &ForgeCore, id: &Uuid) -> Option<CheckRun> {
-    core.list_repositories(None).into_iter().find_map(|repo| {
-        core.list_check_runs(&repo.owner, &repo.name, None)
-            .ok()
-            .and_then(|runs| runs.check_runs.into_iter().find(|run| &run.id == id))
-    })
+/// Check repository access before inspecting its check-runs. A UUID alone is
+/// never authority to read another repository's evidence.
+fn find_check_run(core: &ForgeCore, account: &AccountSummary, id: &Uuid) -> Option<CheckRun> {
+    core.list_repositories(None)
+        .into_iter()
+        .filter(|repo| {
+            account.role == UserRole::Admin
+                || core.user_can_read_repo(&account.login, &repo.owner, &repo.name)
+        })
+        .find_map(|repo| {
+            core.list_check_runs(&repo.owner, &repo.name, None)
+                .ok()
+                .and_then(|runs| runs.check_runs.into_iter().find(|run| &run.id == id))
+        })
 }
 
 /// Derive the ordered evidence facets from a check-run's existing fields.
@@ -161,8 +172,15 @@ mod tests {
         CreateRepositoryRequest,
     };
 
-    fn core_with_repo() -> ForgeCore {
+    fn core_with_repo() -> (ForgeCore, AccountSummary) {
         let core = ForgeCore::new();
+        let account = core
+            .create_account(
+                "evidence-admin",
+                "ci-evidence-test-password",
+                UserRole::Admin,
+            )
+            .unwrap();
         core.create_repository(
             "alice",
             CreateRepositoryRequest {
@@ -173,21 +191,21 @@ mod tests {
             },
         )
         .unwrap();
-        core
+        (core, account)
     }
 
     #[test]
     fn unknown_or_malformed_run_id_yields_none() {
-        let core = core_with_repo();
+        let (core, account) = core_with_repo();
         // A well-formed but absent UUID.
-        assert!(run_evidence(&core, &Uuid::new_v4().to_string()).is_none());
+        assert!(run_evidence(&core, &account, &Uuid::new_v4().to_string()).is_none());
         // A non-UUID id never matches and is rejected without scanning.
-        assert!(run_evidence(&core, "not-a-uuid").is_none());
+        assert!(run_evidence(&core, &account, "not-a-uuid").is_none());
     }
 
     #[test]
     fn completed_run_yields_metadata_commit_and_conclusion_evidence() {
-        let core = core_with_repo();
+        let (core, account) = core_with_repo();
         let run = core
             .create_check_run(
                 "alice",
@@ -207,7 +225,7 @@ mod tests {
             )
             .unwrap();
         let id = run.id.to_string();
-        let evidence = run_evidence(&core, &id).expect("run exists");
+        let evidence = run_evidence(&core, &account, &id).expect("run exists");
 
         let kinds: Vec<&str> = evidence.iter().map(|e| e.kind.as_str()).collect();
         assert_eq!(
@@ -236,7 +254,7 @@ mod tests {
 
     #[test]
     fn queued_run_omits_conclusion_and_output_evidence() {
-        let core = core_with_repo();
+        let (core, account) = core_with_repo();
         let run = core
             .create_check_run(
                 "alice",
@@ -249,7 +267,7 @@ mod tests {
                 },
             )
             .unwrap();
-        let evidence = run_evidence(&core, &run.id.to_string()).expect("run exists");
+        let evidence = run_evidence(&core, &account, &run.id.to_string()).expect("run exists");
         let kinds: Vec<&str> = evidence.iter().map(|e| e.kind.as_str()).collect();
         // No conclusion or output for a queued run.
         assert_eq!(kinds, vec!["run-metadata", "head-commit"]);

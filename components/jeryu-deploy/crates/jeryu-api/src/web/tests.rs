@@ -5364,6 +5364,174 @@ async fn ci_run_evidence_route_serves_evidence_and_404() {
     }
 }
 
+#[tokio::test]
+async fn ci_run_evidence_enforces_repo_grants_and_revocation() {
+    use axum::body::Body;
+    use axum::http::Request;
+    use tower::ServiceExt;
+
+    let core = ForgeCore::new();
+    let [admin_token, reader_token, outsider_token] = [
+        ("evidence-admin", UserRole::Admin),
+        ("evidence-reader", UserRole::User),
+        ("evidence-outsider", UserRole::User),
+    ]
+    .map(|(login, role)| {
+        core.create_account(login, "ci-evidence-test-password", role)
+            .unwrap();
+        core.create_personal_access_token(login, "ci evidence route test", None)
+            .unwrap()
+            .secret
+    });
+    let runs = ["private-a", "private-b"].map(|repo| {
+        core.create_repository(
+            "alice",
+            CreateRepositoryRequest {
+                name: repo.to_string(),
+                private: true,
+                description: None,
+                default_branch: Some("main".to_string()),
+            },
+        )
+        .unwrap();
+        core.create_check_run(
+            "alice",
+            repo,
+            CreateCheckRunRequest {
+                name: format!("restricted-check-{repo}"),
+                head_sha: if repo == "private-a" {
+                    "a".repeat(40)
+                } else {
+                    "b".repeat(40)
+                },
+                status: Some(jeryu_core::CheckRunStatus::Completed),
+                conclusion: Some(CheckConclusion::Failure),
+                output: Some(jeryu_core::CheckRunOutput {
+                    title: format!("restricted-title-{repo}"),
+                    summary: format!("restricted-summary-{repo}"),
+                    text: None,
+                }),
+                ..CreateCheckRunRequest::default()
+            },
+        )
+        .unwrap()
+    });
+    core.grant_repo_access(
+        "evidence-admin",
+        "evidence-reader",
+        "alice",
+        "private-a",
+        RepoAccessLevel::Read,
+    )
+    .unwrap();
+    let router = app(
+        WebState::new(core.clone()).with_auth(true, false, false),
+        Path::new("/tmp/jeryu-no-spa"),
+    );
+    let request = |id: &str, token: Option<&str>| {
+        let mut builder = Request::builder().uri(format!("/api/v1/ci/runs/{id}/evidence"));
+        if let Some(token) = token {
+            builder = builder.header(header::AUTHORIZATION, format!("Bearer {token}"));
+        }
+        builder.body(Body::empty()).unwrap()
+    };
+    let run_ids = runs.each_ref().map(|run| run.id.to_string());
+    let absent_id = uuid::Uuid::nil().to_string();
+
+    // The normal auth gate is exercised, with no development bypass.
+    for id in &run_ids {
+        let response = router.clone().oneshot(request(id, None)).await.unwrap();
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+        assert_eq!(response_json(response).await["code"], "unauthorized");
+    }
+
+    // A read grant is sufficient, and the administrator needs no explicit grant.
+    for (run, token) in [
+        (&runs[0], reader_token.as_str()),
+        (&runs[0], admin_token.as_str()),
+        (&runs[1], admin_token.as_str()),
+    ] {
+        let response = router
+            .clone()
+            .oneshot(request(&run.id.to_string(), Some(token)))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = response_json(response).await;
+        let facets = body.as_array().expect("authorized evidence array");
+        assert_eq!(facets.len(), 4);
+        assert_eq!(facets[0]["payload"]["name"], run.name);
+        assert_eq!(facets[0]["payload"]["repo"], format!("alice/{}", run.repo));
+        assert_eq!(facets[1]["payload"]["headSha"], run.head_sha);
+        assert_eq!(
+            facets[3]["payload"]["summary"],
+            run.output.as_ref().unwrap().summary
+        );
+    }
+
+    let missing = router
+        .clone()
+        .oneshot(request(&absent_id, Some(&reader_token)))
+        .await
+        .unwrap();
+    assert_eq!(missing.status(), StatusCode::NOT_FOUND);
+    let missing_body = response_json(missing).await;
+    assert_eq!(missing_body["code"], "not_found");
+    for key in [
+        "purpose",
+        "reason",
+        "common_fixes",
+        "docs_url",
+        "repair_hint",
+    ] {
+        assert!(missing_body.get(key).is_some(), "missing guidance: {key}");
+    }
+
+    // An unrelated account cannot use a known UUID. A grant to A does not grant B.
+    // Missing, malformed, and inaccessible runs have identical response bodies.
+    for (id, token) in [
+        (run_ids[1].as_str(), reader_token.as_str()),
+        (run_ids[0].as_str(), outsider_token.as_str()),
+        (run_ids[1].as_str(), outsider_token.as_str()),
+        ("not-a-uuid", reader_token.as_str()),
+        (absent_id.as_str(), admin_token.as_str()),
+    ] {
+        let response = router
+            .clone()
+            .oneshot(request(id, Some(token)))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+        let body = response_json(response).await;
+        assert_eq!(body, missing_body);
+        let text = body.to_string();
+        for run in &runs {
+            for hidden in [
+                run.id.to_string(),
+                run.name.clone(),
+                run.repo.clone(),
+                run.head_sha.clone(),
+                run.output.as_ref().unwrap().title.clone(),
+                run.output.as_ref().unwrap().summary.clone(),
+            ] {
+                assert!(!text.contains(&hidden), "denial leaked a run field");
+            }
+        }
+    }
+
+    // The same router and still-valid token must observe a grant revocation.
+    assert!(
+        core.revoke_repo_access_checked("evidence-admin", "evidence-reader", "alice", "private-a")
+            .unwrap()
+    );
+    let revoked = router
+        .oneshot(request(&run_ids[0], Some(&reader_token)))
+        .await
+        .unwrap();
+    assert_eq!(revoked.status(), StatusCode::NOT_FOUND);
+    assert_eq!(response_json(revoked).await, missing_body);
+}
+
 #[test]
 fn capabilities_payload_exposes_the_gh_command_map() {
     let payload = capabilities_payload();

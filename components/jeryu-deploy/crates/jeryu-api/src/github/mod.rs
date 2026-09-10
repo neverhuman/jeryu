@@ -36,6 +36,7 @@ use std::sync::{Arc, Mutex};
 
 use crate::routes::Response;
 
+#[cfg(feature = "web")]
 pub(crate) use support::{GH_AUTH_BOUNDARY, GH_SETUP_COMMAND, GH_SETUP_TOKEN_FILE};
 #[allow(unused_imports)]
 pub(crate) use support::{MCP_GUIDANCE_TOOLS, MCP_RUN_TESTS_TOOL};

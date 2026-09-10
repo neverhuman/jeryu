@@ -47,6 +47,9 @@ case ${1:-all} in
     source scripts/bootstrap-jankurai.sh
     bootstrap_public_jankurai
     cargo test --locked --workspace --all-features --exclude jeryu-sandbox-linux
+    # Workspace feature unification otherwise hides the supported API without Web.
+    cargo test --locked -p jeryu-api --no-default-features
+    cargo clippy --locked -p jeryu-api --all-targets --no-default-features -- -D warnings
     ;;
   runner-governed)
     # Separately mandatory installed-authority handover proof. No candidate
@@ -114,9 +117,36 @@ case ${1:-all} in
     mkdir -p target/ci
     cargo run --locked -p jeryu-sandbox-linux --example required_capabilities
     cargo test --locked -p jeryu-sandbox-linux --all-features -- --include-ignored --nocapture --test-threads=1 2>&1 | tee target/ci/sandbox.log
-    if rg -i '(^|[[:space:]])skip[:[:space:]]|skipping|=> skipped|"skipped"[[:space:]]*:[[:space:]]*[1-9]|[1-9][0-9]* ignored' target/ci/sandbox.log; then
-      printf 'sandbox proof did not execute every required case\n' >&2; exit 1
-    fi
+    # Ordinary hosts may return early from these eight tests. Require their
+    # actual execution here; the paid external-model smoke remains separate.
+    sandbox_logs=(target/ci/sandbox.log)
+    for test_target in driver_in_cell pty_driver cgroup_fail_closed; do
+      test_filter=()
+      filtered=0
+      case $test_target in
+        driver_in_cell) expected_tests=4 ;;
+        pty_driver) expected_tests=3 ;;
+        cgroup_fail_closed)
+          expected_tests=1
+          filtered=1
+          test_filter=(--exact opt_out_driver_runs_on_this_no_delegation_host)
+          ;;
+      esac
+      test_log="target/ci/agentbridge-$test_target.log"
+      cargo test --locked -p jeryu-agentbridge --test "$test_target" -- \
+        "${test_filter[@]}" --nocapture --test-threads=1 2>&1 | tee "$test_log"
+      [[ $(rg -c '^test result:' "$test_log") == 1 ]] &&
+        rg -q "^test result: ok\. $expected_tests passed; 0 failed; 0 ignored; 0 measured; $filtered filtered out;" "$test_log" || {
+          printf 'Agentbridge %s did not execute its %s required cases\n' "$test_target" "$expected_tests" >&2
+          exit 1
+        }
+      sandbox_logs+=("$test_log")
+    done
+    skip_status=0
+    rg -i '(^|[[:space:]])skip[:[:space:]]|skipping|=> skipped|honestly skipped|"skipped"[[:space:]]*:[[:space:]]*[1-9]|[1-9][0-9]* ignored' "${sandbox_logs[@]}" || skip_status=$?
+    [[ $skip_status == 1 ]] || {
+      printf 'sandbox proof was skipped or its output could not be checked\n' >&2; exit 1
+    }
     jq -e '.false_skips == 0 and (.escapes | length) == 4 and all(.escapes[]; .verdict == "blocked")' \
       components/jeryu-ci-runner/target/jankurai/runner-sandbox/enforcement.json >/dev/null
     ;;
