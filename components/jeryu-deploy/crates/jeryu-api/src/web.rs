@@ -920,9 +920,10 @@ async fn ecosystem(State(state): State<Arc<WebState>>) -> AxumResponse {
 /// not resolve to a live run, never a silent empty list.
 async fn ci_run_evidence(
     State(state): State<Arc<WebState>>,
+    Extension(account): Extension<AccountSummary>,
     AxumPath(id): AxumPath<String>,
 ) -> AxumResponse {
-    match ci_evidence::run_evidence(state.github.core(), &id) {
+    match ci_evidence::run_evidence(state.github.core(), &account, &id) {
         Some(evidence) => Json(evidence).into_response(),
         None => ci_evidence_not_found_error(),
     }

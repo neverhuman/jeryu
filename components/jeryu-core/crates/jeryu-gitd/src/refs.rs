@@ -86,7 +86,8 @@ impl RefService {
         Ok(refs)
     }
 
-    /// Update a ref with policy checks.
+    /// Update a ref with policy checks and an exact predecessor condition.
+    /// `None` requires the ref to be absent; it never permits an unconditional write.
     pub fn update_ref(
         &self,
         repo: &Repository,
@@ -115,10 +116,7 @@ impl RefService {
         for rule in &self.manager.config().protected_refs {
             rule.evaluate(&change)?;
         }
-        let mut args = vec!["update-ref", name, new_oid];
-        if let Some(prior_oid) = old_oid {
-            args.push(prior_oid);
-        }
+        let args = ["update-ref", name, new_oid, old_oid.unwrap_or(ZERO_OID)];
         run_capture(&self.manager.config().git_bin, &args, Some(&repo.path))?;
         Ok(())
     }

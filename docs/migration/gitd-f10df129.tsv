@@ -1,0 +1,3 @@
+path	source_commit	before_blob	after_blob	disposition
+components/jeryu-core/crates/jeryu-gitd/src/refs.rs	f10df129c9cf35b2559fadacad61fa07bba9a64a	2bc0ecc61b4b7c9a15a3b70aee872c0309cdb2e4	1c2464dd903923bb0657b233deab85ee23cfc938	independent-gitd-source-import
+components/jeryu-core/crates/jeryu-gitd/tests/refs.rs	f10df129c9cf35b2559fadacad61fa07bba9a64a	1964748d12dc067352ccb61348849969b0f4b8d1	491636fdc8714d91404978bde460ec41394a57ec	independent-gitd-source-import
