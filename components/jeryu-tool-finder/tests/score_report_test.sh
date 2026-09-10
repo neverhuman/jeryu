@@ -4,9 +4,9 @@ set -euo pipefail
 root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)
 predicate="$root/ops/ci/score-report.jq"
 valid='{"score":85,"raw_score":85,"caps_applied":[],"findings":[],
-"decision":{"hard_findings":0,"passed":true,"status":"pass","minimum_score":75},
+"decision":{"hard_findings":0,"passed":true,"status":"pass","minimum_score":85},
 "scope":{"mode":"full","paths":[]},
-"policy":{"mode":"standard","minimum_score":75,"fail_on":["critical","high"]},
+"policy":{"mode":"standard","minimum_score":85,"fail_on":["critical","high"]},
 "copy_code":{"status":"pass","classes":[],"summary":{"hard_classes":0,"hard_instances":0}}}'
 cases=0
 expect() {
@@ -20,12 +20,12 @@ expect() {
   }
   cases=$((cases + 1))
 }
-expect pass 75 "$valid"
-expect pass 75 "$(jq '.findings=[{severity:"medium",hardness:"soft"},{severity:"low",hardness:"soft"},{severity:"info",hardness:"soft"}]' <<<"$valid")"
+expect pass 85 "$valid"
+expect pass 85 "$(jq '.findings=[{severity:"medium",hardness:"soft"},{severity:"low",hardness:"soft"},{severity:"info",hardness:"soft"}]' <<<"$valid")"
 expect pass 90 "$(jq '.score=90|.raw_score=90|.policy.minimum_score=90|.decision.minimum_score=90' <<<"$valid")"
-expect pass 75 "$(jq '.copy_code.status="review"|.copy_code.classes=[{hard_fail:false,effective_severity:"warning"}]' <<<"$valid")"
+expect pass 85 "$(jq '.copy_code.status="review"|.copy_code.classes=[{hard_fail:false,effective_severity:"warning"}]' <<<"$valid")"
 for mutation in \
-  '.score=74|.raw_score=74' '.score=101|.raw_score=101' \
+  '.score=84|.raw_score=84' '.score=101|.raw_score=101' \
   '.score=85.5|.raw_score=85.5' '.score=true|.raw_score=true' '.score="85"|.raw_score="85"' \
   '.raw_score=90' 'del(.score)' 'del(.caps_applied)' '.caps_applied={}' \
   '.caps_applied=["cap"]' '.caps=["concealed cap"]' '.caps=null' \
@@ -47,14 +47,14 @@ for mutation in \
   '.copy_code.classes=[{hard_fail:false,effective_severity:"unknown"}]' \
   '.copy_code.classes=[{effective_severity:"warning"}]' \
   'del(.copy_code)'; do
-  expect fail 75 "$(jq "$mutation" <<<"$valid")"
+  expect fail 85 "$(jq "$mutation" <<<"$valid")"
 done
-for minimum in 74 101 true null '"75"' 75.5; do
+for minimum in 84 101 true null '"85"' 85.5; do
   expect fail "$minimum" "$valid"
 done
 expect fail 90 "$valid"
-expect fail 75 "$valid
+expect fail 85 "$valid
 $valid"
-expect fail 75 ''
-expect fail 75 '{'
+expect fail 85 ''
+expect fail 85 '{'
 printf '%s full-standard score report cases passed\n' "$cases"

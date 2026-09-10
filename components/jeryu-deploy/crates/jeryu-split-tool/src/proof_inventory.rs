@@ -68,6 +68,7 @@ fn source_kind(relative: &str) -> Option<&'static str> {
         || relative.starts_with("crates/jeryu-split-tool/")
         || relative.starts_with("crates/jeryu-tool-control/")
         || relative.starts_with("crates/jeryu-release-toolkit/")
+        || relative == "crates/jeryu-jira/src/bin/jeryu-jira-security-evidence.rs"
         || relative == "tool-manifest.toml"
         || relative == "rust-toolchain.toml"
     {

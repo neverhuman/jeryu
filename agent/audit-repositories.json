@@ -1,0 +1,212 @@
+{
+  "schema": "jeryu.audit-repositories/v1",
+  "sources": [
+    {
+      "repository": "neverhuman/jankurai",
+      "scope": "dependency",
+      "path": null,
+      "commit": "b88562fdb124aa86dedd70ab972e7d0d87e58be1",
+      "minimum": 85,
+      "required": true,
+      "reason": "active governed Jeryu producer; do not repin from current-main score; not-executed; independent bootstrap producer qualification required"
+    },
+    {
+      "repository": "neverhuman/jankurai",
+      "scope": "optional",
+      "path": null,
+      "commit": "26f0204be5353e6eb7082d04be0ed5bcdb6a8cb5",
+      "minimum": 85,
+      "required": false,
+      "reason": "record separately from Jeryu current pin; no adoption authorized by this inventory; not-executed; observed README91 belongs protected predecessor fb97e59686fb4c6e1f27b4d567adf8d7606bc881"
+    },
+    {
+      "repository": "neverhuman/jankurai-core",
+      "scope": "optional",
+      "path": null,
+      "commit": "5ee1cc84039be93e1f664a3e0a59e27935c8e992",
+      "minimum": 85,
+      "required": false,
+      "reason": "owned support census; unadopted by Jeryu current governed pin; not-executed; stronger ratchet/proof floors require owning qualification"
+    },
+    {
+      "repository": "neverhuman/jankurai-contracts",
+      "scope": "optional",
+      "path": null,
+      "commit": "3c50e79b2d7580e284d74f79ba5e2014afe0612e",
+      "minimum": 85,
+      "required": false,
+      "reason": "owned support census; unadopted by Jeryu current governed pin; not-executed; stronger ratchet/proof floors require owning qualification"
+    },
+    {
+      "repository": "neverhuman/jankurai-standard",
+      "scope": "optional",
+      "path": null,
+      "commit": "5d832342525560252f850b592002abfdf2716571",
+      "minimum": 85,
+      "required": false,
+      "reason": "owned support census; unadopted by Jeryu current governed pin; not-executed; stronger ratchet/proof floors require owning qualification"
+    },
+    {
+      "repository": "neverhuman/jankurai-conformance",
+      "scope": "optional",
+      "path": null,
+      "commit": "61ffa462f8aa8b0d69bd04223c5b688a535b58ed",
+      "minimum": 85,
+      "required": false,
+      "reason": "owned support census; unadopted by Jeryu current governed pin; not-executed; stronger ratchet/proof floors require owning qualification"
+    },
+    {
+      "repository": "neverhuman/jankurai-paper",
+      "scope": "optional",
+      "path": null,
+      "commit": "92215bbd1ddc40553e1cebae00fd9f6f1546cea7",
+      "minimum": 85,
+      "required": false,
+      "reason": "owned support census; unadopted by Jeryu current governed pin; not-executed; stronger ratchet/proof floors require owning qualification"
+    },
+    {
+      "repository": "neverhuman/jankurai-tools-tui",
+      "scope": "optional",
+      "path": null,
+      "commit": "d0c9e1d4ce184d2796ffcc1e99f371bb89657212",
+      "minimum": 85,
+      "required": false,
+      "reason": "owned support census; unadopted by Jeryu current governed pin; not-executed; stronger ratchet/proof floors require owning qualification"
+    },
+    {
+      "repository": "neverhuman/jankurai-tools-ux",
+      "scope": "optional",
+      "path": null,
+      "commit": "d464f44c0fc6eb15924e1131e7900a213eaef175",
+      "minimum": 85,
+      "required": false,
+      "reason": "owned support census; unadopted by Jeryu current governed pin; not-executed; stronger ratchet/proof floors require owning qualification"
+    },
+    {
+      "repository": "neverhuman/jankurai-tools-kernel",
+      "scope": "optional",
+      "path": null,
+      "commit": "55401b34cd39c4f22755f130986d2a5869a5b3d7",
+      "minimum": 85,
+      "required": false,
+      "reason": "owned support census; unadopted by Jeryu current governed pin; not-executed; stronger ratchet/proof floors require owning qualification"
+    },
+    {
+      "repository": "neverhuman/jankurai-tools-guard",
+      "scope": "optional",
+      "path": null,
+      "commit": "ac11dec26907b986c62b1112fc6e781e1e2894c3",
+      "minimum": 85,
+      "required": false,
+      "reason": "owned support census; unadopted by Jeryu current governed pin; not-executed; stronger ratchet/proof floors require owning qualification"
+    },
+    {
+      "repository": "neverhuman/jankurai-tools-proof",
+      "scope": "optional",
+      "path": null,
+      "commit": "dc7a6ffd84866a1572eaeab4c11e4f02028c5176",
+      "minimum": 85,
+      "required": false,
+      "reason": "owned support census; unadopted by Jeryu current governed pin; not-executed; stronger ratchet/proof floors require owning qualification"
+    },
+    {
+      "repository": "neverhuman/jankurai-tools-dedup",
+      "scope": "optional",
+      "path": null,
+      "commit": "602b608c59690020eb66a2069f67d33a75b481f1",
+      "minimum": 85,
+      "required": false,
+      "reason": "owned support census; unadopted by Jeryu current governed pin; not-executed; stronger ratchet/proof floors require owning qualification"
+    },
+    {
+      "repository": "neverhuman/jankurai-tools-analyzers",
+      "scope": "optional",
+      "path": null,
+      "commit": "5744da4bb06434fdffecb8c5ec6f1091ff26b460",
+      "minimum": 85,
+      "required": false,
+      "reason": "owned support census; unadopted by Jeryu current governed pin; not-executed; stronger ratchet/proof floors require owning qualification"
+    },
+    {
+      "repository": "neverhuman/jankurai-tools-fleet",
+      "scope": "optional",
+      "path": null,
+      "commit": "668532cd06f87aec6b677ab061405e51871e57b8",
+      "minimum": 85,
+      "required": false,
+      "reason": "owned support census; unadopted by Jeryu current governed pin; not-executed; stronger ratchet/proof floors require owning qualification"
+    },
+    {
+      "repository": "neverhuman/jankurai-deploy",
+      "scope": "optional",
+      "path": null,
+      "commit": "7c047e7879ab48a0f28a309ac70518159ffc9e81",
+      "minimum": 85,
+      "required": false,
+      "reason": "owned support census; unadopted by Jeryu current governed pin; not-executed; stronger ratchet/proof floors require owning qualification"
+    },
+    {
+      "repository": "neverhuman/RedlineDB",
+      "scope": "optional",
+      "path": null,
+      "commit": "cdb1c5a4d4629ff555cfca9d8994c818e070c571",
+      "minimum": 85,
+      "required": false,
+      "reason": "optional compatibility; canonical Jain authority only; duplicate Jeryu copies retirement pending; not-executed"
+    },
+    {
+      "repository": "neverhuman/redline-core",
+      "scope": "optional",
+      "path": null,
+      "commit": "d0de59930141baffcfa2b514480e75b14627f24d",
+      "minimum": 85,
+      "required": false,
+      "reason": "optional compatibility; canonical Jain authority only; duplicate Jeryu copies retirement pending; not-executed"
+    },
+    {
+      "repository": "neverhuman/redline-testing",
+      "scope": "optional",
+      "path": null,
+      "commit": "4a449d8de05c8a0ced5cb2d29c76e4718a0041ea",
+      "minimum": 85,
+      "required": false,
+      "reason": "optional compatibility; canonical Jain authority only; duplicate Jeryu copies retirement pending; not-executed"
+    },
+    {
+      "repository": "neverhuman/redline-web",
+      "scope": "optional",
+      "path": null,
+      "commit": "215fd9fc9008e4943973598754d591d39c621598",
+      "minimum": 85,
+      "required": false,
+      "reason": "optional compatibility; canonical Jain authority only; duplicate Jeryu copies retirement pending; not-executed"
+    },
+    {
+      "repository": "unresolved/redline-split-ops",
+      "scope": "optional",
+      "path": null,
+      "commit": null,
+      "minimum": 85,
+      "required": false,
+      "reason": "canonical source metadata only; protected pin/public distribution unresolved; not-executed"
+    },
+    {
+      "repository": "unresolved/jekko-image-agent",
+      "scope": "optional",
+      "path": null,
+      "commit": null,
+      "minimum": 85,
+      "required": false,
+      "reason": "blocks optional product-image qualification; does not block ordinary SQLite install; source-unavailable"
+    },
+    {
+      "repository": "unresolved/redline-central",
+      "scope": "optional",
+      "path": null,
+      "commit": "87e8d350e80c7e7996f8336c8294e82ee7585ba1",
+      "minimum": 85,
+      "required": false,
+      "reason": "needs canonical Redline owner disposition; not runtime dependency or deletion authority; not-executed"
+    }
+  ]
+}

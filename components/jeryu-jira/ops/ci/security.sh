@@ -52,26 +52,9 @@ mark_missing_tool() {
 }
 
 write_evidence() {
-  python3 - "$checks_tsv" "$evidence_json" <<'PY'
-import json
-import sys
-from pathlib import Path
-
-checks = []
-for line in Path(sys.argv[1]).read_text().splitlines():
-    name, status, policy, detail = line.split("\t", 3)
-    checks.append({
-        "name": name,
-        "status": status,
-        "policy": policy,
-        "detail": detail,
-    })
-
-Path(sys.argv[2]).write_text(json.dumps({
-    "schema_version": "jeryu.split.security/v1",
-    "checks": checks,
-}, indent=2, sort_keys=True) + "\n")
-PY
+  cargo run --locked --quiet --manifest-path crates/jeryu-jira/Cargo.toml \
+    --package jeryu-jira --bin jeryu-jira-security-evidence \
+    --jobs "${JERYU_CI_JOBS:-2}" -- "$checks_tsv" "$evidence_json"
 }
 
 if find . -path './.git' -prune -o -path './target' -prune -o -name '.env' -type f -print | grep -q .; then

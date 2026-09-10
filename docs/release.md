@@ -1,34 +1,42 @@
-# Release
+# Release and recovery status
 
-`jeryu/jeryu-deploy` on `git.neverhuman.org` governs all signed release
-artifacts. Source hosting and artifact publication are separate boundaries;
-the candidate posture does not imply that a hosted artifact feed is active.
+The public monorepo and its Linux x86_64 source installation are candidates.
+Central signed binary releases, final public-origin installation, independent
+component exports and complete local/hosted qualification remain pending.
+Binary installation stays closed until verification works end to end.
 
-Version source is `VERSION` plus the split tag recorded in
-`repos.manifest.toml` when present. Release notes are recorded in
-`CHANGELOG.md`.
+The existing `jeryu-release-ops/repos.manifest.toml` remains release authority.
+The root manifest records a pending protected handover and preserves
+`jeryu-split` identity and immutable v5 lineage. Source publication does not
+switch the installed service or activate a release.
 
-## Release Gate
+## Release admission
 
-Before a release or split tag is promoted:
+The exact source commit must pass the complete local and GitHub matrices,
+anonymous dependency acquisition and fresh unprivileged installation/runtime
+qualification. Required owned dependencies must satisfy their effective audit
+policies. Every standalone mirror must build, test and audit its own exact
+export. Independent review and protected publication precede release tags.
 
-- run `just fast`, `just check`, `just score`, `just security`, and `just artifact-support`
-- confirm checksum, provenance, SBOM, and cosign evidence for release artifacts
-- confirm monitoring is active for the promoted version
-- confirm backups or reproducible source inputs exist for rollback
-- confirm rate limit or abuse controls are configured for public surfaces
+Central artifacts must include source identity, checksums, signatures, SBOMs,
+build provenance and installation evidence. Verify platform, signatures,
+checksums and provenance before replacing an installed binary. An unavailable
+or invalid artifact fails installation.
 
-## Rollback
+## Upgrade and recovery admission
 
-Rollback uses the previous known-good split tag and its artifact evidence. Do
-not overwrite tags; publish a new repair tag or restore consumers to the last
-verified tag.
+An upgrade requires a verified backup of application data, Git repositories,
+configuration and the previous release, plus a successful restore rehearsal.
+Database and repository state must remain mutually consistent. Do not restore
+an older snapshot over accepted new writes without a lossless recovery plan.
 
-## Auditor-only CI cutovers
+Preserve previous signed artifacts and immutable tags. A repair publishes a new
+tag; existing tags never move. Installed-service maintenance needs its own
+approved window and post-activation checks.
 
-Changing the governed auditor is not a product release and leaves `VERSION`,
-split tags, and product artifacts unchanged. Its release gate requires the
-exact protected `jeryu-tool` source/tag/binary receipt, clean exact-head CI,
-and independent approval before protected merge. The backup, monitoring,
-rate-limit or abuse, checksum, SBOM, provenance, and rollback controls above
-remain mandatory for any later product promotion.
+The historical component [release runbook](../components/jeryu-deploy/docs/release.md)
+and [release process](../components/jeryu-deploy/docs/release-process.md) retain
+existing operational evidence and instructions. Their hosted environment
+assumptions do not establish a qualified standalone upgrade procedure.
+A complete source-bound standalone backup/restore and upgrade/recovery drill
+remains open in [current status](migration/STATUS.md).

@@ -1,21 +1,16 @@
 # Jeryu
 
-Jeryu is a self-hosted forge with repositories, issues, pull requests,
-protected merges, checks, a browser interface, and optional CI runners.
-Jeryu source is licensed under Apache-2.0. Bundled JetBrains Mono fonts retain
-the SIL Open Font License 1.1; see the
-[bundled font notice](components/jeryu-web/apps/web/public/THIRD_PARTY_NOTICES.txt).
-[Web dependency notices](docs/notices/web-bundles.md) accompany the current
-application and preserved historical bundles.
+Jeryu is a self-hosted forge for Git repositories, issues, pull requests,
+reviews and protected merges, with a browser interface and optional CI runners.
 
-**This branch is a monorepo migration candidate. Anonymous installation and
-release qualification are incomplete.** See
-[migration status](docs/migration/STATUS.md) for the remaining gates. The
-currently installed service and existing release tags have not changed.
-The [migration plan](docs/migration/PLAN.md) accounts for every original
-repository and support directory, CI qualification, mirrors and relocation.
+**Status: PENDING qualification.** This monorepo is a source candidate.
+Complete CI, anonymous public-origin installation and the central release
+are still unqualified. Read [current status](docs/migration/STATUS.md) and
+the [dependency and audit dashboard](docs/dependencies.md).
 
-The intended public source installation is:
+## Quick start
+
+Install the prerequisites below, then use the source installation contract:
 
 ```bash
 git clone https://github.com/neverhuman/jeryu.git
@@ -25,82 +20,111 @@ cd jeryu
 jeryu serve
 ```
 
-Source builds initially target Linux x86_64. Install Git, a C compiler,
-pkg-config, OpenSSL development headers, rustup with the toolchain specified
-in `rust-toolchain.toml`, and Node.js 22.19+ on the 22.x line or Node.js 24+
-with npm. CI uses Node.js 26.1.0. On Ubuntu, native
-prerequisites are provided by `build-essential pkg-config libssl-dev git`.
-SQLite is bundled with the Rust application; no database service or RedlineDB
-checkout is required. The governed auditor artifacts and portable verification
-still need qualification before complete credential-free CI can pass.
+Open `http://127.0.0.1:8787`. The build embeds production browser assets and
+uses bundled SQLite; no database service is required. Source installation
+verifies source and binary digests and rejects missing, modified or stale
+artifacts. Complete anonymous qualification of these commands remains pending.
 
-`build.sh` installs locked npm dependencies, builds the web application, and
-builds the locked Rust CLI with embedded assets. It records source and binary
-digests. The source installer rejects missing, modified, or stale artifacts.
-It defaults to `~/.local/bin`; override this with
-`--install-dir PATH` or `JERYU_INSTALL_DIR`. Add that directory to `PATH`.
-The binary installer remains closed until central signed releases qualify.
+The installer defaults to `~/.local/bin`; add it to `PATH` if needed.
+Override the destination with `--install-dir PATH` or `JERYU_INSTALL_DIR`.
+Binary installation remains closed until central signed releases qualify.
 
-Run `jeryu serve` from any directory, then open `http://127.0.0.1:8787`.
-Storage selection is `--data-dir`, then `JERYU_DATA_DIR`, then
+### Prerequisites and platforms
+
+The source installation currently targets Linux x86_64. Install Git, a C
+compiler, pkg-config, OpenSSL development headers, rustup, and Node.js with npm.
+On Ubuntu, the native packages are `build-essential pkg-config libssl-dev git`.
+
+The root [Rust toolchain](rust-toolchain.toml) pins the compiler. Node.js
+22.19+ on the 22.x line or Node.js 24+ is supported by the web toolchain;
+CI uses Node.js 26.1.0. Other operating systems and architectures are not
+qualified release targets. Ordinary application builds do not require
+installing Jankurai or optional runner agents.
+
+## First login and durable data
+
+The first start creates only `jeryu-admin`. Its one-time password is stored
+in `bootstrap-credentials.json` inside the data directory with owner-only
+access. Log in, change the password and remove that credential receipt.
+An explicit `JERYU_BOOTSTRAP_ADMIN_PASSWORD` retains the operator provisioning
+and reset flow; unset it after provisioning.
+
+Data selection is `--data-dir PATH`, then `JERYU_DATA_DIR`, then
 `$XDG_DATA_HOME/jeryu`, or `~/.local/share/jeryu` when XDG storage is unset.
-SQLite and Git repositories persist there across restarts. `--spa-dir PATH`
-explicitly serves a development bundle. Without it, the server uses embedded
-assets and does not trust files in the current directory.
+SQLite and Git repositories persist there across restarts. Run
+`jeryu serve` from any directory; embedded assets are used by default.
+`--spa-dir PATH` explicitly serves a development browser bundle.
 
-`jeryu serve --store sqlite` makes the default engine explicit. `--store` takes
-precedence over `JERYU_STORE`. The compatibility values `redline` and `redlinedb`
-currently use the same durable SQLite engine and print a fallback notice;
-they do not load RedlineDB. Unknown values fail before creating runtime state.
+`--store sqlite` makes the default explicit and takes precedence over
+`JERYU_STORE`. Compatibility values `redline` and `redlinedb` currently use
+the same SQLite engine and print a fallback notice. They do not load RedlineDB.
+Unknown values fail before runtime state is created.
 
-The first start creates only `jeryu-admin`. Its one-time password is written
-to `bootstrap-credentials.json` in the data directory with owner-only access;
-log in, change the password, and remove that credential receipt. An explicit
-`JERYU_BOOTSTRAP_ADMIN_PASSWORD` retains the operator provisioning/reset flow;
-unset it after provisioning. No personal accounts are created automatically.
-
-CLI HTTP operations use `--api-url`, then `JERYU_API_URL`, then
+CLI HTTP operations select `--api-url`, then `JERYU_API_URL`, then
 `http://127.0.0.1:8787`. Create a personal access token in the authenticated
-web interface and provide it through `JERYU_TOKEN_FILE` or `JERYU_TOKEN`.
-Connection and authorization failures return errors. Historical commands
-without server transports also return errors; their remaining implementation
-is tracked in the migration status.
+browser interface and supply `JERYU_TOKEN_FILE` or `JERYU_TOKEN`.
+Connection and authorization failures return errors. Historical commands whose
+server transports remain unavailable also return errors.
 
-All 65 Rust packages live in the root Cargo workspace. The web application
-and UX tooling use the root npm workspace. Component ownership remains under
-`components/jeryu-core`, `jeryu-cache`, `jeryu-ci-runner`,
-`jeryu-intelligence`, `jeryu-jira` (Work), `jeryu-web`, `jeryu-tool`,
-`jeryu-tool-finder`, `jeryu-deploy`, and `jeryu-release-ops`.
-Original manifests and locks are archived as provenance; their paths are not
-active workspace configuration.
+## Development and contribution
 
-The root `rust-toolchain.toml` and `.cargo/config.toml` own the product build
-configuration. Component copies are generated compatibility projections; absent
-component Cargo configuration inherits the root file. After changing a root
-file, run `cargo run --locked -p jeryu-split-tool --bin jeryu-split -- build-config
---write` from the monorepo root. The command checks all inputs before refreshing
-existing projections and preserves their permissions; `build-config` without
-`--write` and `monorepo-check` reject drift. Split exports use those same root
-files. Jankurai retains its separately governed compiler and hermetic builder.
+Develop in this repository's root Rust and npm workspaces. All 65 Rust
+packages share the root Cargo lockfile; the browser and UX checks share the
+root npm lockfile.
 
-RedlineDB compatibility is an explicit optional proof:
-`bash scripts/ci.sh redline`. Its isolated test harness and lockfile keep
-RedlineDB out of normal builds, all-feature workspace tests, and required
-SQLite release checks. See [the contract scope](components/jeryu-release-ops/tests/redline/README.md).
-The server uses SQLite; this proof command does not switch its backend.
+```bash
+./scripts/build.sh
+bash scripts/ci.sh source
+bash scripts/ci.sh web
+```
 
-Read [AGENTS.md](AGENTS.md) before contributing. Changes target this monorepo;
-the split repositories will be maintained as deterministic downstream mirrors
-after qualification. The root manifest records a pending protected authority
-handover, preserving the `jeryu-split` identity and immutable v5 lineage.
+These commands have different scopes. See [testing](docs/testing.md) for
+the complete matrix and capability requirements. A passing subset does not
+qualify a release. [CONTRIBUTING.md](CONTRIBUTING.md) explains contribution
+routing, regression tests and independent review; [AGENTS.md](AGENTS.md)
+contains repository rules.
 
-Prepare a component export with `cargo run --locked -p jeryu-split-tool --bin
-jeryu-split -- export-tree --component jeryu-web --source FULL_COMMIT_SHA
---resolve-lock`. This writes a Git tree and source provenance without updating
-remote refs. Rust exports bind external Jeryu packages to that monorepo commit;
-npm exports preserve dependency integrities and relocate workspace links.
-Lock resolution rejects changed external package versions and duplicate
-Jeryu package identities. `bash scripts/test-split-exports.sh` reproduces every
-export twice and runs its standalone checks in automatically removed Git
-clones. The source commit and external dependencies must be available first;
-passing these checks does not authorize publication.
+## Component map
+
+Changes belong under `components/` in this monorepo. Component repositories
+retain their identities and histories as downstream mirror targets; independent
+export qualification and protected publication remain pending.
+
+| Component | Source responsibilities |
+| --- | --- |
+| [Core](components/jeryu-core) | Domain, Git storage, read models and forge primitives |
+| [Cache](components/jeryu-cache) | Build artifact cache and cache defenses |
+| [Runner](components/jeryu-ci-runner) | Optional CI execution, scheduling and isolation |
+| [Intelligence](components/jeryu-intelligence) | Reviews, Codegraph and agent integrations |
+| [Work](components/jeryu-jira) | Work items; technical identity remains `jeryu-jira` |
+| [Web](components/jeryu-web) | Embedded browser application and UX checks |
+| [Tool](components/jeryu-tool) | Governed auditor identity and tool control |
+| [Tool Finder](components/jeryu-tool-finder) | Tool discovery |
+| [Deploy](components/jeryu-deploy) | Server, CLI, installation and monorepo tooling |
+| [Release Ops](components/jeryu-release-ops) | Release, evidence and contract tooling |
+
+Read the [architecture](docs/architecture.md) for ownership and dependency
+boundaries, and the [split publication contract](docs/migration/SPLIT-PUBLICATION.md)
+for deterministic exports.
+
+## Dependencies, audits and releases
+
+The [dashboard](docs/dependencies.md) separates maintained heads from the
+versions used by Jeryu. Verified live SVG results and an evidence publisher
+remain pending; a missing report is not a passing score. The required score
+floor is at least 85, preserving stronger 91-point proof gates and ratchets.
+
+RedlineDB compatibility is optional: `bash scripts/ci.sh redline` runs its
+separately locked [contract harness](components/jeryu-release-ops/tests/redline/README.md).
+It does not switch the server backend or block SQLite release eligibility.
+Runner installation is also optional; native sandbox and product-image
+qualification remain separate obligations.
+
+See [release and recovery status](docs/release.md), [support](SUPPORT.md)
+and [security reporting](SECURITY.md). Source publication, release authority
+handover and installed-service activation each require their own evidence.
+
+Jeryu is licensed under [Apache-2.0](LICENSE). Bundled JetBrains Mono fonts
+retain [SIL Open Font License 1.1 and notices](components/jeryu-web/apps/web/public/THIRD_PARTY_NOTICES.txt).
+[Web dependency notices](docs/notices/web-bundles.md) cover current and
+preserved historical bundles.

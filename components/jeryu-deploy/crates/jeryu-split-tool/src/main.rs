@@ -13,6 +13,10 @@ use clap::{Parser, Subcommand};
 use serde::Serialize;
 use toml::Value;
 
+mod audit_census;
+mod audit_evidence;
+mod audit_readme;
+mod audit_scheduler;
 mod audit_score;
 mod build_config;
 mod canonical_json;
@@ -31,6 +35,42 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Command {
+    /// Check a managed README link block; update it only with --write.
+    AuditReadme {
+        #[arg(long)]
+        readme: PathBuf,
+        #[arg(long)]
+        image_url: String,
+        #[arg(long)]
+        report_url: String,
+        #[arg(long)]
+        write: bool,
+    },
+    /// Enumerate every newly reachable source commit without publishing results.
+    AuditPlan {
+        #[arg(long)]
+        source_repo: PathBuf,
+        #[arg(long)]
+        request: PathBuf,
+    },
+    /// Execute a complete audit census; unavailable sources remain explicit failures.
+    AuditCensus {
+        #[arg(long, default_value = "agent/audit-repositories.json")]
+        inventory: PathBuf,
+        /// New owner-only output directory; existing attempts are never replaced.
+        #[arg(long)]
+        out: PathBuf,
+        /// Executable held and verified by the public auditor bootstrap.
+        #[arg(long)]
+        auditor: Option<PathBuf>,
+        #[arg(long)]
+        receipt: Option<PathBuf>,
+        #[arg(long, default_value_t = 300)]
+        timeout_seconds: u64,
+        /// Policy comparison commit; does not authenticate protected history.
+        #[arg(long)]
+        governing_commit: Option<String>,
+    },
     /// Admit an existing auditor report using its owning score policy.
     AuditScoreCheck {
         #[arg(long, value_enum)]
@@ -257,6 +297,32 @@ fn parse_manifest_compat(args: &[OsString]) -> std::result::Result<Cli, Manifest
 
 fn run(cli: Cli) -> Result<()> {
     match cli.command {
+        Command::AuditReadme {
+            readme,
+            image_url,
+            report_url,
+            write,
+        } => audit_readme::run(&readme, &image_url, &report_url, write),
+        Command::AuditPlan {
+            source_repo,
+            request,
+        } => audit_scheduler::run(&source_repo, &request),
+        Command::AuditCensus {
+            inventory,
+            out,
+            auditor,
+            receipt,
+            timeout_seconds,
+            governing_commit,
+        } => audit_census::run(
+            Path::new("."),
+            &inventory,
+            &out,
+            auditor.as_deref(),
+            receipt.as_deref(),
+            timeout_seconds,
+            governing_commit.as_deref(),
+        ),
         Command::AuditScoreCheck {
             owner,
             policy,

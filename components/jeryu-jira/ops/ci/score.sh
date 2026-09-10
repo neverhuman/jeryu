@@ -2,7 +2,7 @@
 set -euo pipefail
 source ops/ci/lib.sh
 require_jankurai
-require_tool jq
+command -v jq >/dev/null || { printf 'score requires jq\n' >&2; exit 1; }
 
 required=(
   agent/owner-map.json

@@ -2021,8 +2021,10 @@ dependencies = [
  "anyhow",
  "clap",
  "jeryu-repogate",
+ "libc",
  "serde",
  "serde_json",
+ "sha2",
  "tempfile",
  "toml",
 ]

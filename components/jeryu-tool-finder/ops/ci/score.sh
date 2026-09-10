@@ -101,8 +101,8 @@ done
 minimum_score="$(awk -F= '/^[[:space:]]*minimum_score[[:space:]]*=/ {
   gsub(/[[:space:]]/, "", $2); print $2; exit
 }' agent/audit-policy.toml)"
-[[ "$minimum_score" =~ ^[0-9]+$ && $minimum_score -ge 75 && $minimum_score -le 100 ]] ||
-  die 'minimum_score must be an integer from 75 through 100'
+[[ "$minimum_score" =~ ^[0-9]+$ && $minimum_score -ge 85 && $minimum_score -le 100 ]] ||
+  die 'minimum_score must be an integer from 85 through 100'
 prepare_dir .jankurai
 prepare_dir target
 prepare_dir target/jankurai

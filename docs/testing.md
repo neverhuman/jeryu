@@ -1,35 +1,42 @@
 # Testing
 
-Use the local CI entrypoints before pushing changes:
+Local and GitHub product checks use `bash scripts/ci.sh LANE`. The complete
+required lane set is maintained by `scripts/ci-lanes.sh` and the GitHub workflow.
+Use the same command and exact source revision when comparing their results.
 
-- `just fast`
-- `just check`
-- `just score`
-- `just security`
-- `just artifact-support`
+```bash
+./scripts/build.sh
+bash scripts/ci.sh source
+bash scripts/ci.sh web
+```
 
-`scripts/ci-local.sh` executes the canonical `ops/ci/pr-ci.sh` gate used for
-the hosted `jeryu/required` check. `scripts/ci-doctor.sh` checks the governed
-Jankurai identity. `just check` also runs hostile tests that prove family
-cloning rejects malformed hosted slugs, wrong origins, dirty or symlinked
-checkouts, and that required security scanners cannot fail or disappear while
-the lane reports green.
+These are selected contributor checks. The complete product qualification
+command is `bash scripts/ci.sh all`; every required result must be present and
+successful. Missing capabilities, failures, cancellation, timeout or skipped
+required proofs cannot qualify the aggregate. See
+[CI coverage](migration/CI-COVERAGE.md) for the maintained obligation inventory.
 
-Security repair evidence is written as `jeryu.split.security/v2` JSON to both
-`target/jankurai/security/evidence.json` and `target/security/evidence.json`.
-Each check records `name`, `status`, `policy`, and a bounded `detail`; the
-top-level `conclusion` is `failure` whenever any check fails. After repairing a
-failure, rerun `bash tests/security-lane-hostiles.sh`, then `just security`, and
-compare the exact evidence file before running the canonical PR gate.
+Rust checks preserve formatting, warning-denied Clippy, tests and supported
+feature configurations. Web checks preserve contracts, lint, types, unit and
+browser tests, production assets, Storybook, accessibility and performance
+requirements. Runtime checks exercise source installation and the real server.
+Product, security, split and owning component proofs remain independently
+required until equivalent replacement coverage is demonstrated.
 
-Agent-readable exception guidance:
+Native sandbox and OCI lanes need disposable Linux environments with the
+required kernel and container capabilities. Read the owning command and
+admission checks before running them. Installing the forge does not require
+these privileged verification environments.
 
-- purpose: every typed error documents the caller-facing failure purpose
-- reason: failures preserve enough context for local diagnosis
-- common fixes: map repeated failures to a small set of operator repairs
-- docs_url: point users to this file or a narrower runbook
-- repair_hint: state the next command or config change to try
+Jankurai uses the identity owned by
+`components/jeryu-tool/tool-manifest.toml`. A complete audit census, protected
+predecessor admission and live evidence publication remain qualification gates;
+their implementation status is recorded in [current status](migration/STATUS.md).
+Do not substitute a diagnostic subset, stale report or candidate-owned baseline.
 
-Cost and bounded-operation policy: budget, quota, spend cap, kill switch, and
-stop condition evidence must be added before introducing paid or unbounded
-network operations.
+`bash scripts/ci.sh redline` is a separate optional compatibility proof. Its
+absence does not block the required SQLite matrix.
+
+Record the exact commit, command, exit status and report identity. Keep original
+failures and retry history. Preserve failed scratch for reviewed custody checks;
+never remove original checkouts or runtime state as part of routine test cleanup.

@@ -94,21 +94,21 @@ would preserve those problems. Address them before authority cutover.
    export in an isolated Git clone. Deploy obtains embedded web assets from
    that same immutable source. Publish only qualified exports through
    protected forward-only updates, preserving existing public history/tags
-   and source provenance. Create the missing Work repository after central
-   qualification. Generated contribution instructions route changes to the
+   and source provenance. Read back Work repository availability and existing ancestry before its first
+   qualified mirror publication; the earlier missing-repository state is historical. Generated contribution instructions route changes to the
    monorepo; disable competing upstream writers during cutover.
 
-6. **Hand over authority and relocate once.** Prepare the installed service's
-   replacement manifest projection and validate it before moving paths.
-   Protect and review the Release Ops-to-root authority handover, hosted
-   downstream mirroring and Jain immutable consumer references, using the
-   installed-boundary lifecycle wherever applicable. Refresh Redline's
-   producer and both consumer proofs. At the maintenance gate, rename the
-   single canonical checkout to `/home/ubuntu/jeryu-split/jeryu`, update its
-   remaining consumers and verify the installed projection. No worktrees,
-   copied source families or symlink shims. The chat file at the destination
-   is coordination only until that rename. Source publication does not change
-   the running service or activate GA metadata.
+6. **Complete protected authority handover.** Prepare and validate generated
+   runtime/consumer projections before replacing authority. Protect and review
+   the Release Ops-to-root handover, hosted downstream mirroring and immutable
+   Jain consumer references, using the installed-boundary lifecycle wherever
+   applicable. Keep the canonical checkout at
+   `/home/ubuntu/jain-split/jeryu-split/jeryu`; physical relocation is neither
+   required nor permitted by current family instructions. Do not recreate old
+   roots, copied source families, worktrees or compatibility symlinks. Refresh
+   Redline producer/two-consumer evidence for its separate qualification and
+   retirement gates. Source publication does not change the running service
+   or activate GA metadata.
 
 7. **Release and close custody accounting.** Publish central platform archives,
    checksums, signatures, SBOMs and provenance. A binary installer must reject
