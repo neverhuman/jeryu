@@ -7,26 +7,26 @@ use std::{fs, path::Path, process::Command};
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
-enum Event {
+pub(super) enum Event {
     Push,
     PullRequest,
     Release,
     Reconcile,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
-struct ExecutionIdentity {
-    repository: String,
-    scope: String,
-    auditor_source_commit: String,
+pub(super) struct ExecutionIdentity {
+    pub(super) repository: String,
+    pub(super) scope: String,
+    pub(super) auditor_source_commit: String,
     auditor_executable_sha256: String,
     auditor_receipt_sha256: String,
     /// The accepted governing policy and its source-policy resolution rules.
     /// Candidate policy bytes are independently bound by each source tree.
-    governing_policy_sha256: String,
+    pub(super) governing_policy_sha256: String,
     /// Includes all executor/toolchain/command/dependency-lock selection inputs.
-    execution_config_sha256: String,
+    pub(super) execution_config_sha256: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -46,33 +46,35 @@ struct Request {
     previous_run_id: Option<String>,
 }
 
-#[derive(Serialize)]
-struct Job {
-    source_commit: String,
-    source_tree: String,
-    deduplication_key: String,
-    attempt_key: String,
-    status: &'static str,
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct Job {
+    pub(super) source_commit: String,
+    pub(super) source_tree: String,
+    pub(super) deduplication_key: String,
+    pub(super) attempt_key: String,
+    pub(super) status: String,
 }
 
-#[derive(Serialize)]
-struct Plan {
-    schema_version: &'static str,
-    identity: ExecutionIdentity,
-    event: Event,
-    source_ref: String,
-    before: Option<String>,
-    after: Option<String>,
-    resolved_after_commit: Option<String>,
-    disposition: &'static str,
-    run_id: String,
-    run_attempt: u32,
-    previous_run_id: Option<String>,
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct Plan {
+    pub(super) schema_version: String,
+    pub(super) identity: ExecutionIdentity,
+    pub(super) event: Event,
+    pub(super) source_ref: String,
+    pub(super) before: Option<String>,
+    pub(super) after: Option<String>,
+    pub(super) resolved_after_commit: Option<String>,
+    pub(super) disposition: String,
+    pub(super) run_id: String,
+    pub(super) run_attempt: u32,
+    pub(super) previous_run_id: Option<String>,
     /// These commits keep any existing evidence; this plan never removes it.
-    withdrawn_commits: Vec<String>,
-    jobs: Vec<Job>,
-    execution_verified: bool,
-    publication_qualified: bool,
+    pub(super) withdrawn_commits: Vec<String>,
+    pub(super) jobs: Vec<Job>,
+    pub(super) execution_verified: bool,
+    pub(super) publication_qualified: bool,
 }
 
 fn git_command(repo: &Path) -> Command {
@@ -100,7 +102,7 @@ fn git(repo: &Path, args: &[&str]) -> Result<String> {
     String::from_utf8(output.stdout).context("non-UTF-8 Git graph output")
 }
 
-fn hex(value: &str, length: usize) -> bool {
+pub(super) fn hex(value: &str, length: usize) -> bool {
     value.len() == length
         && value
             .bytes()
@@ -223,7 +225,7 @@ fn commit(repo: &Path, oid: &str, tag_allowed: bool) -> Result<String> {
     Ok(resolved.to_owned())
 }
 
-fn digest(value: &impl Serialize) -> Result<String> {
+pub(super) fn digest(value: &impl Serialize) -> Result<String> {
     Ok(format!("{:x}", Sha256::digest(serde_json::to_vec(value)?)))
 }
 
@@ -316,36 +318,27 @@ fn plan(repo: &Path, request: Request) -> Result<Plan> {
     let jobs = rows
         .into_iter()
         .map(|(source_commit, source_tree)| {
-            let deduplication_key = digest(&(
-                "jeryu.audit-source-key/v1",
-                &request.identity,
-                &source_commit,
-                &source_tree,
-            ))?;
-            let attempt_key = digest(&(
-                "jeryu.audit-attempt-key/v1",
-                &deduplication_key,
-                &request.run_id,
-                request.run_attempt,
-            ))?;
+            let deduplication_key = source_key(&request.identity, &source_commit, &source_tree)?;
+            let attempt_key =
+                attempt_key(&deduplication_key, &request.run_id, request.run_attempt)?;
             Ok(Job {
                 source_commit,
                 source_tree,
                 deduplication_key,
                 attempt_key,
-                status: "pending",
+                status: "pending".into(),
             })
         })
         .collect::<Result<Vec<_>>>()?;
     Ok(Plan {
-        schema_version: "jeryu.audit-plan/v1",
+        schema_version: "jeryu.audit-plan/v1".into(),
         identity: request.identity,
         event: request.event,
         source_ref: request.source_ref,
         before: request.before,
         after: request.after,
         resolved_after_commit: after,
-        disposition,
+        disposition: disposition.into(),
         run_id: request.run_id,
         run_attempt: request.run_attempt,
         previous_run_id: request.previous_run_id,
@@ -355,6 +348,24 @@ fn plan(repo: &Path, request: Request) -> Result<Plan> {
         publication_qualified: false,
     })
 }
+
+/// These keys are shared with the local ledger. Deserialized keys are never authority.
+pub(super) fn source_key(identity: &ExecutionIdentity, commit: &str, tree: &str) -> Result<String> {
+    digest(&("jeryu.audit-source-key/v1", identity, commit, tree))
+}
+
+pub(super) fn attempt_key(source_key: &str, run_id: &str, run_attempt: u32) -> Result<String> {
+    digest(&(
+        "jeryu.audit-attempt-key/v1",
+        source_key,
+        run_id,
+        run_attempt,
+    ))
+}
+
+#[path = "audit_scheduler_input.rs"]
+mod input;
+pub(super) use input::{import_plan, plan_event_key};
 
 pub(super) fn run(source_repo: &Path, request_file: &Path) -> Result<()> {
     let bytes = fs::read(request_file).context("read audit-plan request")?;

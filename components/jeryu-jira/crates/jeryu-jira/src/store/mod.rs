@@ -18,7 +18,7 @@ mod validation;
 #[cfg(test)]
 mod tests;
 
-use codec::{key_for, parse_key, row_to_comment, row_to_item, row_to_item_result, to_json};
+use codec::{parse_key, row_to_comment, row_to_item, row_to_item_result, to_json};
 use validation::{
     filter_matches, local_operator, normalize_assignees, normalize_body, normalize_labels,
     validate_body, validate_issue_link, validate_principal, validate_pull_request_link,
@@ -54,6 +54,14 @@ impl WorkStore {
     }
 
     pub fn create(&self, request: CreateWorkItemRequest) -> Result<WorkItem> {
+        self.create_record(request, None)
+    }
+
+    fn create_record(
+        &self,
+        request: CreateWorkItemRequest,
+        issue: Option<WorkIssueLink>,
+    ) -> Result<WorkItem> {
         request.validate()?;
         let labels = normalize_labels(request.labels);
         let assignees = normalize_assignees(request.assignees)?;
@@ -67,8 +75,9 @@ impl WorkStore {
             INSERT INTO work_items (
                 id, repo_id, repo_host, repo_owner, repo_name, title, body,
                 status, kind, priority, labels_json, assignees_json,
-                pull_requests_json, created_at, updated_at
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, '[]', ?13, ?13)
+                pull_requests_json, created_at, updated_at,
+                issue_owner, issue_repo, issue_number, issue_url
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, '[]', ?13, ?13, ?14, ?15, ?16, ?17)
             "#,
             params![
                 id.to_string(),
@@ -84,13 +93,34 @@ impl WorkStore {
                 to_json(&labels)?,
                 to_json(&assignees)?,
                 now.to_rfc3339(),
+                issue.as_ref().map(|link| link.owner.as_str()),
+                issue.as_ref().map(|link| link.repo.as_str()),
+                issue.as_ref().map(|link| link.number),
+                issue.as_ref().and_then(|link| link.url.as_deref()),
             ],
         )
-        .map_err(WorkError::storage)?;
+        .map_err(|error| match error {
+            rusqlite::Error::SqliteFailure(code, _)
+                if issue.is_some()
+                    && code.extended_code == rusqlite::ffi::SQLITE_CONSTRAINT_UNIQUE =>
+            {
+                WorkError::Conflict("issue link already belongs to another work item".to_string())
+            }
+            error => WorkError::storage(error),
+        })?;
         let number = u64::try_from(tx.last_insert_rowid())
             .map_err(|_| WorkError::Storage("work item number overflowed u64".to_string()))?;
+        // Return only the row admitted by this transaction. A decoding failure
+        // must not leave behind a committed creation that the caller could not read.
+        let item = tx
+            .query_row(
+                "SELECT * FROM work_items WHERE number = ?1",
+                params![number],
+                row_to_item,
+            )
+            .map_err(WorkError::storage)?;
         tx.commit().map_err(WorkError::storage)?;
-        self.get(&key_for(number))
+        Ok(item)
     }
 
     pub fn list(&self, filter: WorkFilter) -> Result<Vec<WorkItem>> {
@@ -291,14 +321,9 @@ impl WorkStore {
         issue: WorkIssueLink,
     ) -> Result<WorkItem> {
         validate_issue_link(&issue)?;
-        let item = self.create(request)?;
-        self.link(
-            &item.key,
-            CreateWorkLinkRequest {
-                issue: Some(issue),
-                pull_request: None,
-            },
-        )
+        // Item and issue identity enter the Work store together or not at all.
+        // The caller's Core store remains a separate authority.
+        self.create_record(request, Some(issue))
     }
 
     pub fn find_by_issue(&self, owner: &str, repo: &str, number: u64) -> Result<Option<WorkItem>> {

@@ -2022,6 +2022,7 @@ dependencies = [
  "clap",
  "jeryu-repogate",
  "libc",
+ "rusqlite",
  "serde",
  "serde_json",
  "sha2",

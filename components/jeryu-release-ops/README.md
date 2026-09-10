@@ -1,6 +1,7 @@
 # jeryu-release-ops
 
-[![Jankurai score: 93/100](https://img.shields.io/badge/Jankurai-93%2F100-brightgreen)](ops/ci/score.sh)
+**Audit status: PENDING revision-bound verification.** See the
+[required audit policy](agent/audit-policy.toml).
 
 Release, signing, governance, observability, and compliance tooling.
 

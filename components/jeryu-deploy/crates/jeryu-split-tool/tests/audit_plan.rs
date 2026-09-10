@@ -392,3 +392,6 @@ fn incomplete_graphs_and_malformed_events_fail_without_a_plan() {
     fs::write(f.root.join(".git/shallow"), format!("{}\n", f.tip)).unwrap();
     refused(f.invoke(&request), "shallow source graph");
 }
+
+#[path = "audit_plan_ledger/mod.rs"]
+mod ledger;

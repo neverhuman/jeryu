@@ -82,6 +82,16 @@ tests used already-built binaries under a fresh unprivileged UID with zero capab
 they do not establish an empty-cache source installation. Earlier cleanup
 permission failures and recovery-fixture corrections remain retained.
 
+The next slice, based on `45f83c4d`, adds private transactional audit-attempt
+accounting, version-aware external dependency enrollment and deterministic
+dependency observations. Linked Work creation now commits its item and issue
+link together, including rollback on conflicts and invalid SQLite integers.
+Its selected verification passed 139 split-tool tests, 34 Work tests and six
+API Work authorization tests, plus warning-denied Clippy and formatting.
+Initial incorrect API test selectors and six corrected Clippy warnings remain
+in the retained attempt history. No hosted intake, audit execution, score
+publication or complete matrix is qualified by these selected tests.
+
 ## Public repositories and dependencies
 
 GitHub `neverhuman/jeryu` main was still
