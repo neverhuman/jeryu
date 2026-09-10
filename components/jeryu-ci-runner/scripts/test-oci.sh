@@ -8,6 +8,12 @@ cd "$component"
   printf 'OCI proof requires root and JERYU_DISPOSABLE_SANDBOX=1 in a disposable Linux host\n' >&2
   exit 1
 }
+# Set to 1 only when the exact pinned base is already loaded in this guest daemon.
+# Unset or 0 retains the normal pull; preloaded mode never pulls on failure.
+case ${JERYU_OCI_PRELOADED_BASE-0} in
+  0|1) ;;
+  *) printf 'JERYU_OCI_PRELOADED_BASE must be 0 or 1\n' >&2; exit 1 ;;
+esac
 export CARGO_BUILD_JOBS=${CARGO_BUILD_JOBS:-2}
 manifest=crates/jeryu-runner-oci/Cargo.toml
 target=$(cargo metadata --locked --no-deps --format-version 1 --manifest-path "$manifest" | jq -er .target_directory)

@@ -1047,7 +1047,7 @@
       "kind": "proof-implementation-or-input",
       "path": "components/jeryu-ci-runner/crates/jeryu-runner-oci/tests/real_docker_smoke.rs",
       "port_status": "pending-equivalence-proof",
-      "sha256": "7160763a2b54a8f91a6d6bf069f65022a898e647759ec57eec0a7d58379a287d"
+      "sha256": "f6f5c008d8d0d2f968817b9f0ad9135ccf40b9777176436f52bd1254fe0663ed"
     },
     {
       "component": "jeryu-ci-runner",
@@ -1519,7 +1519,7 @@
       "kind": "proof-implementation-or-input",
       "path": "components/jeryu-ci-runner/scripts/test-oci.sh",
       "port_status": "pending-equivalence-proof",
-      "sha256": "d9b66c8331e937d44cdbdc236b40713705da0e8186f0618f6704100bce27d4b8"
+      "sha256": "53cd10786769ced22f22824e4dd140c3d410af065e04cb69c126994777f21a3b"
     },
     {
       "component": "jeryu-ci-runner",

@@ -131,6 +131,24 @@ fn validate_base(base: &Value) -> Result<()> {
     Ok(())
 }
 
+// The transport seam keeps the same immutable admission in both proof modes.
+fn prepare_base(
+    preloaded: Option<&str>,
+    mut docker: impl FnMut(&[String], u64) -> Result<String>,
+) -> Result<Value> {
+    let preloaded = match preloaded {
+        None | Some("0") => false,
+        Some("1") => true,
+        Some(_) => bail!("JERYU_OCI_PRELOADED_BASE must be 0 or 1"),
+    };
+    if !preloaded {
+        docker(&strings(&["pull", "--platform", "linux/amd64", BASE]), 180)?;
+    }
+    let base: Value = serde_json::from_str(&docker(&strings(&["image", "inspect", BASE]), 30)?)?;
+    validate_base(&base[0])?;
+    Ok(base[0].clone())
+}
+
 struct Engine {
     scratch: TempDir,
     scratch_identity: (u64, u64),
@@ -244,10 +262,14 @@ impl Engine {
     }
 
     fn build_image(&mut self, probe: &Path) -> Result<()> {
-        self.successful(&strings(&["pull", "--platform", "linux/amd64", BASE]), 180)?;
-        let base = self.json(&strings(&["image", "inspect", BASE]))?;
-        validate_base(&base[0])?;
-        self.base = base[0].clone();
+        let preloaded = match std::env::var("JERYU_OCI_PRELOADED_BASE") {
+            Ok(value) => Some(value),
+            Err(std::env::VarError::NotPresent) => None,
+            Err(error) => return Err(error.into()),
+        };
+        self.base = prepare_base(preloaded.as_deref(), |args, seconds| {
+            self.successful(args, seconds)
+        })?;
         let context = self.scratch.path().join("image-context");
         fs::create_dir(&context)?;
         fs::copy(probe, context.join("oci-probe"))?;
@@ -949,5 +971,72 @@ fn image_admission_requires_exact_pinned_platform_identity() {
         let mut wrong = base.clone();
         wrong[field] = value;
         assert!(validate_base(&wrong).is_err(), "accepted wrong {field}");
+    }
+}
+
+#[test]
+fn base_preparation_selects_only_authorized_transport() {
+    let manifest = BASE.split_once('@').unwrap().1;
+    let base = json!({"Id":BASE_ID,"Os":"linux","Architecture":"amd64",
+        "RepoDigests":[format!("ubuntu@{manifest}")]});
+    let pull = (strings(&["pull", "--platform", "linux/amd64", BASE]), 180);
+    let inspect = (strings(&["image", "inspect", BASE]), 30);
+    for (mode, expected) in [
+        (None, vec![pull.clone(), inspect.clone()]),
+        (Some("0"), vec![pull.clone(), inspect.clone()]),
+        (Some("1"), vec![inspect.clone()]),
+    ] {
+        let mut seen = Vec::new();
+        let result = prepare_base(mode, |args, seconds| {
+            seen.push((args.to_vec(), seconds));
+            Ok(if args[0] == "pull" {
+                String::new()
+            } else {
+                json!([base.clone()]).to_string()
+            })
+        });
+        assert_eq!(result.unwrap(), base);
+        assert_eq!(seen, expected);
+    }
+    for invalid in ["", "true", "2", "01", " 1", "1 "] {
+        assert!(prepare_base(Some(invalid), |_, _| panic!("invalid mode invoked Docker")).is_err());
+    }
+    let mut calls = 0;
+    assert!(
+        prepare_base(None, |args, seconds| {
+            calls += 1;
+            assert_eq!((args.to_vec(), seconds), pull);
+            bail!("controlled pull failure")
+        })
+        .is_err()
+    );
+    assert_eq!(calls, 1);
+    let mut calls = 0;
+    assert!(
+        prepare_base(Some("1"), |args, seconds| {
+            calls += 1;
+            assert_eq!((args.to_vec(), seconds), inspect);
+            bail!("controlled missing image or daemon failure")
+        })
+        .is_err()
+    );
+    assert_eq!(calls, 1);
+    let mut wrong_base = base.clone();
+    wrong_base["Id"] = json!("sha256:unapproved");
+    for response in [
+        "not JSON".to_owned(),
+        "[]".to_owned(),
+        json!([wrong_base]).to_string(),
+    ] {
+        let mut calls = 0;
+        assert!(
+            prepare_base(Some("1"), |args, seconds| {
+                calls += 1;
+                assert_eq!((args.to_vec(), seconds), inspect);
+                Ok(response.clone())
+            })
+            .is_err()
+        );
+        assert_eq!(calls, 1);
     }
 }
