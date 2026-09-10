@@ -39,6 +39,10 @@ pub fn run_candidate(tool_root: &Path, raw_args: &[String]) -> Result<i32, Strin
     candidate::run(tool_root, raw_args)
 }
 
+pub fn run_inventory(tool_root: &Path, raw_args: &[String]) -> Result<i32, String> {
+    candidate::run_inventory(tool_root, raw_args)
+}
+
 #[derive(Default)]
 struct Args {
     check: bool,

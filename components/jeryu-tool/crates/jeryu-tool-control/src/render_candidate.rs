@@ -420,3 +420,19 @@ pub(super) fn run(tool_root: &Path, raw_args: &[String]) -> Result<i32, String> 
 #[cfg(test)]
 #[path = "render_candidate_tests.rs"]
 mod tests;
+
+#[cfg(unix)]
+#[path = "proof_inventory.rs"]
+mod inventory;
+
+pub(super) fn run_inventory(tool_root: &Path, raw: &[String]) -> Result<i32, String> {
+    #[cfg(unix)]
+    {
+        inventory::run(tool_root, raw)
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = (tool_root, raw);
+        Err("source inventory requires Linux filesystem custody".into())
+    }
+}
