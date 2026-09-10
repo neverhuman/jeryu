@@ -302,3 +302,6 @@ fn validates_titles_comments_and_links() {
         Err(WorkError::Validation(_))
     ));
 }
+
+#[path = "create_tests.rs"]
+mod creation;

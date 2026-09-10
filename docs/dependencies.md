@@ -32,6 +32,28 @@ The [audit enrollment](../agent/audit-repositories.json) records the supporting
 sources selected for execution. It does not grant release authority. The newer
 Jankurai hub and its fourteen supporting repositories are prospective producer
 inputs; they remain separate from the pinned producer until qualified adoption.
+Versioned enrollment also records seven additional revisions consumed by those
+prospective components' standalone locks. Different revisions of the same
+repository receive separate census rows. Exact Cargo URL spellings remain
+part of dependency identity; ownership aliases do not merge package sources.
+
+The generated observation command is
+`cargo run --locked -p jeryu-split-tool --bin jeryu-split -- dependency-inputs`.
+It reads declared Cargo/npm workspaces and locks, tool manifests, workflow
+references, image recipes and selected entrypoints, and emits input hashes,
+known dependency identities and concrete unresolved records. It continues
+after individual malformed inputs. Script execution and external producer
+closures remain unresolved until their own adapters and evidence exist.
+
+Inspect its `complete_for` results separately for application installation,
+SQLite release audits, standalone mirrors, optional images and Redline. Its
+command exit also includes malformed optional inputs and is not a SQLite
+release gate. These observations do not establish public availability,
+license sufficiency, build success or passing audits.
+The first executed observation read 188 inputs and emitted 2,284 observations
+with identical output on replay. Installation, audit, mirror and image inputs
+still have explicit unresolved records. Redline's parsed-input closure does
+not establish its independent compatibility or retirement proof.
 
 Redline compatibility and original Redline retirement remain optional for SQLite
 release eligibility. Missing public optional tags remain visible. The optional
@@ -65,6 +87,10 @@ graph work, including intermediate commits, branch lifecycle and retries. It
 does not start audits, persist a hosted queue, publish checks or qualify an
 event as audited. Automatic event enrollment, reconciliation and the trusted
 publisher remain open in [current status](migration/STATUS.md).
+
+The [local audit ledger](migration/AUDIT-LEDGER.md) preserves plans, attempts,
+failures, retries and explicit closure acknowledgements. Trusted hosted intake,
+execution admission and publication remain unfinished integrations.
 
 `jeryu-split audit-readme --readme README.md --image-url URL --report-url URL`
 checks Jankurai's managed marker block; `--write` inserts or updates that block.

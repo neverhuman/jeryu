@@ -1,7 +1,9 @@
 # jeryu-tool-finder
 
 [![CI](https://img.shields.io/badge/CI-check%20%7C%20score%20%7C%20security%20%7C%20contract%20%7C%20artifact-blue)](.github/workflows/ci.yml)
-[![jankurai score](https://img.shields.io/badge/jankurai-0%20caps-brightgreen)](agent/audit-policy.toml)
+
+**Audit status: PENDING revision-bound verification.** See the
+[required audit policy](agent/audit-policy.toml).
 
 Agents start at **[AGENTS.md](AGENTS.md)** (the agent entrypoint); deeper docs
 are indexed there and under [`docs/`](docs/).

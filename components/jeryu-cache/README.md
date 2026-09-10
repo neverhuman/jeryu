@@ -1,6 +1,7 @@
 # jeryu-cache
 
-[![Jankurai gate](https://img.shields.io/badge/Jankurai-ratchet_%E2%89%A591-blue)](ops/ci/proof_evidence.sh)
+**Audit status: PENDING revision-bound verification.** The
+[proof gate](ops/ci/proof_evidence.sh) requires at least 91 and its existing ratchet.
 
 JeryuCache policy, CAS, receipts, and adversarial poisoning tests.
 

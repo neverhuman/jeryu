@@ -1,5 +1,5 @@
 {
-  "schema": "jeryu.audit-repositories/v1",
+  "schema": "jeryu.audit-repositories/v2",
   "sources": [
     {
       "repository": "neverhuman/jankurai",
@@ -207,6 +207,69 @@
       "minimum": 85,
       "required": false,
       "reason": "needs canonical Redline owner disposition; not runtime dependency or deletion authority; not-executed"
+    },
+    {
+      "repository": "neverhuman/jankurai-tools-analyzers",
+      "scope": "optional",
+      "path": null,
+      "commit": "f511019045d83023ca0af83b81a2f0bc018405e7",
+      "minimum": 85,
+      "required": false,
+      "reason": "prospective standalone dependency only; not adopted by approved Jeryu producer; consumers: neverhuman/jankurai-core@5ee1cc84039be93e1f664a3e0a59e27935c8e992 Cargo.lock (jankurai-audit-analyzers); exact Cargo sources: git+https://github.com/neverhuman/jankurai-tools-analyzers.git?tag=jankurai-tools-analyzers-v1.7.0-split.3#f511019045d83023ca0af83b81a2f0bc018405e7; public input observation only; tree/producer/audit qualification pending"
+    },
+    {
+      "repository": "neverhuman/jankurai-tools-dedup",
+      "scope": "optional",
+      "path": null,
+      "commit": "06186a1166a1df03d8bd460c34502bb9eb907eb8",
+      "minimum": 85,
+      "required": false,
+      "reason": "prospective standalone dependency only; not adopted by approved Jeryu producer; consumers: neverhuman/jankurai-core@5ee1cc84039be93e1f664a3e0a59e27935c8e992 Cargo.lock (jankurai-audit-dedup); neverhuman/jankurai-tools-analyzers@5744da4bb06434fdffecb8c5ec6f1091ff26b460 Cargo.lock (jankurai-audit-dedup); neverhuman/jankurai-tools-analyzers@f511019045d83023ca0af83b81a2f0bc018405e7 Cargo.lock (jankurai-audit-dedup); exact Cargo sources: git+https://github.com/neverhuman/jankurai-tools-dedup.git?tag=jankurai-tools-dedup-v1.7.0-split.2#06186a1166a1df03d8bd460c34502bb9eb907eb8; public input observation only; tree/producer/audit qualification pending"
+    },
+    {
+      "repository": "neverhuman/jankurai-tools-fleet",
+      "scope": "optional",
+      "path": null,
+      "commit": "984c509f0172fdc14aeee27208074cfd17b7f487",
+      "minimum": 85,
+      "required": false,
+      "reason": "prospective standalone dependency only; not adopted by approved Jeryu producer; consumers: neverhuman/jankurai-core@5ee1cc84039be93e1f664a3e0a59e27935c8e992 Cargo.lock (jankurai-fleet); exact Cargo sources: git+https://github.com/neverhuman/jankurai-tools-fleet.git?tag=jankurai-tools-fleet-v1.7.0-split.2#984c509f0172fdc14aeee27208074cfd17b7f487; public input observation only; tree/producer/audit qualification pending"
+    },
+    {
+      "repository": "neverhuman/jankurai-tools-guard",
+      "scope": "optional",
+      "path": null,
+      "commit": "bf2c7e3f768234aa3603fa77986a70e95a1cb9b0",
+      "minimum": 85,
+      "required": false,
+      "reason": "prospective standalone dependency only; not adopted by approved Jeryu producer; consumers: neverhuman/jankurai-core@5ee1cc84039be93e1f664a3e0a59e27935c8e992 Cargo.lock (jankurai-guard); exact Cargo sources: git+https://github.com/neverhuman/jankurai-tools-guard.git?tag=jankurai-tools-guard-v1.7.0-split.1#bf2c7e3f768234aa3603fa77986a70e95a1cb9b0; public input observation only; tree/producer/audit qualification pending"
+    },
+    {
+      "repository": "neverhuman/jankurai-tools-kernel",
+      "scope": "optional",
+      "path": null,
+      "commit": "92511486b87518bad58b04caff3e772c9c72906d",
+      "minimum": 85,
+      "required": false,
+      "reason": "prospective standalone dependency only; not adopted by approved Jeryu producer; consumers: neverhuman/jankurai-tools-analyzers@5744da4bb06434fdffecb8c5ec6f1091ff26b460 Cargo.lock (jankurai-audit-kernel); neverhuman/jankurai-tools-analyzers@f511019045d83023ca0af83b81a2f0bc018405e7 Cargo.lock (jankurai-audit-kernel); neverhuman/jankurai-tools-dedup@06186a1166a1df03d8bd460c34502bb9eb907eb8 Cargo.lock (jankurai-audit-kernel); neverhuman/jankurai-tools-dedup@602b608c59690020eb66a2069f67d33a75b481f1 Cargo.lock (jankurai-audit-kernel); neverhuman/jankurai-tools-fleet@668532cd06f87aec6b677ab061405e51871e57b8 Cargo.lock (jankurai-audit-kernel); neverhuman/jankurai-tools-fleet@984c509f0172fdc14aeee27208074cfd17b7f487 Cargo.lock (jankurai-audit-kernel); exact Cargo sources: git+https://github.com/neverhuman/jankurai-tools-kernel.git?tag=jankurai-tools-kernel-v1.7.0-split.1#92511486b87518bad58b04caff3e772c9c72906d; public input observation only; tree/producer/audit qualification pending"
+    },
+    {
+      "repository": "neverhuman/jankurai-tools-kernel",
+      "scope": "optional",
+      "path": null,
+      "commit": "ecbcbbc6a3bc76e755a2015190d124758029f4ba",
+      "minimum": 85,
+      "required": false,
+      "reason": "prospective standalone dependency only; not adopted by approved Jeryu producer; consumers: neverhuman/jankurai-core@5ee1cc84039be93e1f664a3e0a59e27935c8e992 Cargo.lock (jankurai-audit-kernel); exact Cargo sources: git+https://www.github.com/neverhuman/jankurai-tools-kernel.git?rev=ecbcbbc6a3bc76e755a2015190d124758029f4ba#ecbcbbc6a3bc76e755a2015190d124758029f4ba; public input observation only; tree/producer/audit qualification pending"
+    },
+    {
+      "repository": "neverhuman/jankurai-tools-proof",
+      "scope": "optional",
+      "path": null,
+      "commit": "de90586b48fbeafd1e3de8dd8d01e3cc348cda7f",
+      "minimum": 85,
+      "required": false,
+      "reason": "prospective standalone dependency only; not adopted by approved Jeryu producer; consumers: neverhuman/jankurai-core@5ee1cc84039be93e1f664a3e0a59e27935c8e992 Cargo.lock (jankurai-proofbind); neverhuman/jankurai-core@5ee1cc84039be93e1f664a3e0a59e27935c8e992 Cargo.lock (jankurai-proofmark); exact Cargo sources: git+https://github.com/neverhuman/jankurai-tools-proof.git?tag=jankurai-tools-proof-v1.7.0-split.0#de90586b48fbeafd1e3de8dd8d01e3cc348cda7f; public input observation only; tree/producer/audit qualification pending"
     }
   ]
 }

@@ -3,7 +3,6 @@ use anyhow::{Context, Result, ensure};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::{
-    collections::BTreeSet,
     fs,
     io::Write,
     os::{fd::AsRawFd, unix::fs::DirBuilderExt},
@@ -83,7 +82,7 @@ fn snapshot(root: &Path) -> Result<(String, String)> {
     ))
 }
 
-fn effective_floor(name: &str) -> u8 {
+pub(super) fn effective_floor(name: &str) -> u8 {
     if matches!(name, "jeryu-cache" | "jeryu-jira" | "jeryu-ci-runner") {
         91
     } else {
@@ -91,110 +90,13 @@ fn effective_floor(name: &str) -> u8 {
     }
 }
 
+#[path = "audit_enrollment.rs"]
+pub(super) mod enrollment;
+
 fn sources(root: &Path, inventory: &Path) -> Result<Vec<Source>> {
-    let manifest: toml::Value =
-        toml::from_str(&fs::read_to_string(root.join("repos.manifest.toml"))?)?;
-    let mut sources = Vec::new();
-    for repo in manifest["repo"]
-        .as_array()
-        .context("repository inventory")?
-    {
-        let name = repo["name"].as_str().context("repository name")?;
-        let slug = repo["github_slug"].as_str().context("GitHub repository")?;
-        let path = repo["path"].as_str().context("component path")?;
-        ensure!(
-            path == "." || path == format!("components/{name}"),
-            "noncanonical component path"
-        );
-        sources.push(Source {
-            repository: slug.into(),
-            scope: if path == "." { "monorepo" } else { "component" }.into(),
-            path: Some(path.into()),
-            commit: None,
-            minimum: effective_floor(name),
-            required: true,
-            reason: None,
-        });
-        if path != "." {
-            sources.push(Source { repository: slug.into(), scope: "standalone".into(), path: None,
-                commit: None, minimum: effective_floor(name), required: true,
-                reason: Some("Published mirror needs an exact independently acquired commit and export provenance; component results cannot substitute.".into()) });
-        }
-    }
-    let inventory: Inventory = serde_json::from_slice(&fs::read(inventory)?)?;
-    ensure!(
-        inventory.schema == "jeryu.audit-repositories/v1",
-        "unsupported audit inventory"
-    );
-    let mut acquisitions = BTreeSet::new();
-    for source in inventory.sources {
-        let key = (source.repository.clone(), source.scope.clone());
-        ensure!(
-            acquisitions.insert(key),
-            "duplicate audit enrollment/acquisition"
-        );
-        if let Some(existing) = sources
-            .iter_mut()
-            .find(|old| old.repository == source.repository && old.scope == source.scope)
-        {
-            ensure!(
-                existing.scope == "standalone"
-                    && source.required
-                    && source.minimum >= existing.minimum,
-                "acquisition cannot change owning component scope or policy"
-            );
-            *existing = source;
-        } else {
-            sources.push(source);
-        }
-    }
-    let mut identities = BTreeSet::new();
-    for source in &sources {
-        ensure!(
-            (source.repository.starts_with("neverhuman/")
-                || (!source.required
-                    && source.path.is_none()
-                    && source.repository.starts_with("unresolved/")))
-                && source
-                    .repository
-                    .bytes()
-                    .all(|b| b.is_ascii_alphanumeric() || b"/-_.".contains(&b)),
-            "invalid owned repository slug"
-        );
-        ensure!(
-            matches!(
-                source.scope.as_str(),
-                "monorepo" | "component" | "standalone" | "dependency" | "optional"
-            ),
-            "unknown audit scope"
-        );
-        ensure!(
-            identities.insert((source.repository.clone(), source.scope.clone())),
-            "duplicate audit scope"
-        );
-        ensure!(
-            (85..=100).contains(&source.minimum),
-            "audit enrollment cannot lower minimum 85"
-        );
-        if let Some(commit) = &source.commit {
-            oid(commit)?;
-        }
-    }
-    ensure!(
-        sources
-            .iter()
-            .filter(|s| matches!(s.scope.as_str(), "monorepo" | "component"))
-            .count()
-            == 11,
-        "incomplete Jeryu family inventory"
-    );
-    ensure!(
-        sources.iter().any(|s| s.repository == "neverhuman/jankurai"
-            && s.required
-            && s.scope == "dependency"),
-        "required auditor dependency is missing"
-    );
-    Ok(sources)
+    let manifest = toml::from_str(&fs::read_to_string(root.join("repos.manifest.toml"))?)?;
+    let inventory = serde_json::from_slice(&fs::read(inventory)?)?;
+    enrollment::sources(&manifest, inventory)
 }
 
 fn source_path(root: &Path, source: &Source) -> Result<PathBuf> {

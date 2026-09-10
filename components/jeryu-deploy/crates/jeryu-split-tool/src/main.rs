@@ -15,11 +15,13 @@ use toml::Value;
 
 mod audit_census;
 mod audit_evidence;
+mod audit_ledger;
 mod audit_readme;
 mod audit_scheduler;
 mod audit_score;
 mod build_config;
 mod canonical_json;
+mod dependency_inputs;
 mod mirror_update;
 mod monorepo;
 mod proof_inventory;
@@ -35,6 +37,14 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Command {
+    /// Account for local audit plans and attempts; no execution or publication authority.
+    AuditLedger {
+        /// Existing physical owner-only directory containing the ledger database.
+        #[arg(long)]
+        database: PathBuf,
+        #[command(subcommand)]
+        operation: audit_ledger::Operation,
+    },
     /// Check a managed README link block; update it only with --write.
     AuditReadme {
         #[arg(long)]
@@ -89,6 +99,8 @@ enum Command {
     },
     /// Fail unless every external Git dependency uses a public immutable source.
     PublicPreflight,
+    /// Observe dependency inputs and report unresolved closure and audit enrollment drift.
+    DependencyInputs,
     /// Inventory all retained workflows, proof declarations and CI entrypoints.
     ProofInventory {
         #[arg(long)]
@@ -303,6 +315,10 @@ fn run(cli: Cli) -> Result<()> {
             report_url,
             write,
         } => audit_readme::run(&readme, &image_url, &report_url, write),
+        Command::AuditLedger {
+            database,
+            operation,
+        } => audit_ledger::run(&database, operation),
         Command::AuditPlan {
             source_repo,
             request,
@@ -331,6 +347,7 @@ fn run(cli: Cli) -> Result<()> {
         Command::MonorepoCheck => monorepo::check(Path::new(".")),
         Command::BuildConfig { write } => build_config::run(Path::new("."), write),
         Command::PublicPreflight => monorepo::public_preflight(Path::new(".")),
+        Command::DependencyInputs => dependency_inputs::run(Path::new(".")),
         Command::ProofInventory { check } => proof_inventory::run(Path::new("."), check),
         Command::ExportTree {
             component,

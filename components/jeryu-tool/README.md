@@ -1,6 +1,7 @@
 # jeryu-tool
 
-[![Jankurai score: 65+](https://img.shields.io/badge/Jankurai-65%2B-brightgreen)](agent/audit-policy.toml)
+**Audit status: PENDING revision-bound verification.** See the
+[required audit policy](agent/audit-policy.toml).
 
 Agent and contributor orientation starts at [AGENTS.md](AGENTS.md).
 The durable operating contracts are [architecture](docs/architecture.md),
