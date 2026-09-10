@@ -38,10 +38,32 @@ test, warning-denied Tool Clippy, the 939-input inventory drift check, and all
 75 auxiliary control cases. The selected Tool tests filtered 26 and 41 unrelated
 tests respectively, with none ignored. This combines six successful rows from
 the first run with four scoped retry rows; the entire eight-row selection was
-not rerun at the corrected source. Fresh-user source installation, component
-export qualification and complete final-source CI remain open. The root auditor
+not rerun at the corrected source. Component export qualification and complete
+final-source CI remain open. The root auditor
 command and minimum 85 are unchanged; its last canonical result remains 64/85,
 and no new actual auditor pass is claimed.
+
+The corrected source was recorded as clean local checkpoint `7a3d605c`, directly
+after `37b08b28`. At that exact checkpoint, an isolated unprivileged Linux
+identity with empty dependency and user-state caches built the release and
+passed all 18 installer transactions, three installation destinations and
+seven installed server/CLI tests, with no failures, ignored or filtered tests.
+The locked all-feature graph contained 65 Jeryu packages, no Git or Redline
+dependencies and one bundled SQLite identity. Independent review verified
+source stability, process shutdown and release of all three CI locks. Source
+arrived through an exact local Git clone; pinned compiler, Node and native
+prerequisites were declared local inputs. Anonymous public-origin installation
+and complete CI remain unqualified. All qualification scratch is retained
+pending separate verified preservation and retirement.
+
+Subsequent OCI preparation at `7a3d605c` plus diff `fc4e7352` passed formatting,
+106 dispatch cases, four ordinary OCI-target tests, warning-denied owning
+all-target/all-feature Clippy, and the 939-input inventory drift check. The
+named real-Docker matrix test was explicitly ignored in that ordinary target.
+The preloaded-base option inspects and validates the unchanged pinned image
+without a pull fallback. The actual disposable-VM matrix of nine checks and
+15 runs remains required; these preparation results do not qualify OCI or
+complete CI.
 
 This source also scopes Work commands to their owning package with locked
 resolution, strengthens the actual governed-auditor wrapper checks, and keeps
@@ -54,6 +76,9 @@ stability, private clone cleanup and closure of owned processes and all three
 locks. The external governed-path fixture was preserved, restored and safely
 retired; its private archive remains. These checks reused Cargo/Rustup caches
 and do not prove anonymous installation or the complete Work score lane.
+A later reviewed cleanup removed one duplicate Work archive (78,008,320 bytes),
+its empty failed restoration directory and the empty verification directory;
+the verified source archive and prior failure evidence remain retained.
 
 The shared root sandbox command also passed at `37b08b28` in a disposable
 Linux VM: 45 native cases and eight Agentbridge cases (four driver, three PTY
