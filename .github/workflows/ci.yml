@@ -21,7 +21,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        lane: [source, public, rust, web, runtime, product, security, sandbox, oci, splits, legacy, auxiliary]
+        lane: [source, public, rust, web, runtime, product, security, sandbox, oci, splits, legacy, auxiliary, audit]
     env:
       CARGO_BUILD_JOBS: '2'
       CI: 'true'

@@ -30,9 +30,9 @@ impl Owner {
             Self::JeryuCore => ("jeryu-core", 85),
             Self::JeryuDeploy => ("jeryu-deploy", 85),
             Self::JeryuJira => ("jeryu-jira", 85),
-            Self::JeryuIntelligence => ("jeryu-intelligence", 82),
+            Self::JeryuIntelligence => ("jeryu-intelligence", 85),
             Self::JeryuReleaseOps => ("jeryu-release-ops", 85),
-            Self::JeryuTool => ("jeryu-tool", 65),
+            Self::JeryuTool => ("jeryu-tool", 85),
             Self::JeryuWeb => ("jeryu-web", 85),
         }
     }
@@ -40,7 +40,7 @@ impl Owner {
 
 // JSON sequences are valid input to ordinary derived structs. Gate objects must
 // use maps; retain the inner typed decoder's duplicate-field checks as well.
-struct JsonObject<T>(T);
+pub(super) struct JsonObject<T>(pub(super) T);
 
 impl<'de, T: Deserialize<'de>> Deserialize<'de> for JsonObject<T> {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {

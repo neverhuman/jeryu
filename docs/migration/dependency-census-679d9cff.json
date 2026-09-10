@@ -1,0 +1,897 @@
+{
+  "schema_version": "jeryu.owned-dependency-census-review/v1",
+  "source_commit": "679d9cff275973ce0357d5e1db12118166c1d6a7",
+  "source_tree": "cfb8642e3e401513d2537ba5ba05b0c389d63bda",
+  "generated_at": "2026-09-10T18:47:50.007Z",
+  "claim": "read-only source/remote inventory; no build or audit qualification",
+  "inputs": [
+    {
+      "path": "repos.manifest.toml",
+      "sha256": "989e8a7fa3c16e1e18d58e5e012dd78a4812bfc0ac7eac0098ace3d000ed63ee"
+    },
+    {
+      "path": "Cargo.toml",
+      "sha256": "bc41c186dc59a68657636891c7da1983995babc20cb1713b005b998ba708c5c8"
+    },
+    {
+      "path": "Cargo.lock",
+      "sha256": "4852d4a30a3048e21371e0b0950cbc6fb3c6d4171ed5f1f6bb06be66c2adde77"
+    },
+    {
+      "path": "package.json",
+      "sha256": "a0ff1c0e72495c00e9ae8cd129f4baf93658b7e2ec0e0da9fc4680c8fa9b2b83"
+    },
+    {
+      "path": "package-lock.json",
+      "sha256": "551216f717ebcb8279fd0ccaaa7fa663b8a3f4c83121a48de9d0b00f28873345"
+    },
+    {
+      "path": "ci/tools.lock.tsv",
+      "sha256": "029d9d9556b94bee06c40ebd17492d4ebb3c39591e7ca73bfbf7b7a1077cbb22"
+    },
+    {
+      "path": "ci/cargo-tools.lock.tsv",
+      "sha256": "0b4c435a440e7f95eb473c44670ccd1f8aaaa2e72674bafffa34fb53d333d124"
+    },
+    {
+      "path": "ci/legacy-cargo-tools.lock.tsv",
+      "sha256": "4e877f1c7b4561acdf18442d7835e137119ffc8d4c44358671bb0adb562d5817"
+    },
+    {
+      "path": "components/jeryu-tool/tool-manifest.toml",
+      "sha256": "c7f4e3f7d07db0a6661eb24bbe330f9722d88b5e59e6523b391aa416c9a4c2cb"
+    },
+    {
+      "path": "components/jeryu-cache/ops/ci/security.sh",
+      "sha256": "c249bcdae036993a9eabad23652812fab738a196b4d32b7f9ac202ea8638ba7f"
+    },
+    {
+      "path": "components/jeryu-cache/ops/ci/contract-drift.sh",
+      "sha256": "130afd58f7562faa044cee2b650024e9916f690999e378bb2e0b3cfbac75c4db"
+    }
+  ],
+  "forms": [
+    {
+      "name": "jeryu",
+      "github_slug": "neverhuman/jeryu",
+      "role": "development-authority-candidate",
+      "component_path": ".",
+      "source_commit": "679d9cff275973ce0357d5e1db12118166c1d6a7",
+      "scope_tree": "cfb8642e3e401513d2537ba5ba05b0c389d63bda",
+      "policy_path": "agent/audit-policy.toml",
+      "policy_sha256": "fa1286fd50db6edbc749906f0a034e5f9e84717e47afa606b736b6aa8b247185",
+      "existing_policy_floor": 85,
+      "stronger_proof_floor": null,
+      "effective_floor": 85,
+      "policy_change_required": false,
+      "public_main": {
+        "slug": "neverhuman/jeryu",
+        "url": "https://api.github.com/repos/neverhuman/jeryu/branches/main",
+        "http_status": 200,
+        "anonymous": true,
+        "checked_at": "2026-09-10T18:41:23.954Z",
+        "commit": "4c93436abdc6160885216c9ea71414501db2f54c",
+        "tree": "93e757ce1d7e13d4359661213a0796cdebac538d",
+        "protected": true,
+        "required_checks": {
+          "enforcement_level": "everyone",
+          "contexts": [
+            "jeryu/required",
+            "verify / source",
+            "verify / public",
+            "verify / rust",
+            "verify / web",
+            "verify / runtime",
+            "verify / product",
+            "verify / security",
+            "verify / sandbox",
+            "verify / oci",
+            "verify / splits",
+            "verify / legacy",
+            "verify / auxiliary"
+          ],
+          "checks": [
+            {
+              "context": "jeryu/required",
+              "app_id": 15368
+            },
+            {
+              "context": "verify / source",
+              "app_id": 15368
+            },
+            {
+              "context": "verify / public",
+              "app_id": 15368
+            },
+            {
+              "context": "verify / rust",
+              "app_id": 15368
+            },
+            {
+              "context": "verify / web",
+              "app_id": 15368
+            },
+            {
+              "context": "verify / runtime",
+              "app_id": 15368
+            },
+            {
+              "context": "verify / product",
+              "app_id": 15368
+            },
+            {
+              "context": "verify / security",
+              "app_id": 15368
+            },
+            {
+              "context": "verify / sandbox",
+              "app_id": 15368
+            },
+            {
+              "context": "verify / oci",
+              "app_id": 15368
+            },
+            {
+              "context": "verify / splits",
+              "app_id": 15368
+            },
+            {
+              "context": "verify / legacy",
+              "app_id": 15368
+            },
+            {
+              "context": "verify / auxiliary",
+              "app_id": 15368
+            }
+          ]
+        }
+      },
+      "public_metadata": {
+        "slug": "neverhuman/jeryu",
+        "url": "https://api.github.com/repos/neverhuman/jeryu",
+        "http_status": 200,
+        "anonymous": true,
+        "checked_at": "2026-09-10T18:40:12.571Z",
+        "default_branch": "main",
+        "visibility": "public",
+        "archived": false,
+        "license": "Apache-2.0",
+        "pushed_at": "2026-09-09T21:01:13Z"
+      },
+      "root_candidate_audit_status": "not-executed-in-this-review",
+      "standalone_audit_status": "not-executed-in-this-review",
+      "split_publication_qualified": false
+    },
+    {
+      "name": "jeryu-release-ops",
+      "github_slug": "neverhuman/jeryu-release-ops",
+      "role": "split-mirror",
+      "component_path": "components/jeryu-release-ops",
+      "source_commit": "679d9cff275973ce0357d5e1db12118166c1d6a7",
+      "scope_tree": "f616c17a0fd2c417eb4823c2302fe0c5b4f1e589",
+      "policy_path": "components/jeryu-release-ops/agent/audit-policy.toml",
+      "policy_sha256": "b0977dd883a55b4f203c88e288850ff75f76e96695abd6b376a582c426740b40",
+      "existing_policy_floor": 85,
+      "stronger_proof_floor": null,
+      "effective_floor": 85,
+      "policy_change_required": false,
+      "public_main": {
+        "slug": "neverhuman/jeryu-release-ops",
+        "url": "https://api.github.com/repos/neverhuman/jeryu-release-ops/branches/main",
+        "http_status": 200,
+        "anonymous": true,
+        "checked_at": "2026-09-10T18:41:23.997Z",
+        "commit": "7048a72be412466647ab1bde69ca9f9db8990374",
+        "tree": "11e40b6cb4ecdee234cf2e442c510d4824f30279",
+        "protected": true,
+        "required_checks": {
+          "enforcement_level": "off",
+          "contexts": [],
+          "checks": []
+        }
+      },
+      "public_metadata": {
+        "slug": "neverhuman/jeryu-release-ops",
+        "url": "https://api.github.com/repos/neverhuman/jeryu-release-ops",
+        "http_status": 200,
+        "anonymous": true,
+        "checked_at": "2026-09-10T18:40:12.592Z",
+        "default_branch": "main",
+        "visibility": "public",
+        "archived": false,
+        "license": "Apache-2.0",
+        "pushed_at": "2026-07-14T20:15:20Z"
+      },
+      "root_candidate_audit_status": "not-executed-in-this-review",
+      "standalone_audit_status": "not-executed-in-this-review",
+      "split_publication_qualified": false
+    },
+    {
+      "name": "jeryu-cache",
+      "github_slug": "neverhuman/jeryu-cache",
+      "role": "split-mirror",
+      "component_path": "components/jeryu-cache",
+      "source_commit": "679d9cff275973ce0357d5e1db12118166c1d6a7",
+      "scope_tree": "2e55fe6726a6bb12a47d82602f74cb4bc8df3841",
+      "policy_path": "components/jeryu-cache/agent/audit-policy.toml",
+      "policy_sha256": "be36e976de232edad062c49692aae5e485b21297b835d15aed620797969f3187",
+      "existing_policy_floor": 85,
+      "stronger_proof_floor": 91,
+      "effective_floor": 91,
+      "policy_change_required": false,
+      "public_main": {
+        "slug": "neverhuman/jeryu-cache",
+        "url": "https://api.github.com/repos/neverhuman/jeryu-cache/branches/main",
+        "http_status": 200,
+        "anonymous": true,
+        "checked_at": "2026-09-10T18:41:23.951Z",
+        "commit": "5306d35a143d1ea38204fae0cb653c680e9da704",
+        "tree": "326b9eb3f8254a51d8cd160dac513288bd531357",
+        "protected": true,
+        "required_checks": {
+          "enforcement_level": "off",
+          "contexts": [],
+          "checks": []
+        }
+      },
+      "public_metadata": {
+        "slug": "neverhuman/jeryu-cache",
+        "url": "https://api.github.com/repos/neverhuman/jeryu-cache",
+        "http_status": 200,
+        "anonymous": true,
+        "checked_at": "2026-09-10T18:40:12.572Z",
+        "default_branch": "main",
+        "visibility": "public",
+        "archived": false,
+        "license": "Apache-2.0",
+        "pushed_at": "2026-07-16T01:19:31Z"
+      },
+      "root_candidate_audit_status": "not-executed-in-this-review",
+      "standalone_audit_status": "not-executed-in-this-review",
+      "split_publication_qualified": false
+    },
+    {
+      "name": "jeryu-ci-runner",
+      "github_slug": "neverhuman/jeryu-ci-runner",
+      "role": "split-mirror",
+      "component_path": "components/jeryu-ci-runner",
+      "source_commit": "679d9cff275973ce0357d5e1db12118166c1d6a7",
+      "scope_tree": "76bddcb3fb199ae63ba75e1c2fc3704928731fc5",
+      "policy_path": "components/jeryu-ci-runner/agent/audit-policy.toml",
+      "policy_sha256": "8badf78e56f8826eac2912ff8e9297b40d2151ba2ba3e2c8f4bbf9df2f33d904",
+      "existing_policy_floor": 80,
+      "stronger_proof_floor": 91,
+      "effective_floor": 91,
+      "policy_change_required": true,
+      "public_main": {
+        "slug": "neverhuman/jeryu-ci-runner",
+        "url": "https://api.github.com/repos/neverhuman/jeryu-ci-runner/branches/main",
+        "http_status": 200,
+        "anonymous": true,
+        "checked_at": "2026-09-10T18:41:23.950Z",
+        "commit": "47b80c6f980caa8299b24886593402171fef4879",
+        "tree": "fa73760f8847b097b21870496dfcca11a6bcf276",
+        "protected": true,
+        "required_checks": {
+          "enforcement_level": "off",
+          "contexts": [],
+          "checks": []
+        }
+      },
+      "public_metadata": {
+        "slug": "neverhuman/jeryu-ci-runner",
+        "url": "https://api.github.com/repos/neverhuman/jeryu-ci-runner",
+        "http_status": 200,
+        "anonymous": true,
+        "checked_at": "2026-09-10T18:40:12.572Z",
+        "default_branch": "main",
+        "visibility": "public",
+        "archived": false,
+        "license": "Apache-2.0",
+        "pushed_at": "2026-07-07T05:56:06Z"
+      },
+      "root_candidate_audit_status": "not-executed-in-this-review",
+      "standalone_audit_status": "not-executed-in-this-review",
+      "split_publication_qualified": false
+    },
+    {
+      "name": "jeryu-core",
+      "github_slug": "neverhuman/jeryu-core",
+      "role": "split-mirror",
+      "component_path": "components/jeryu-core",
+      "source_commit": "679d9cff275973ce0357d5e1db12118166c1d6a7",
+      "scope_tree": "25325965bd7408788084986a0d38c2865e8ee4d3",
+      "policy_path": "components/jeryu-core/agent/audit-policy.toml",
+      "policy_sha256": "1e933b8fe886dc8077eadf25d79105f4a48acb05a5db0b2d7ddd57359dab475c",
+      "existing_policy_floor": 85,
+      "stronger_proof_floor": null,
+      "effective_floor": 85,
+      "policy_change_required": false,
+      "public_main": {
+        "slug": "neverhuman/jeryu-core",
+        "url": "https://api.github.com/repos/neverhuman/jeryu-core/branches/main",
+        "http_status": 200,
+        "anonymous": true,
+        "checked_at": "2026-09-10T18:41:23.962Z",
+        "commit": "ace088c4810f20b32e7a8901bee1b6c81a9e8212",
+        "tree": "2a6fb67e2179a91ceb218ea10fd371815e2a28ea",
+        "protected": true,
+        "required_checks": {
+          "enforcement_level": "off",
+          "contexts": [],
+          "checks": []
+        }
+      },
+      "public_metadata": {
+        "slug": "neverhuman/jeryu-core",
+        "url": "https://api.github.com/repos/neverhuman/jeryu-core",
+        "http_status": 200,
+        "anonymous": true,
+        "checked_at": "2026-09-10T18:40:12.570Z",
+        "default_branch": "main",
+        "visibility": "public",
+        "archived": false,
+        "license": "Apache-2.0",
+        "pushed_at": "2026-07-16T13:12:24Z"
+      },
+      "root_candidate_audit_status": "not-executed-in-this-review",
+      "standalone_audit_status": "not-executed-in-this-review",
+      "split_publication_qualified": false
+    },
+    {
+      "name": "jeryu-deploy",
+      "github_slug": "neverhuman/jeryu-deploy",
+      "role": "split-mirror",
+      "component_path": "components/jeryu-deploy",
+      "source_commit": "679d9cff275973ce0357d5e1db12118166c1d6a7",
+      "scope_tree": "866f4606ace1d0029c147ba4078bfd73066b3c68",
+      "policy_path": "components/jeryu-deploy/agent/audit-policy.toml",
+      "policy_sha256": "f08c38448d92e3afdb8cd457ad1f8648fe6e0eca2f764f3568868143de911050",
+      "existing_policy_floor": 85,
+      "stronger_proof_floor": null,
+      "effective_floor": 85,
+      "policy_change_required": false,
+      "public_main": {
+        "slug": "neverhuman/jeryu-deploy",
+        "url": "https://api.github.com/repos/neverhuman/jeryu-deploy/branches/main",
+        "http_status": 200,
+        "anonymous": true,
+        "checked_at": "2026-09-10T18:41:24.033Z",
+        "commit": "d69f4c0e4207a07a06ebf9cf18fb0ac566c79115",
+        "tree": "552e67954ba010e31339ec0fb2235bde25ebccce",
+        "protected": true,
+        "required_checks": {
+          "enforcement_level": "off",
+          "contexts": [],
+          "checks": []
+        }
+      },
+      "public_metadata": {
+        "slug": "neverhuman/jeryu-deploy",
+        "url": "https://api.github.com/repos/neverhuman/jeryu-deploy",
+        "http_status": 200,
+        "anonymous": true,
+        "checked_at": "2026-09-10T18:40:12.616Z",
+        "default_branch": "main",
+        "visibility": "public",
+        "archived": false,
+        "license": "Apache-2.0",
+        "pushed_at": "2026-07-19T18:17:38Z"
+      },
+      "root_candidate_audit_status": "not-executed-in-this-review",
+      "standalone_audit_status": "not-executed-in-this-review",
+      "split_publication_qualified": false
+    },
+    {
+      "name": "jeryu-intelligence",
+      "github_slug": "neverhuman/jeryu-intelligence",
+      "role": "split-mirror",
+      "component_path": "components/jeryu-intelligence",
+      "source_commit": "679d9cff275973ce0357d5e1db12118166c1d6a7",
+      "scope_tree": "7e4624537d93f901ad17ce2746dea888ae225352",
+      "policy_path": "components/jeryu-intelligence/agent/audit-policy.toml",
+      "policy_sha256": "5c8a2df12f9240af8694872f868b5aa152babf4e5df3cb6d1113b42b7f3373a6",
+      "existing_policy_floor": 82,
+      "stronger_proof_floor": null,
+      "effective_floor": 85,
+      "policy_change_required": true,
+      "public_main": {
+        "slug": "neverhuman/jeryu-intelligence",
+        "url": "https://api.github.com/repos/neverhuman/jeryu-intelligence/branches/main",
+        "http_status": 200,
+        "anonymous": true,
+        "checked_at": "2026-09-10T18:41:23.992Z",
+        "commit": "a49f890162ff87d4363c1fae05d267296af57f70",
+        "tree": "36163bd476d43f22b4e3ba586945916ab60e8a0c",
+        "protected": true,
+        "required_checks": {
+          "enforcement_level": "off",
+          "contexts": [],
+          "checks": []
+        }
+      },
+      "public_metadata": {
+        "slug": "neverhuman/jeryu-intelligence",
+        "url": "https://api.github.com/repos/neverhuman/jeryu-intelligence",
+        "http_status": 200,
+        "anonymous": true,
+        "checked_at": "2026-09-10T18:40:12.571Z",
+        "default_branch": "main",
+        "visibility": "public",
+        "archived": false,
+        "license": "Apache-2.0",
+        "pushed_at": "2026-07-07T05:55:57Z"
+      },
+      "root_candidate_audit_status": "not-executed-in-this-review",
+      "standalone_audit_status": "not-executed-in-this-review",
+      "split_publication_qualified": false
+    },
+    {
+      "name": "jeryu-jira",
+      "github_slug": "neverhuman/jeryu-jira",
+      "role": "split-mirror",
+      "component_path": "components/jeryu-jira",
+      "source_commit": "679d9cff275973ce0357d5e1db12118166c1d6a7",
+      "scope_tree": "07491901bcaac85074b6bd28464f1a4eba95eced",
+      "policy_path": "components/jeryu-jira/agent/audit-policy.toml",
+      "policy_sha256": "4b5bbb3f36c480cff10a17def8d03e4276f4cf409b5067e9bb48a05f362506a0",
+      "existing_policy_floor": 85,
+      "stronger_proof_floor": 91,
+      "effective_floor": 91,
+      "policy_change_required": false,
+      "public_main": {
+        "slug": "neverhuman/jeryu-jira",
+        "url": "https://api.github.com/repos/neverhuman/jeryu-jira/branches/main",
+        "http_status": 200,
+        "anonymous": true,
+        "checked_at": "2026-09-10T18:41:23.951Z",
+        "commit": "4450477878ff230690217483fe1b64f6dbc80e56",
+        "tree": "f3e4f2e3369747c5d050f49a7b87ef1f9765027c",
+        "protected": false,
+        "required_checks": {
+          "enforcement_level": "off",
+          "contexts": [],
+          "checks": []
+        }
+      },
+      "public_metadata": {
+        "slug": "neverhuman/jeryu-jira",
+        "url": "https://api.github.com/repos/neverhuman/jeryu-jira",
+        "http_status": 200,
+        "anonymous": true,
+        "checked_at": "2026-09-10T18:40:12.581Z",
+        "default_branch": "main",
+        "visibility": "public",
+        "archived": false,
+        "pushed_at": "2026-09-10T18:29:18Z"
+      },
+      "root_candidate_audit_status": "not-executed-in-this-review",
+      "standalone_audit_status": "not-executed-in-this-review",
+      "split_publication_qualified": false
+    },
+    {
+      "name": "jeryu-tool",
+      "github_slug": "neverhuman/jeryu-tool",
+      "role": "split-mirror",
+      "component_path": "components/jeryu-tool",
+      "source_commit": "679d9cff275973ce0357d5e1db12118166c1d6a7",
+      "scope_tree": "e8c3fe0620350e679642b03657a339f972149504",
+      "policy_path": "components/jeryu-tool/agent/audit-policy.toml",
+      "policy_sha256": "26086c1f939ddfdcafe16767b33b1051a2401c4b1103b6b3117229a9620e2c25",
+      "existing_policy_floor": 65,
+      "stronger_proof_floor": null,
+      "effective_floor": 85,
+      "policy_change_required": true,
+      "public_main": {
+        "slug": "neverhuman/jeryu-tool",
+        "url": "https://api.github.com/repos/neverhuman/jeryu-tool/branches/main",
+        "http_status": 200,
+        "anonymous": true,
+        "checked_at": "2026-09-10T18:41:23.999Z",
+        "commit": "de80b657e1be5580289dfecdc0cd3c71348261e0",
+        "tree": "8dd6f773dce3ec2e5a82c8f0b606c240760489f9",
+        "protected": false,
+        "required_checks": {
+          "enforcement_level": "off",
+          "contexts": [],
+          "checks": []
+        }
+      },
+      "public_metadata": {
+        "slug": "neverhuman/jeryu-tool",
+        "url": "https://api.github.com/repos/neverhuman/jeryu-tool",
+        "http_status": 200,
+        "anonymous": true,
+        "checked_at": "2026-09-10T18:40:13.621Z",
+        "default_branch": "main",
+        "visibility": "public",
+        "archived": false,
+        "pushed_at": "2026-07-15T23:59:30Z"
+      },
+      "root_candidate_audit_status": "not-executed-in-this-review",
+      "standalone_audit_status": "not-executed-in-this-review",
+      "split_publication_qualified": false
+    },
+    {
+      "name": "jeryu-tool-finder",
+      "github_slug": "neverhuman/jeryu-tool-finder",
+      "role": "split-mirror",
+      "component_path": "components/jeryu-tool-finder",
+      "source_commit": "679d9cff275973ce0357d5e1db12118166c1d6a7",
+      "scope_tree": "16b075b6441602b35cbb588d594bcc3da9b1512f",
+      "policy_path": "components/jeryu-tool-finder/agent/audit-policy.toml",
+      "policy_sha256": "a7444e7d9b287659d8f2eb81ce9c7c52934e9b55f8fc749837f2bb13b9299a62",
+      "existing_policy_floor": 75,
+      "stronger_proof_floor": null,
+      "effective_floor": 85,
+      "policy_change_required": true,
+      "public_main": {
+        "slug": "neverhuman/jeryu-tool-finder",
+        "url": "https://api.github.com/repos/neverhuman/jeryu-tool-finder/branches/main",
+        "http_status": 200,
+        "anonymous": true,
+        "checked_at": "2026-09-10T18:41:24.011Z",
+        "commit": "b3b0b6ad6b13259576183ea0353f1076026fd5ae",
+        "tree": "1c43607c8fa6867fc984a58e7586e760ddf3e684",
+        "protected": false,
+        "required_checks": {
+          "enforcement_level": "off",
+          "contexts": [],
+          "checks": []
+        }
+      },
+      "public_metadata": {
+        "slug": "neverhuman/jeryu-tool-finder",
+        "url": "https://api.github.com/repos/neverhuman/jeryu-tool-finder",
+        "http_status": 200,
+        "anonymous": true,
+        "checked_at": "2026-09-10T18:40:12.612Z",
+        "default_branch": "main",
+        "visibility": "public",
+        "archived": false,
+        "pushed_at": "2026-07-16T01:19:38Z"
+      },
+      "root_candidate_audit_status": "not-executed-in-this-review",
+      "standalone_audit_status": "not-executed-in-this-review",
+      "split_publication_qualified": false
+    },
+    {
+      "name": "jeryu-web",
+      "github_slug": "neverhuman/jeryu-web",
+      "role": "split-mirror",
+      "component_path": "components/jeryu-web",
+      "source_commit": "679d9cff275973ce0357d5e1db12118166c1d6a7",
+      "scope_tree": "5f00fe7afc4bd8f78ff7303361bc4e2f679dab78",
+      "policy_path": "components/jeryu-web/agent/audit-policy.toml",
+      "policy_sha256": "0ed87af577bbcfc1a1c57dccd0afd433ac9e1fe3bcc8b1d3d3b4fe3627eeed36",
+      "existing_policy_floor": 85,
+      "stronger_proof_floor": null,
+      "effective_floor": 85,
+      "policy_change_required": false,
+      "public_main": {
+        "slug": "neverhuman/jeryu-web",
+        "url": "https://api.github.com/repos/neverhuman/jeryu-web/branches/main",
+        "http_status": 200,
+        "anonymous": true,
+        "checked_at": "2026-09-10T18:41:23.970Z",
+        "commit": "c3065e52d14574727fe979e430a7ff48516d8453",
+        "tree": "1ef81ed45079db10725b8e738dcb42e710e74a4a",
+        "protected": true,
+        "required_checks": {
+          "enforcement_level": "off",
+          "contexts": [],
+          "checks": []
+        }
+      },
+      "public_metadata": {
+        "slug": "neverhuman/jeryu-web",
+        "url": "https://api.github.com/repos/neverhuman/jeryu-web",
+        "http_status": 200,
+        "anonymous": true,
+        "checked_at": "2026-09-10T18:40:12.710Z",
+        "default_branch": "main",
+        "visibility": "public",
+        "archived": false,
+        "license": "Apache-2.0",
+        "pushed_at": "2026-07-16T01:19:47Z"
+      },
+      "root_candidate_audit_status": "not-executed-in-this-review",
+      "standalone_audit_status": "not-executed-in-this-review",
+      "split_publication_qualified": false
+    }
+  ],
+  "cargo": {
+    "package_count": 459,
+    "local_package_count": 65,
+    "local_packages": [
+      {
+        "name": "jeryu-agent-auth",
+        "version": "5.0.0"
+      },
+      {
+        "name": "jeryu-agent-stream",
+        "version": "5.0.0"
+      },
+      {
+        "name": "jeryu-agentbridge",
+        "version": "5.0.0"
+      },
+      {
+        "name": "jeryu-api",
+        "version": "5.0.0"
+      },
+      {
+        "name": "jeryu-artifact-metadata",
+        "version": "5.0.0"
+      },
+      {
+        "name": "jeryu-autonomy",
+        "version": "5.0.0"
+      },
+      {
+        "name": "jeryu-bench",
+        "version": "5.0.0"
+      },
+      {
+        "name": "jeryu-bugtracker",
+        "version": "5.0.0"
+      },
+      {
+        "name": "jeryu-cache",
+        "version": "5.0.0"
+      },
+      {
+        "name": "jeryu-cache-adversary",
+        "version": "5.0.0"
+      },
+      {
+        "name": "jeryu-cache-cli",
+        "version": "5.0.0"
+      },
+      {
+        "name": "jeryu-cache-core",
+        "version": "5.0.0"
+      },
+      {
+        "name": "jeryu-cache-policy",
+        "version": "5.0.0"
+      },
+      {
+        "name": "jeryu-cache-service",
+        "version": "5.0.0"
+      },
+      {
+        "name": "jeryu-ci-bin",
+        "version": "5.0.0"
+      },
+      {
+        "name": "jeryu-ci-compiler",
+        "version": "5.0.0"
+      },
+      {
+        "name": "jeryu-ci-governor",
+        "version": "5.0.0"
+      },
+      {
+        "name": "jeryu-ci-ir",
+        "version": "5.0.0"
+      },
+      {
+        "name": "jeryu-ci-scheduler",
+        "version": "5.0.0"
+      },
+      {
+        "name": "jeryu-cli",
+        "version": "5.0.0"
+      },
+      {
+        "name": "jeryu-codegraph",
+        "version": "5.0.0"
+      },
+      {
+        "name": "jeryu-compliance-export",
+        "version": "5.0.0"
+      },
+      {
+        "name": "jeryu-core",
+        "version": "5.0.0"
+      },
+      {
+        "name": "jeryu-domain",
+        "version": "5.0.0"
+      },
+      {
+        "name": "jeryu-egress",
+        "version": "5.0.0"
+      },
+      {
+        "name": "jeryu-enterprise",
+        "version": "5.0.0"
+      },
+      {
+        "name": "jeryu-evidence",
+        "version": "5.0.0"
+      },
+      {
+        "name": "jeryu-git-guard",
+        "version": "5.0.0"
+      },
+      {
+        "name": "jeryu-gitd",
+        "version": "5.0.0"
+      },
+      {
+        "name": "jeryu-jira",
+        "version": "5.0.0"
+      },
+      {
+        "name": "jeryu-kernel",
+        "version": "5.0.0"
+      },
+      {
+        "name": "jeryu-lifecycle",
+        "version": "5.0.0"
+      },
+      {
+        "name": "jeryu-mapcheck",
+        "version": "5.0.0"
+      },
+      {
+        "name": "jeryu-mcp",
+        "version": "5.0.0"
+      },
+      {
+        "name": "jeryu-mirror",
+        "version": "5.0.0"
+      },
+      {
+        "name": "jeryu-mirror-cli",
+        "version": "5.0.0"
+      },
+      {
+        "name": "jeryu-obs",
+        "version": "5.0.0"
+      },
+      {
+        "name": "jeryu-ops",
+        "version": "5.0.0"
+      },
+      {
+        "name": "jeryu-phase11-audit",
+        "version": "5.0.0"
+      },
+      {
+        "name": "jeryu-phase11-bin",
+        "version": "5.0.0"
+      },
+      {
+        "name": "jeryu-phase11-core",
+        "version": "5.0.0"
+      },
+      {
+        "name": "jeryu-phase7-cli",
+        "version": "5.0.0"
+      },
+      {
+        "name": "jeryu-proof",
+        "version": "5.0.0"
+      },
+      {
+        "name": "jeryu-readmodel",
+        "version": "5.0.0"
+      },
+      {
+        "name": "jeryu-replay-verifier",
+        "version": "5.0.0"
+      },
+      {
+        "name": "jeryu-repogate",
+        "version": "5.0.0"
+      },
+      {
+        "name": "jeryu-review",
+        "version": "5.0.0"
+      },
+      {
+        "name": "jeryu-runner-core",
+        "version": "5.0.0"
+      },
+      {
+        "name": "jeryu-runner-microvm",
+        "version": "5.0.0"
+      },
+      {
+        "name": "jeryu-runner-native",
+        "version": "5.0.0"
+      },
+      {
+        "name": "jeryu-runner-oci",
+        "version": "5.0.0"
+      },
+      {
+        "name": "jeryu-runner-protocol",
+        "version": "5.0.0"
+      },
+      {
+        "name": "jeryu-runner-registry",
+        "version": "5.0.0"
+      },
+      {
+        "name": "jeryu-runnerd",
+        "version": "5.0.0"
+      },
+      {
+        "name": "jeryu-rustjet",
+        "version": "5.0.0"
+      },
+      {
+        "name": "jeryu-rustjet-cli",
+        "version": "5.0.0"
+      },
+      {
+        "name": "jeryu-sandbox-linux",
+        "version": "5.0.0"
+      },
+      {
+        "name": "jeryu-signing",
+        "version": "5.0.0"
+      },
+      {
+        "name": "jeryu-signrail",
+        "version": "5.0.0"
+      },
+      {
+        "name": "jeryu-split-tool",
+        "version": "5.0.0"
+      },
+      {
+        "name": "jeryu-tenant",
+        "version": "5.0.0"
+      },
+      {
+        "name": "jeryu-tool-control",
+        "version": "5.1.0"
+      },
+      {
+        "name": "jeryu-tool-finder",
+        "version": "5.1.0"
+      },
+      {
+        "name": "jeryu-tui",
+        "version": "5.0.0"
+      },
+      {
+        "name": "jeryu-wsversion",
+        "version": "5.0.0"
+      }
+    ],
+    "git_sources": []
+  },
+  "npm": {
+    "workspace_paths": [
+      "components/jeryu-web/apps/web",
+      "components/jeryu-web/ux-qa"
+    ],
+    "package_count": 1235,
+    "owned_resolution_candidates": [
+      {
+        "path": "node_modules/@jankurai/ux-qa",
+        "resolved": "components/jeryu-web/ux-qa",
+        "integrity": null,
+        "link": true
+      },
+      {
+        "path": "node_modules/@jeryu/web",
+        "resolved": "components/jeryu-web/apps/web",
+        "integrity": null,
+        "link": true
+      }
+    ],
+    "external_nonregistry_sources": []
+  },
+  "missing_jira_starting_assumption": "superseded by anonymous GitHub200 main4450477878ff230690217483fe1b64f6dbc80e56 at2026-09-10T18:41Z; unprotected; no automatic provisioning appropriate",
+  "support_proposal": "dependency-inventory-supporting-repositories-proposal-r2-20260910.json",
+  "gates": "Every source audit and standalone qualification remains not-executed in this read-only review; historical reports are not reassigned.",
+  "supersedes": "dependency-inventory-census-679d9cff-20260910.json",
+  "correction": "Hash raw git blobs without whitespace normalization; terminate repo tables before following single-table sections."
+}

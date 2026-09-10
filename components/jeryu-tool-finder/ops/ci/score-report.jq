@@ -3,7 +3,7 @@
 def integer: type == "number" and . == floor;
 def report_passes:
   type == "object"
-  and ($minimum | integer and . >= 75 and . <= 100)
+  and ($minimum | integer and . >= 85 and . <= 100)
   and (.score | integer and . >= $minimum and . <= 100)
   and .raw_score == .score
   and .caps_applied == []

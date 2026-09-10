@@ -33,6 +33,9 @@ case ${1:-all} in
     source scripts/bootstrap-jankurai.sh
     bootstrap_public_jankurai
     ;;
+  audit)
+    bash scripts/audit.sh
+    ;;
   auxiliary)
     source scripts/bootstrap-jankurai.sh
     bootstrap_public_jankurai
@@ -138,5 +141,5 @@ case ${1:-all} in
     source scripts/ci-lanes.sh
     jeryu_ci_all "$0"
     ;;
-  *) printf 'usage: scripts/ci.sh {source|public|auditor|auxiliary|rust|runner-governed|web|runtime|product|security|sandbox|oci|splits|legacy|redline|all}\n' >&2; exit 2 ;;
+  *) printf 'usage: scripts/ci.sh {source|public|auditor|audit|auxiliary|rust|runner-governed|web|runtime|product|security|sandbox|oci|splits|legacy|redline|all}\n' >&2; exit 2 ;;
 esac

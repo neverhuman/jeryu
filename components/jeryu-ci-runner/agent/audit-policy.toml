@@ -1,12 +1,8 @@
 schema_version = "1.0.0"
 workspace = "jeryu-ci-runner"
-# Calibrated floor: with the circular `.jankurai/` self-scan exclusion in
-# place (carried from the monorepo policy), this repo's honest score is 83.
-# The dominant drag is code-shape category dilution after the split: the
-# inherited crates/jeryu-runnerd/src/workcell.rs (1397 LOC) now dominates a
-# small repo's largest-file statistics. Floor returns to 85 when the
-# workcell module split lands (tracked in CHANGELOG Unreleased).
-minimum_score = 80
+# Keep the repository policy aligned with the existing 91-point fleet floor
+# enforced by ops/ci/lib.sh. Zero hard findings, zero caps and ratchets remain.
+minimum_score = 91
 hard_findings_allowed = 0
 required_tool = "jankurai"
 required_tool_version = "1.6.11"

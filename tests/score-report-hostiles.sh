@@ -164,8 +164,6 @@ if [[ $mode == policy ]]; then
     shell_policy=0 rust_policy=0 policy_floor=85 minimum=85
     case $component in
       jeryu) script="$root/ops/ci/score.sh"; rust_policy=1 ;;
-      jeryu-intelligence) minimum=82 ;;
-      jeryu-tool) minimum=65 ;;
     esac
     for specification in '85 85 0' '85 84 1' '90 89 1' '90 90 0' '100 100 0'; do
       read -r floor score expected <<<"$specification"

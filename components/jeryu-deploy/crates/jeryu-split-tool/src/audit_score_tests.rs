@@ -9,9 +9,9 @@ const OWNERS: [(Owner, &str, u8); 8] = [
     (Owner::JeryuCore, "jeryu-core", 85),
     (Owner::JeryuDeploy, "jeryu-deploy", 85),
     (Owner::JeryuJira, "jeryu-jira", 85),
-    (Owner::JeryuIntelligence, "jeryu-intelligence", 82),
+    (Owner::JeryuIntelligence, "jeryu-intelligence", 85),
     (Owner::JeryuReleaseOps, "jeryu-release-ops", 85),
-    (Owner::JeryuTool, "jeryu-tool", 65),
+    (Owner::JeryuTool, "jeryu-tool", 85),
     (Owner::JeryuWeb, "jeryu-web", 85),
 ];
 

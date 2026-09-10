@@ -1,14 +1,9 @@
 schema_version = "1.0.0"
 workspace = "jeryu-tool"
-# This is a tool control plane, not a product service: it has no database,
-# billable request path, browser runtime, or durable product data. The reviewed
-# historical floor remains 65 for compatibility with already-released family
-# consumers; current candidate work is held to the fleet-wide score target by
-# exact-head sealing instead of weakening or rewriting that release policy.
-# The absolute repository gates remain:
-# hard_findings_allowed = 0 and no caps (see ops/ci/score.sh). Mirrored in
-# tool-manifest.toml [floors]."jeryu-tool".
-minimum_score = 65
+# Candidate repository admission requires at least 85 with zero hard findings
+# and caps. Released tool-manifest profiles await their separate protected
+# migration; this repository policy imposes the stronger candidate requirement.
+minimum_score = 85
 hard_findings_allowed = 0
 required_tool = "jankurai"
 required_tool_version = "1.6.11"
