@@ -11,6 +11,27 @@ local checks across two runs at identical frozen source. Complete local and
 hosted CI, anonymous final-source installation, split publication and release
 qualification remain open.
 
+The next selected source at `6df1da8d` plus diff `d9c6002a` passed root
+formatting, 106 CI dispatch cases, 44 split-tool binary tests, five CLI tests,
+one committed-source export test, warning-denied all-target split-tool Clippy,
+and the owning inventory check. The inventory contains 934 source inputs.
+The Rust score validator passed its 256 policy cases and 59 root report cases
+through the maintained shell commands. These are scoped results: the complete
+586-case report suite and seven component score migrations remain open.
+The root auditor command and minimum 85 are unchanged; no new actual auditor
+pass is claimed. Independent review verified unchanged source and closure of
+owned processes and all three CI locks for the generator and selected run.
+
+This source also scopes Work commands to their owning package with locked
+resolution, strengthens the actual governed-auditor wrapper checks, and keeps
+failed test scratch for verified cleanup. Its private candidate qualification
+is still pending. Root and generated Runner sandbox lanes now invoke one
+Runner-owned proof command, with identical required native and Agentbridge
+checks. Actual native qualification remains pending: the first complete-source
+VM attempt failed after provisioning and before source compilation or sandbox
+execution. Its evidence is retained; the separately reviewed operational
+successor addresses receipt durability and process-closure races.
+
 Earlier, the ten-step ordinary run at `ea65912f` recorded every selected step
 and closed with a clean source tree and no remaining owned processes or CI
 locks. Nine of ten steps passed; Rust stopped because the auditor refused the

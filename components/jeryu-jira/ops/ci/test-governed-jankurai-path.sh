@@ -4,6 +4,7 @@
 # than this harness, expands them.
 # shellcheck disable=SC2016
 set -euo pipefail
+umask 077
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "${here}/../.." && pwd)"
@@ -15,18 +16,26 @@ production_broker="/opt/jain-ci/authority/release-bin/jankurai"
 production_governed="/home/ubuntu/.jeryu/bin/jankurai"
 tmp="$(mktemp -d /tmp/jeryu-jira-governed-jankurai.XXXXXX)"
 
-cleanup() {
-  case "${tmp}" in
-    /tmp/jeryu-jira-governed-jankurai.*) rm -rf -- "${tmp}" ;;
-    *) printf 'refusing unexpected cleanup path: %s\n' "${tmp}" >&2 ;;
-  esac
+# Retain all attempt evidence; retirement requires a separate verified cleanup.
+retain_attempt() {
+  local status=$?
+  trap - EXIT
+  printf 'Retained governed-path fixture: %s (exit=%s)\n' "$tmp" "$status" >&2
+  exit "$status"
 }
-trap cleanup EXIT
+trap retain_attempt EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 fail() {
   printf 'test-governed-jankurai-path: %s\n' "$*" >&2
   exit 1
 }
+
+[[ -d "$tmp" && ! -L "$tmp" && -O "$tmp" &&
+   $(realpath -e -- "$tmp") == "$tmp" && $(stat -c %a -- "$tmp") == 700 ]] ||
+  fail 'test scratch must be an owner-private physical directory'
 
 expect_failure() {
   local description="$1" pattern="$2"
@@ -91,20 +100,34 @@ mkdir -p "${tmp}/broker/bin" "${tmp}/attacker/bin" \
 
 # shellcheck source=/dev/null
 source "${source_lib}"
-governed_source="${production_governed}"
-governed_sha=""
-if [[ ! ( "${governed_source}" == /* && -f "${governed_source}" &&
-          ! -L "${governed_source}" && -x "${governed_source}" ) ]]; then
-  governed_source="${production_broker}"
-fi
-[[ "${governed_source}" == /* && -f "${governed_source}" &&
-   ! -L "${governed_source}" && -x "${governed_source}" ]] ||
-  fail "governed Jankurai test source is unavailable"
-[[ "$("${governed_source}" --version)" == "${JERYU_JANKURAI_VERSION}" ]] ||
-  fail "governed Jankurai test source has the wrong version"
-governed_sha="$(sha256sum "${governed_source}" | awk '{print $1}')"
-[[ "${governed_sha}" == "${JERYU_JANKURAI_SHA256}" ]] ||
-  fail "governed Jankurai test source has the wrong digest"
+# Public candidate admission is owned by the existing library/verifier.
+# The private fixtures below test selection contracts, not installed authority.
+select_governed_test_source() {
+  case ${JERYU_MONOREPO_CANDIDATE:-0} in
+    1)
+      require_jankurai || return $?
+      governed_source=${JERYU_CANDIDATE_JANKURAI_DESCRIPTOR:?verified descriptor missing}
+      candidate_head=${JERYU_MONOREPO_EXPECTED_HEAD:?verified head missing}
+      candidate_receipt=${JERYU_JANKURAI_RECEIPT_SHA256:?verified receipt digest missing}
+      ;;
+    0)
+      governed_source="${production_governed}"
+      if [[ ! ( "${governed_source}" == /* && -f "${governed_source}" &&
+                ! -L "${governed_source}" && -x "${governed_source}" ) ]]; then
+        governed_source="${production_broker}"
+      fi
+      [[ "${governed_source}" == /* && -f "${governed_source}" &&
+         ! -L "${governed_source}" && -x "${governed_source}" ]] ||
+        fail "governed Jankurai test source is unavailable"
+      ;;
+    *) fail 'JERYU_MONOREPO_CANDIDATE must be absent, 0 or 1' ;;
+  esac
+  [[ "$(env -i PATH=/usr/bin:/bin JANKURAI_NO_UPDATE_CHECK=1 "$governed_source" --version)" == "$JERYU_JANKURAI_VERSION" ]] ||
+    fail 'selected test auditor has the wrong version'
+  [[ "$(sha256sum "$governed_source" | awk '{print $1}')" == "$JERYU_JANKURAI_SHA256" ]] ||
+    fail 'selected test auditor has the wrong digest'
+}
+select_governed_test_source
 
 broker_bin="${tmp}/broker/bin/jankurai"
 attacker_bin="${tmp}/attacker/bin/jankurai"
@@ -271,5 +294,18 @@ ln "${broker_bin}" "${tmp}/broker/bin/jankurai-linked"
 expect_failure "linked broker binary" "release broker Jankurai custody mismatch" \
   run_release_broker "${tmp}/broker/bin"
 rm -f -- "${tmp}/broker/bin/jankurai-linked"
+
+if [[ ${JERYU_MONOREPO_CANDIDATE:-0} == 1 ]]; then
+  # Execute the real admitted source through the existing held-descriptor wrapper,
+  # with the hostile PATH executable still present, then re-admit after all tests.
+  [[ "$(HOSTILE_MARKER="$tmp/hostile-path-executed" PATH="$tmp/home/.local/bin:$PATH" jankurai --version)" == "$JERYU_JANKURAI_VERSION" ]] ||
+    fail 'public candidate transport failed'
+  [[ ! -e "$tmp/hostile-path-executed" ]] || fail 'public candidate executed hostile PATH'
+  require_jankurai
+  [[ $JERYU_MONOREPO_EXPECTED_HEAD == "$candidate_head" &&
+     $JERYU_JANKURAI_RECEIPT_SHA256 == "$candidate_receipt" ]] ||
+    fail 'public candidate binding changed during hostile tests'
+  printf 'public candidate transport verified; installed authority remains unqualified\n'
+fi
 
 printf 'governed Jankurai path tests passed: function path receipt symlink mode digest hardlink broker\n'
