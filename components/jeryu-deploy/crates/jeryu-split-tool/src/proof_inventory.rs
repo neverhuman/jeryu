@@ -24,10 +24,38 @@ fn source_kind(relative: &str) -> Option<&'static str> {
     {
         Some("threshold-policy")
     } else if [
-        "ops/", "scripts/", "tools/", "tests/", "ci/", ".cargo/", ".config/", "images/", "ux-qa/",
+        "ops/",
+        "scripts/",
+        "tools/",
+        "tests/",
+        "ci/",
+        ".cargo/",
+        ".config/",
+        "images/",
+        "ux-qa/",
+        "apps/web/e2e/",
+        "apps/web/.storybook/",
+        "apps/web/src/test/",
+        "apps/web/typetests/",
+        "apps/web/scripts/",
+        "apps/web/perf/",
+        "db/seed/__tests__/",
     ]
     .iter()
     .any(|prefix| relative.starts_with(prefix))
+        || (relative.starts_with("apps/web/src/")
+            && (relative.contains("/__tests__/")
+                || [
+                    ".test.ts",
+                    ".test.tsx",
+                    ".spec.ts",
+                    ".spec.tsx",
+                    ".stories.ts",
+                    ".stories.tsx",
+                    ".stories.mdx",
+                ]
+                .iter()
+                .any(|suffix| relative.ends_with(suffix))))
         || relative.contains("/tests/")
         || relative.contains("/examples/")
         || relative.ends_with("_tests.rs")
@@ -160,5 +188,58 @@ mod tests {
         );
         assert_eq!(source_kind("docs/migration/proof-inventory.json"), None);
         assert_eq!(source_kind("target/ci/evidence.json"), None);
+    }
+    #[test]
+    fn inventories_web_proof_sources_and_their_support_files() {
+        for path in [
+            "apps/web/src/pages/__tests__/FleetPage.render.test.tsx",
+            "apps/web/src/pages/__tests__/workPageTestHelpers.tsx",
+            "apps/web/src/api/client.test.ts",
+            "apps/web/src/api/client.spec.tsx",
+            "apps/web/src/test/setup.ts",
+            "apps/web/src/test/mocks.ts",
+            "apps/web/e2e/11-fleet.spec.ts",
+            "apps/web/e2e/.spec-manifest",
+            "apps/web/e2e/fixtures/mocks.ts",
+            "apps/web/e2e/fixtures/data/bootstrap.json",
+            "apps/web/e2e/pages/AppShellPage.ts",
+            "apps/web/e2e/action-matrix.json",
+            "apps/web/scripts/verify-e2e-action-matrix.mjs",
+            "apps/web/.storybook/main.ts",
+            "apps/web/.storybook/preview.tsx",
+            "apps/web/src/pages/FleetPage.stories.tsx",
+            "apps/web/src/components/Button.stories.ts",
+            "apps/web/src/components/Button.stories.mdx",
+            "apps/web/typetests/contracts.test-d.ts",
+            "apps/web/perf/lighthouse.config.cjs",
+            "apps/web/perf/lighthouse-budget.json",
+            "db/seed/__tests__/fixtures-roundtrip.test.mjs",
+        ] {
+            assert_eq!(
+                source_kind(path),
+                Some("proof-implementation-or-input"),
+                "missing Web proof source: {path}"
+            );
+        }
+    }
+
+    #[test]
+    fn web_proof_discovery_does_not_include_generated_outputs_or_product_files() {
+        for path in [
+            "apps/web/src/pages/FleetPage.tsx",
+            "apps/web/dist/assets/FleetPage.stories.tsx",
+            "apps/web/storybook-static/FleetPage.stories.tsx",
+            "apps/web/playwright-report/data/report.json",
+            "apps/web/test-results/fleet/screenshot.png",
+            "apps/web/node_modules/library/__tests__/test.tsx",
+            "target/browser/__tests__/test.tsx",
+            "docs/migration/proof-inventory.json",
+        ] {
+            assert_eq!(
+                source_kind(path),
+                None,
+                "not a maintained proof source: {path}"
+            );
+        }
     }
 }

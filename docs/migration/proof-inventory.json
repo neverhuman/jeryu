@@ -1121,7 +1121,7 @@
       "kind": "proof-implementation-or-input",
       "path": "components/jeryu-ci-runner/crates/jeryu-sandbox-linux/tests/escape_suite.rs",
       "port_status": "pending-equivalence-proof",
-      "sha256": "7014fabd6742507bb96d4936aeed23fe05abe7207c4d27fd278bc09a932b57e6"
+      "sha256": "cc9330744384a9f99b0c920eea50fc664a9bcce48b3d0f158ec017643bf686f4"
     },
     {
       "component": "jeryu-ci-runner",
@@ -2695,7 +2695,7 @@
       "kind": "proof-implementation-or-input",
       "path": "components/jeryu-deploy/crates/jeryu-api/src/web/control_plane/tests.rs",
       "port_status": "pending-equivalence-proof",
-      "sha256": "5de97301d79c914b3b9c267d4cb62486bbd2c24892d50e675df05c1492f07b02"
+      "sha256": "e4a0fad695ca900e5af9386d0735bcf04d8415bbf670b80b91b542fbbf3964da"
     },
     {
       "component": "jeryu-deploy",
@@ -2727,7 +2727,7 @@
       "kind": "proof-implementation-or-input",
       "path": "components/jeryu-deploy/crates/jeryu-api/src/web/tests.rs",
       "port_status": "pending-equivalence-proof",
-      "sha256": "33b34f50a9271a2f3922a8d5bf9d01e0acbfe4c7ff8b43a587c2015326bdddd8"
+      "sha256": "5c683245789b8495545b59f359626e48404c5acc5ba6a81f9620d9e9b90668e2"
     },
     {
       "component": "jeryu-deploy",
@@ -2797,6 +2797,14 @@
       "component": "jeryu-deploy",
       "declaration": null,
       "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-deploy/crates/jeryu-cli/tests/ci_status_http.rs",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "1de0171748ab8c42fc75d74d0b4076c09482457f4e81141f7d8f29d903d6d7fb"
+    },
+    {
+      "component": "jeryu-deploy",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
       "path": "components/jeryu-deploy/crates/jeryu-cli/tests/cli_snapshots.rs",
       "port_status": "pending-equivalence-proof",
       "sha256": "be61aa4b1442365a66ee36a38d0e33f7ddf4c0b946d4720f382d12b5532317a7"
@@ -2807,7 +2815,7 @@
       "kind": "proof-implementation-or-input",
       "path": "components/jeryu-deploy/crates/jeryu-cli/tests/standalone.rs",
       "port_status": "pending-equivalence-proof",
-      "sha256": "497e386a5d9a062a6c4c28383fbd38480d3ab5e73f1681f2764d3918a30da3c1"
+      "sha256": "e44f8d7ab83619a5d364ebf3a3b3703bd454b8522f8044f28e71362aee13485d"
     },
     {
       "component": "jeryu-deploy",
@@ -2863,7 +2871,7 @@
       "kind": "proof-implementation-or-input",
       "path": "components/jeryu-deploy/crates/jeryu-split-tool/src/proof_inventory.rs",
       "port_status": "pending-equivalence-proof",
-      "sha256": "60b5cc53bc7f92ea54b46ca820e52e60117109dc6314a2ab62634f91d341a381"
+      "sha256": "5bfa8e09c371c21512a67df33c628e71548f7e13cb78db7b16d79aa1a5030461"
     },
     {
       "component": "jeryu-deploy",
@@ -6821,9 +6829,337 @@
       "component": "jeryu-web",
       "declaration": null,
       "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/.storybook/main.ts",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "492305166f22b15aa772061502f4e81b0c5695f6fedcf289790c3e2d4333f237"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/.storybook/preview.tsx",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "3ccba620905145225b749ed3c93c8b86fcab2c10d3e1ce5554eb016573d4cb7c"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/e2e/.spec-manifest",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "4ded45cfb21c282dd0fe6ae8842222d98d2309097c2fb9acf909a4540d851fb9"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/e2e/01-bootstrap.spec.ts",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "bc2fc3b81acfdb65d268d4fa3a7dc38af015031a29a9aec08dd08bc38c21f34f"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/e2e/02-repos.spec.ts",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "e143cc861ba556e98a4d1365560836e6bdfcb82c9a8214b7bde25691f4e97c98"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/e2e/03-readme.spec.ts",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "4dd7e9f3d085c2c5fd12ee86cbb3a2e74ffb054aeb9c47f4659e0364c12e74e7"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/e2e/04-code.spec.ts",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "b0d21a5a95802e03c2e4d4788821dea351a2e4a5f93f944498b1faecbcba2c94"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/e2e/05-pr-review.spec.ts",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "9fef5813805853135dbf9791bcde6c3da8300becded15e6693db53368476f720"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/e2e/06-approve-sha.spec.ts",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "339be0adf562fff44a4d6cf83d6c62496ef1365742605bfa8babd62c567c3364"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/e2e/07-settings.spec.ts",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "9584a941c4f93a3abfc6d32329010b1640fe5e27c30efd778259599cc3466d4e"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/e2e/08-ws-reconnect.spec.ts",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "e2ed4fc3c10b6bbb58a09bf357d49697ae485c75fdf103be502b02833e49f001"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/e2e/09-permissions.spec.ts",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "c954b3ddfe705fa48d2921828937838c3f9406144e1fa678d45f046fa94d98e7"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/e2e/10-a11y.spec.ts",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "25b1e9a8acbb7aa6b2aa73e96bdf50cba74295b9380c7ae4d90c93d6eb534cb7"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/e2e/11-fleet.spec.ts",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "6fc8a7a9dc338cd89b8f218b1b3552f6148dbc65687138318dd2876e015d7a12"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/e2e/12-intelligence.spec.ts",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "36c64d0a02e89ff3641c18a087caf9be98b29297db8b18a236abf4d3e937a6c1"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/e2e/13-left-nav.spec.ts",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "42bf6f12f3bad08aa2966d4a24cc886e04a30791e95bc15898cd233b6dc59525"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/e2e/14-pull-room.spec.ts",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "7c9fe8896a6ff31e6b35cfdec6729e053aa0123ff22c459adef0801c7df1da31"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/e2e/15-repo-pulls.spec.ts",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "126cfafbce24c66d76b29778b86bbca4181817a0aab39bf796912ba82eb4c190"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/e2e/16-agent-terminal.spec.ts",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "3d8c1968376bdf315eb0759369463a7721490048916daaf7ec3e869f511e0ba3"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/e2e/17-repo-agents.spec.ts",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "2cf2d42551a209c69993d6b7fe9900703128f926a51e139588b8aa85cffea7ff"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/e2e/18-new-session.spec.ts",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "fc6cba7b9c1f499b108f895a2e636ff07a42feefd9a0e7b7a731c77d0e836762"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/e2e/19-agents-navigation.spec.ts",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "0c1d07f155469732057bfda77c2a9b7d9f247a2e56a853af6d0875b7e1b1d197"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/e2e/20-repo-routing.spec.ts",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "d67270f423f9b68434e36b97d610f86760039c1cedc52556dcd9444159347006"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/e2e/21-repo-families.spec.ts",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "b1dda6a78f080860453758e97965477bee940d72d255a2eac9eae2aadf5e73aa"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/e2e/22-repo-danger-zone.spec.ts",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "2a09f4c6c206dba96e04365fb489b6cf2db582fe1f2a07f98606f51ffb4719e7"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/e2e/23-auth-hardening.spec.ts",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "f77eec8095ea2d1bbb2cd05bbbc44418e68ef8f153c429686f284cea8394e542"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/e2e/24-work-tracker.spec.ts",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "16e2cb7dda177d989e4c4ee39e1fe5e027d3832c5163429657d5235276860863"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/e2e/25-action-matrix.spec.ts",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "64c4d6baacbfc1aed005a283e10750dfe45b9ca4b066559e30970269adf62678"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/e2e/action-matrix.json",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "950a88f66e6a19402bfeb200d1b7968a7a4039682b68b849ff710b295c3d0796"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/e2e/bff-auth.ts",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "16cc83732e0c69cec142f7b6dbf88abe07f5223712967c4763f240102859f482"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/e2e/fixtures/accessibility.ts",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "5ab8c4d25ef86721f324c9424fdc7b342f9efdd6de33df3de49bdd67d3706c34"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/e2e/fixtures/auth.ts",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "400c2882f2395430653af3121a5a5d9d086bfcf4a53aecf1f5881c1b4c8ae8a7"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/e2e/fixtures/data/bootstrap.json",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "b38608e0f3e057fc6d51226115297e65ed571ba61035fe6c42ed00f76c60e140"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/e2e/fixtures/mocks.ts",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "1e0a3af86e32c2e82edbab8df6a159eccc8d5a3b829693f26acbc867c6df0686"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/e2e/pages/AppShellPage.ts",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "ea55cd004f580b644919ea9fde894f749a1a673c428b5d00b1b6fb83094933bc"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/e2e/pages/DashboardPage.ts",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "22e5559d587f7fb54098d84e057ee3baf7ea29bde70e20c52d30eebaacca084c"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/e2e/pages/RepositoriesPage.ts",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "6a395e77f0b64031cc7080b0f04c3d9d4ff0f0a5c0857fa5d7a1487f5efc8dde"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/e2e/pages/RepositoryOverviewPage.ts",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "4496c1067703cc0ba1a43c576082cb521da58142948dfba5b4c01cf7746e0ac4"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/e2e/standalone.spec.ts",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "1748dd72d25d642a3acb4c86a2a7d811ab5db349cc85f4867e86c41fdc83d842"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
       "path": "components/jeryu-web/apps/web/package.json",
       "port_status": "pending-equivalence-proof",
       "sha256": "07447068fa7959f2bdebfec3596ce2f64cbdd7328b10a9304ece548ab51eff3e"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/perf/lighthouse-budget.json",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "f871319d873de4c2f4ac19eeff077f4f3b9c7961af0c4b5c3bcdf61c72b0b20c"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/perf/lighthouse.config.cjs",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "58da01f74aff954d4c14c564096e9a3388ac69f2f8bd372de93e45858afaea8a"
     },
     {
       "component": "jeryu-web",
@@ -6837,9 +7173,497 @@
       "component": "jeryu-web",
       "declaration": null,
       "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/scripts/verify-e2e-action-matrix.mjs",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "ef6bf36d1935e6ec65cb045d6a6c84f745ebc0b488584155c7efbe3633b3664b"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/src/__tests__/no-legacy-vocab.test.ts",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "e4661ee6a4507a50d4b047e5f2923a0cdf4e4b229e9ea340050b6b320c31e5e1"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/src/api/__tests__/client.test.ts",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "00d75e33f3f790b18fba55168dfe3feb3c8641c5b5d5a9a775eed0cbaf2c4f58"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/src/api/__tests__/sessions.test.ts",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "06f24c9746820360e7812e8cf6423512ea63f97e9704748020a8ea633156536c"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/src/api/__tests__/websocket.test.ts",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "759c5876a124c993bd3c6cb537351e870b7b383ca66e82ed236ca489fc570c35"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/src/app/__tests__/frontendBoundary.test.ts",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "f3d879470be4cc637f57a36cbc82b642d9ec77dfc62b357afa6cfbcf3cf90846"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/src/app/__tests__/router.test.tsx",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "3d683014149511661405d57da1288b04016b9dab17e0f6c5de71fe04ce8807ea"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/src/components/KeyboardShortcutsOverlay.stories.tsx",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "25037e922855dbe8cc7d00c3b4ac61c78cad208c57a229075e6e5f9a34f74e20"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/src/components/__tests__/NotificationInbox.test.tsx",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "0c0c0174c38a75c83d31d8481614a9831e4a8a36d109db90148e0bb1e4adb0e8"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/src/components/action/RiskBadge.stories.tsx",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "69bb5fc0f099fe8910ad471cc6600cf1b723e9cbddd5923935a5ddaa584b4ea6"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/src/components/browser/ReadmePanel.stories.tsx",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "2b867f255472a6f9691b81c61eae35d16f67aa5b35c3a1013e364a9e49fed5bc"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/src/components/browser/__tests__/MarkdownRenderer.test.tsx",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "2f3f5bb3396786feec834fde91147f917a48fb3977491a8fd33e5509e64faea0"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/src/components/merge/DiffViewer.stories.tsx",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "66325b7eeff07ee4474879957c9b66fa030963aed312a9a8d5966a48fc79ad1d"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/src/components/merge/MergeGatePanel.stories.tsx",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "574c5710ae424ca42a7b50a60dd83b90907b62f34e0f0b67fc2a68828f28be20"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/src/components/merge/__tests__/MergeGatePanel.test.tsx",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "4bde5f7ebf520c567a4ced3b6c40bfecd5f668988a2646cfb687923bfe4dface"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/src/components/merge/__tests__/ReviewSidebar.test.tsx",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "7235b662ed3a248f388af3b185ca35da0a619d725438b21caf13971d0571dc5e"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/src/components/repo/DeleteRepoDialog.stories.tsx",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "d8f6a9da732b9d88921ee450aeffde2d2191a0370fb15082d9166cad91998671"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/src/components/repo/JankuraiScoreBadge.stories.tsx",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "78e8b6de6c243152399b648df799a97e8acd6c6f045b8af3ce9cfadbd42324da"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/src/components/repo/MirrorStatusBadge.stories.tsx",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "120b98f85338cb2456d014cf62ab61368a9a55b07f44490e786870970330fcb5"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/src/components/repo/RepoCard.stories.tsx",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "6a9db8a936fb7e362ca27010a1447cff46095a5b5fa775a53cbb6ec781abadee"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/src/components/repo/RepoFamilyCard.stories.tsx",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "dea3a71052255ce6d0330a1e2e60fcd8a8006d1b249ac18d0ed66b967ee86fe8"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/src/components/repo/__tests__/DeleteRepoDialog.test.tsx",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "e5edab20ecdc3c79672fe2b3abfc37b459e3fb6f397f09f5088243f5b29f8fd3"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/src/components/repo/__tests__/GoldenToolBox.test.tsx",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "84bcbd694ba790f611e87e1933355beacefb1a69787fc283147896a5de4ac609"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/src/components/repo/__tests__/JankuraiScoreBadge.test.tsx",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "031bd4211c9598caf76f615a59eadd9829b0f01bb008b2e6b8308e94ea782ad4"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/src/components/repo/__tests__/MirrorStatusBadge.test.tsx",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "198fdabc56593435b18e9cfbe84f7a77caf36c3f1c6293e0b20a4cbf1a516580"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/src/components/repo/__tests__/RepoCard.test.tsx",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "40565820d9c7b02c1730ce8a7414868121650a26bd9d226546a6b4d24382549a"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/src/components/repo/__tests__/RepoDangerZone.test.tsx",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "ac1fff3ca7406cd7a37ff61b2ccd856846d599d836b9197c5f6828d8db1d8156"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/src/components/repo/__tests__/RepoFamilyCard.test.tsx",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "783e056c17dfce914949bfc51131976e1399f3f9a8089e1d58d34aac233355c9"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/src/components/repo/__tests__/RepoTable.test.tsx",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "d9a423877b39d5fd9ba9a57daf2c9ac3a2e8ca02fc4c188843773cb570099d7d"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/src/components/repo/__tests__/familyRollup.test.ts",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "712c985e37485b1f5b9d5a10fdb1390109a705362af0cfd6546a9d22330c746f"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/src/components/settings/SettingsDiffPreview.stories.tsx",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "9fe0be3bc08c15c54b5f02bf743b27830a396d19fd09c2804493b4366e214a5e"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/src/components/settings/__tests__/SettingsDiffPreview.test.tsx",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "172b30512394a29b533dabe3af5b878a383d733212caa659785952498112b285"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/src/components/terminal/AgentTerminal.stories.tsx",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "bba873363f4d5d09af1da606dd83c3526df962dec0546d76ad63a89d59567109"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/src/components/terminal/__tests__/AgentTerminal.test.tsx",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "2778ce72a4aaebefff221d3652a1f12783e5019e4b3723162b89da12829aed96"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/src/components/terminal/__tests__/agentTtyDecode.test.ts",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "513669415f177160646dc0a47050f493def0f5c1b8ac02c6aed94fefd180e640"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/src/layout/CommandPalette.stories.tsx",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "b68f004e3061b3db696ec0299e974397d7761b7e48a9460c89b2c69818207783"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/src/pages/FleetPage.stories.tsx",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "27ed618dbee44df4da42f54cad5c4fd5e5007105a8f06cda72f75bb664e5e98a"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/src/pages/__tests__/FleetPage.behavior.test.tsx",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "e52c24e86ac153891f6e5a2c030ffe2f0c77d43aa0dbfab1105bfd6c6e609b76"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/src/pages/__tests__/FleetPage.model.test.tsx",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "9c41e18a4daa927aeb87f017d30ea3e050898acd8c782a3ce35d6ecd079dfb76"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/src/pages/__tests__/FleetPage.render.test.tsx",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "bd47644d1277f390dae291750264b7bfa98321f49b2a4af62960a29bf92606d8"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/src/pages/__tests__/IntelligencePage.test.tsx",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "35d19b130992b6b330922642667b103e5594c126fc82abde2ed9a4936d1846b0"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/src/pages/__tests__/RepositoryAgentsPage.test.tsx",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "8183e1de5472a5de418ee200e38ad2950fe9a47eb3083fb44cff58b582834bb4"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/src/pages/__tests__/RepositoryFamilyPage.test.tsx",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "05f6232bb944c090b16dcfe28122d9b817734b9de1f39c73ff67048d9ac20b43"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/src/pages/__tests__/RepositoryOverviewPage.test.tsx",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "8367deddd1817dd8631e3ddeb73bf734374d463437967eac9eb266a3d6bdfcca"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/src/pages/__tests__/RepositoryPullRequestsPage.test.tsx",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "c4988fd855e3b91de6217c42b2878266b59bbae107cd4acb3ac29923b2a04f99"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/src/pages/__tests__/ToolsPage.test.tsx",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "4b3be3fed75fce9347af069b890321c67503da64b8fd3c859e67a08241b972bb"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/src/pages/__tests__/WorkDetailPage.test.tsx",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "34639fa2ef339cb9ebb26c96c3b2a5f0ad27007c73005732813932c9cc36e23f"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/src/pages/__tests__/WorkPage.test.tsx",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "9ef4580c1d318f4e60764dd5cc34fb2d75f5865dd004ae7340fdcaa99dcd0036"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/src/pages/__tests__/intelligenceGraphModel.test.ts",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "750f76d68cb5b2e269d7848d8ffde5791cad934bcafc4524e3ef500bb2d4903a"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/src/pages/__tests__/pullRequestDrift.test.ts",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "76196b1418bbe64366d6181f8465f4cd279ba13395979ee39fea9da46ae7ce23"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/src/pages/__tests__/pullRoomModel.test.ts",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "f82b9c365c435a4c0efa54231e6d46a554d855de9f2b5f23be68950d5c1ebd6d"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/src/pages/__tests__/repositoriesPageParts.test.ts",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "f883ba05da1226c439d97180ea51e3413c243279837a403761901cc2d399136a"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/src/pages/__tests__/runnerNetworkModel.test.tsx",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "95ebfc0f735feef8bc3323c923cb8d1411bd50ad042315ac85743b7e608d1cce"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/src/pages/__tests__/workModel.test.ts",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "6f9f560c9a610ea9cd8ba4f65cdd83e6a1d9f833fcd9366cc3b8dff40f495dc1"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/src/pages/__tests__/workPageTestHelpers.tsx",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "fec1bd9dc7e9220ea89ef92fe99e057e048cc7f25bde7e6119b4737153edf075"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/src/storage/__tests__/browserStorage.test.ts",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "bfb11bacd08f260538a3dd8d45ea63d718f9e14e90b630c601afae3c9c565e93"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/src/test/mocks.ts",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "c14199b6b982245f8cd178f83ad2964e1a71fbf60446d8ef2087b2e1ee7e2a4e"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/src/test/server.ts",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "bba85f7a4c9778a25d63dfdb60db2129eb4b71cf5dae7a1df840d357f6914c0a"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/src/test/setup.ts",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "ba5c9b08edfcffdb787db4f4d92011f99369d3c921aaaf0b83d868e7534b359d"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/typetests/contracts.test-d.ts",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "a5703a762c4db1a510b63622dead8eba8f6f22f55c791d748c2006199cc1db33"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
       "path": "components/jeryu-web/apps/web/vitest.config.ts",
       "port_status": "pending-equivalence-proof",
       "sha256": "e534921537ccec164e04db9204237b717a44fc15762095eed406e0e9a6dbb203"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/db/seed/__tests__/fixtures-roundtrip.test.mjs",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "172c954585e801087aced2efe7f8036871814daf2c75a5621dd8b6348554d2e7"
     },
     {
       "component": "jeryu-web",
@@ -7279,7 +8103,7 @@
       "kind": "proof-implementation-or-input",
       "path": "scripts/ci.sh",
       "port_status": "pending-equivalence-proof",
-      "sha256": "f92706d69768f0e18fb9dce74e717e2ea2f7dc44c2db2e80cef5e8b669182ca2"
+      "sha256": "a97e9f9ff587e8547d5977eab9a3460b7b9f85787b6dbb1ced40d58797e80c60"
     },
     {
       "component": "jeryu",
@@ -7359,7 +8183,7 @@
       "kind": "proof-implementation-or-input",
       "path": "tests/ci-matrix.sh",
       "port_status": "pending-equivalence-proof",
-      "sha256": "f970efe40e35d38cd6a8f176c0b94762e5814c8a245e7ee19cfaf824c7283855"
+      "sha256": "f4cd92eb0cd08d92f0a00477f15f8025d16c5c945a9eff3989872ba5b0d720e0"
     },
     {
       "component": "jeryu",

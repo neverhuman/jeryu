@@ -54,13 +54,17 @@ export function IntelligencePage(): JSX.Element {
     );
   }
 
-  return <IntelligenceSnapshot snapshot={query.data} />;
+  return (
+    <IntelligenceSnapshot snapshot={query.data} outOfDate={query.isStale} />
+  );
 }
 
 function IntelligenceSnapshot({
   snapshot,
+  outOfDate,
 }: {
   snapshot: ControlPlaneSnapshot;
+  outOfDate: boolean;
 }): JSX.Element {
   const ecosystem = useEcosystem();
   const toolClusters = useToolBuildClusters(10);
@@ -71,6 +75,8 @@ function IntelligenceSnapshot({
   });
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const topPriorities = snapshot.priorities.slice(0, 8);
+  const runners = snapshot.runners.local;
+  const runnerCapacityKnown = runners.state === 'fresh' && !outOfDate;
   const operatorGraph = useMemo(
     () =>
       buildOperatorGraph(
@@ -116,10 +122,24 @@ function IntelligenceSnapshot({
           <MetricCard
             icon={<ServerCog size={18} aria-hidden="true" />}
             label="Runners"
-            value={snapshot.runners.local.onlineRunners}
-            detail={`${snapshot.runners.local.offlineRunners} offline`}
+            value={runnerCapacityKnown ? runners.onlineRunners : '—'}
+            detail={
+              runnerCapacityKnown
+                ? `${runners.offlineRunners} offline`
+                : runners.state === 'fresh'
+                  ? 'Runner snapshot out of date'
+                  : runners.state === 'unknown'
+                    ? 'Runner capacity unknown'
+                    : 'Runner capacity unavailable'
+            }
             state={
-              snapshot.runners.local.offlineRunners > 0 ? 'failed' : 'fresh'
+              runners.state !== 'fresh'
+                ? runners.state
+                : outOfDate
+                  ? 'unknown'
+                  : runners.offlineRunners > 0
+                    ? 'failed'
+                    : 'fresh'
             }
           />
           <MetricCard

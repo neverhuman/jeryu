@@ -6,7 +6,8 @@
 //! assembler, so the standalone lens reads only the contract.
 
 use jeryu_readmodel::{
-    ActivityTotals, Bottleneck, HealthLevel, PoolRollup, RunnersItem, RunnersSummary, TuiReadModel,
+    ActivityTotals, Bottleneck, FreshnessState, HealthLevel, PoolRollup, RunnersItem,
+    RunnersSummary, TuiReadModel,
 };
 
 /// One runner-node row in the fleet grid.
@@ -107,9 +108,8 @@ impl RunnersLensInput {
 
 /// One per-pool row in the operator Pools/Health grid.
 ///
-/// Pure projection of a [`PoolRollup`]; the derived slot/utilization math is read
-/// straight from the contract's selectors so the TUI and the web `/fleet` page
-/// cannot disagree.
+/// Pure projection of a [`PoolRollup`]. Capacity-derived values are displayed
+/// only when the pool source is known; observed job counts remain visible.
 #[derive(Debug, Clone, PartialEq)]
 pub struct PoolHealthRow {
     pub pool: String,
@@ -130,7 +130,7 @@ pub struct PoolHealthRow {
 }
 
 impl PoolHealthRow {
-    fn from_rollup(p: &PoolRollup) -> Self {
+    fn from_rollup(p: &PoolRollup, capacity_unknown: bool) -> Self {
         Self {
             pool: p.pool.clone(),
             tags: p.tags.clone(),
@@ -145,7 +145,7 @@ impl PoolHealthRow {
             online_runners: p.online_runners,
             stuck_runners: p.stuck_runners,
             utilization_pct: (p.utilization() * 100.0).round() as u32,
-            saturated: p.is_saturated(),
+            saturated: !capacity_unknown && p.is_saturated(),
         }
     }
 }
@@ -183,20 +183,35 @@ impl Default for PoolHealthInput {
 impl PoolHealthInput {
     pub fn from_read_model(model: &TuiReadModel) -> Self {
         let activity = &model.pool_activity;
+        // Zero capacity from an unavailable registry is not measured capacity.
+        // Keep job observations, but do not derive saturation or fleet health.
+        let capacity_unknown = activity
+            .freshness
+            .as_ref()
+            .is_some_and(|freshness| freshness.state == FreshnessState::Unknown);
         Self {
             totals: activity.totals(),
-            health: activity.health(),
+            health: if capacity_unknown {
+                HealthLevel::Unknown
+            } else {
+                activity.health()
+            },
             pools: activity
                 .pools
                 .iter()
-                .map(PoolHealthRow::from_rollup)
+                .map(|pool| PoolHealthRow::from_rollup(pool, capacity_unknown))
                 .collect(),
-            bottlenecks: activity.bottlenecks(),
+            bottlenecks: if capacity_unknown {
+                Vec::new()
+            } else {
+                activity.bottlenecks()
+            },
             event_cursor: model.event_cursor,
         }
     }
 
     /// Fleet-wide whole-percent utilization (running jobs over online slots).
+    /// Display only when `health` is not Unknown.
     pub fn fleet_utilization_pct(&self) -> u32 {
         let online: u32 = self.pools.iter().map(|p| p.active_slots).sum();
         if online == 0 {
@@ -217,6 +232,9 @@ impl PoolHealthInput {
             Some(top) => top.describe(),
             None if self.pools.is_empty() && self.totals.repos == 0 => {
                 "No pool telemetry yet — awaiting scheduler/registry read.".to_string()
+            }
+            None if self.health == HealthLevel::Unknown => {
+                "Runner capacity unknown — awaiting scheduler/registry read.".to_string()
             }
             None => "Fleet healthy — no pool bottlenecks.".to_string(),
         }
@@ -410,5 +428,57 @@ mod tests {
         assert!(!input.has_bottlenecks());
         assert!(input.banner_line().contains("Fleet healthy"));
         assert_eq!(input.fleet_utilization_pct(), 25);
+    }
+
+    #[test]
+    fn pool_health_unknown_capacity_preserves_observed_jobs() {
+        let mut observed = PoolRollup::new("build");
+        observed.queued_jobs = 5;
+        observed.running_jobs = 2;
+        observed.failed_jobs = 3;
+        let model = TuiReadModel {
+            event_cursor: 93,
+            pool_activity: PoolActivity {
+                pools: vec![observed],
+                repos: vec![RepoActivity {
+                    repo: "owner/repo".into(),
+                    queued_jobs: 5,
+                    running_jobs: 2,
+                    failed_jobs: 3,
+                    ..RepoActivity::default()
+                }],
+                freshness: Some(jeryu_readmodel::SourceFreshness {
+                    source: jeryu_readmodel::SourceKind::Broker,
+                    state: FreshnessState::Unknown,
+                    observed_at: None,
+                    age_ms: None,
+                    cursor: None,
+                    ttl_ms: None,
+                    confidence: 0.0,
+                    last_error: None,
+                    degraded_reason: Some("runner capacity registry is not connected".into()),
+                }),
+                ..PoolActivity::default()
+            },
+            ..TuiReadModel::default()
+        };
+        let input = PoolHealthInput::from_read_model(&model);
+        assert_eq!(input.health, HealthLevel::Unknown);
+        assert_eq!(input.event_cursor, 93);
+        assert_eq!(input.totals.repos, 1);
+        assert_eq!(input.totals.pools, 1);
+        assert_eq!(input.totals.queued_jobs, 5);
+        assert_eq!(input.totals.running_jobs, 2);
+        assert_eq!(input.totals.failed_jobs, 3);
+        assert_eq!(input.pools.len(), 1);
+        let row = &input.pools[0];
+        assert_eq!(row.pool, "build");
+        assert_eq!(
+            (row.queued_jobs, row.running_jobs, row.failed_jobs),
+            (5, 2, 3)
+        );
+        assert!(!row.saturated);
+        assert!(!input.has_bottlenecks());
+        assert!(input.banner_line().contains("capacity unknown"));
     }
 }

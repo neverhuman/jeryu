@@ -14,6 +14,12 @@ export function poolFromRollup(raw: unknown): FleetPool | undefined {
   if (!r) return;
   const pool = str(r.pool);
   if (!pool) return;
+  const capacityKnown = [
+    r.active_slots,
+    r.configured_max_slots,
+    r.online_runners,
+    r.stuck_runners,
+  ].every((value) => typeof value === 'number' && Number.isFinite(value) && value >= 0);
   const queuedJobs = num(r.queued_jobs);
   const runningJobs = num(r.running_jobs);
   const activeSlots = num(r.active_slots);
@@ -21,6 +27,7 @@ export function poolFromRollup(raw: unknown): FleetPool | undefined {
   const utilization =
     activeSlots === 0 ? 0 : Math.min(1, Math.max(0, runningJobs / activeSlots));
   return {
+    capacityKnown,
     pool,
     tags: strList(r.tags),
     trustTier: str(r.trust_tier) || 'trusted',
@@ -34,7 +41,7 @@ export function poolFromRollup(raw: unknown): FleetPool | undefined {
     stuckRunners: num(r.stuck_runners),
     idleSlots,
     utilization,
-    saturated: queuedJobs > 0 && idleSlots === 0,
+    saturated: capacityKnown && queuedJobs > 0 && idleSlots === 0,
   };
 }
 

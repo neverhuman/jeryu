@@ -11,8 +11,13 @@ use crate::web::workcells_support::manager;
 use super::*;
 
 pub(crate) fn runner_fabric(state: &Arc<WebState>) -> RunnerFabricResponse {
-    let fleet = jeryu_runnerd::RunnerFleet::deterministic_fixture();
-    runner_fabric_from_parts(state, fleet.snapshot(), fleet.health())
+    // No registered fleet is connected to WebState. Workcell and agent activity
+    // is observable, but cannot establish available runner capacity.
+    runner_fabric_from_parts(
+        state,
+        jeryu_runnerd::RunnerFleetSnapshot::default(),
+        Vec::new(),
+    )
 }
 
 fn runner_fabric_from_parts(
@@ -36,11 +41,7 @@ fn runner_fabric_from_parts(
     RunnerFabricResponse {
         schema_version: "jeryu.runner_fabric/v1".to_string(),
         local: RunnerLocalFabric {
-            state: if node_details.is_empty() {
-                EvidenceState::Unknown
-            } else {
-                EvidenceState::Fresh
-            },
+            state: EvidenceState::Unknown,
             nodes: fleet.nodes,
             online_runners: fleet.online_runners,
             offline_runners: fleet.stuck_runners,
@@ -245,5 +246,122 @@ pub(crate) fn normalize_node_state(state: &str) -> String {
         "unknown".to_string()
     } else {
         state.to_string()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::web::agent_runs::AgentRunIoMode;
+    use jeryu_agent_stream::{AgentOutputStream, AgentRunStreamKey, AgentTtyEvent};
+    use jeryu_core::ForgeCore;
+    use jeryu_runnerd::{StartupSync, WorkcellClaimRequest};
+
+    #[test]
+    fn observed_workcell_and_agent_rows_do_not_establish_capacity() {
+        let state = Arc::new(WebState::new(ForgeCore::new()));
+        let lease = manager(&state)
+            .claim(WorkcellClaimRequest {
+                agent_id: "observed-agent".to_string(),
+                workspace_root: "/tmp/observed-workspace".into(),
+                repo_roots: vec!["/tmp/observed-workspace/repo".into()],
+                branch_budget: 1,
+                runner_id: "observed-runner".to_string(),
+                runner_epoch: 7,
+                git_status_summary: "clean".to_string(),
+                ci_snapshot_age_ms: None,
+                startup: StartupSync::Rebased {
+                    main_ref: "refs/heads/main".to_string(),
+                    base_sha: "base".to_string(),
+                    head_sha: "head".to_string(),
+                },
+            })
+            .unwrap();
+
+        // A real manager lease is visible without manufacturing registration.
+        let fabric = runner_fabric(&state);
+        assert_eq!(fabric.local.state, EvidenceState::Unknown);
+        assert_eq!(fabric.local.nodes, 0);
+        assert_eq!(fabric.local.total_slots, 0);
+        assert_eq!(fabric.local.active_slots, 0);
+        assert_eq!(fabric.local.node_details.len(), 1);
+        assert_eq!(fabric.local.node_details[0].runner_id, lease.runner_id);
+        assert_eq!(fabric.local.node_details[0].source, "workcell");
+
+        // Exercise the existing observation projection directly: this is row
+        // preservation coverage, not a claim to have executed an agent here.
+        let stream_key = AgentRunStreamKey {
+            repo: Some("alice/observed-repo".to_string()),
+            workcell_id: lease.workcell_id.clone(),
+            agent_run_id: "observed-run".to_string(),
+            agent: "observed-agent".to_string(),
+            model: "test-model".to_string(),
+        };
+        let running = AgentRunStatusResponse {
+            agent_run_id: stream_key.agent_run_id.clone(),
+            state: AgentRunState::Running,
+            io_mode: AgentRunIoMode::Pty,
+            source: AgentRunSourceSnapshot::Workcell {
+                workcell_id: lease.workcell_id.clone(),
+                runner_epoch: lease.runner_epoch,
+                ci_run_id: None,
+                failed_run_id: None,
+                failed_receipt_id: None,
+                failure_log_digest: None,
+            },
+            repo_root: lease.repo_roots[0].clone(),
+            program: "/usr/bin/observed-agent".to_string(),
+            args: Vec::new(),
+            events_url: String::new(),
+            control_url: String::new(),
+            export_pr_url: String::new(),
+            ws_scope: String::new(),
+            tty_topic: String::new(),
+            control_topic: String::new(),
+            events: Vec::new(),
+            tty_events: vec![AgentTtyEvent::text(
+                1,
+                1_700_000_000_000,
+                &stream_key,
+                AgentOutputStream::Stdout,
+                "observed output\n",
+            )],
+            controls: Vec::new(),
+            outcome: None,
+            error_code: None,
+            error_message: None,
+        };
+        let mut completed = running.clone();
+        completed.agent_run_id = "completed-run".to_string();
+        completed.state = AgentRunState::Succeeded;
+        let mut unrelated = running.clone();
+        unrelated.agent_run_id = "unrelated-run".to_string();
+        unrelated.source = AgentRunSourceSnapshot::Repo {
+            repo: "alice/other-repo".to_string(),
+        };
+        let nodes = build_runner_nodes(
+            Vec::new(),
+            std::slice::from_ref(&lease),
+            &[running, completed, unrelated],
+        );
+        assert_eq!(nodes.len(), 1);
+        let node = &nodes[0];
+        assert_eq!(node.runner_id, "observed-runner");
+        assert_eq!(node.state, "active");
+        assert_eq!(node.capacity, 0);
+        assert_eq!(node.active_task_count, 1);
+        assert_eq!(node.active_tasks.len(), 1);
+        let task = &node.active_tasks[0];
+        assert_eq!(task.task_id, "observed-run");
+        assert_eq!(
+            task.workcell_id.as_deref(),
+            Some(lease.workcell_id.as_str())
+        );
+        assert_eq!(task.repo.as_deref(), Some("alice/observed-repo"));
+        assert_eq!(task.state, "running");
+        assert_eq!(task.tty_preview.state, EvidenceState::Fresh);
+        assert_eq!(task.tty_preview.lines, vec!["observed output"]);
+        assert!(task.updated_at.is_some());
+        assert_eq!(node.last_updated, task.updated_at);
     }
 }

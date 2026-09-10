@@ -136,7 +136,8 @@ pub(crate) fn run_runners(
                 json_output,
                 &value,
                 &format!(
-                    "runner fabric: online={} offline={} activeSlots={}",
+                    "runner fabric: state={} online={} offline={} activeSlots={}",
+                    text(local, "state"),
                     number(local, "onlineRunners"),
                     number(local, "offlineRunners"),
                     number(local, "activeSlots")

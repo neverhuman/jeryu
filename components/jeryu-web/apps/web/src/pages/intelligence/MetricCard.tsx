@@ -13,7 +13,7 @@ export function MetricCard({
 }: {
   icon: ReactNode;
   label: string;
-  value: number;
+  value: number | string;
   detail: string;
   state: EvidenceState;
 }): JSX.Element {

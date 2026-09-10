@@ -275,10 +275,15 @@ fn make_limited_cgroup(parent: &Path, pids_max: u32) -> Option<PathBuf> {
     Some(dir)
 }
 
-fn write_enforcement_json(caps: &SandboxCapabilities, results: &[EscapeResult]) -> PathBuf {
-    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../target/jankurai/runner-sandbox");
-    let _ = std::fs::create_dir_all(&dir);
-    let path = dir.join("enforcement.json");
+fn write_enforcement_json(
+    caps: &SandboxCapabilities,
+    results: &[EscapeResult],
+) -> std::io::Result<PathBuf> {
+    let invocation_dir = std::env::var_os("JERYU_SANDBOX_ENFORCEMENT_DIR");
+    let dir = invocation_dir.as_ref().map_or_else(
+        || Path::new(env!("CARGO_MANIFEST_DIR")).join("../../target/jankurai/runner-sandbox"),
+        PathBuf::from,
+    );
 
     let escapes = results
         .iter()
@@ -317,8 +322,66 @@ fn write_enforcement_json(caps: &SandboxCapabilities, results: &[EscapeResult]) 
         false_skips,
         escapes,
     );
-    let _ = std::fs::write(&path, json);
-    path
+    persist_enforcement_json(&dir, &json, invocation_dir.is_some())
+}
+
+fn persist_enforcement_json(dir: &Path, json: &str, exclusive: bool) -> std::io::Result<PathBuf> {
+    use std::io::Write;
+
+    std::fs::create_dir_all(dir)?;
+    let path = dir.join("enforcement.json");
+    if exclusive {
+        let mut file = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&path)?;
+        file.write_all(json.as_bytes())?;
+    } else {
+        // Preserve standalone consumers of the historical path, with checked I/O.
+        std::fs::write(&path, json)?;
+    }
+    Ok(path)
+}
+
+#[test]
+fn invocation_receipt_cannot_reuse_existing_bytes() {
+    let root = tempfile::tempdir().unwrap();
+    let path = persist_enforcement_json(root.path(), "current receipt", true).unwrap();
+    assert_eq!(std::fs::read_to_string(&path).unwrap(), "current receipt");
+    let error = persist_enforcement_json(root.path(), "replacement receipt", true).unwrap_err();
+    assert_eq!(error.kind(), std::io::ErrorKind::AlreadyExists);
+    assert_eq!(std::fs::read_to_string(&path).unwrap(), "current receipt");
+}
+
+#[test]
+fn enforcement_receipt_propagates_directory_and_write_failures() {
+    let root = tempfile::tempdir().unwrap();
+    let blocked_parent = root.path().join("file-parent");
+    std::fs::write(&blocked_parent, "not a directory").unwrap();
+    let blocked_output = root.path().join("directory-output");
+    std::fs::create_dir_all(blocked_output.join("enforcement.json")).unwrap();
+    for exclusive in [false, true] {
+        assert!(
+            persist_enforcement_json(&blocked_parent.join("child"), "receipt", exclusive).is_err()
+        );
+        assert!(persist_enforcement_json(&blocked_output, "receipt", exclusive).is_err());
+    }
+    assert_eq!(
+        std::fs::read_to_string(blocked_parent).unwrap(),
+        "not a directory"
+    );
+    assert!(blocked_output.join("enforcement.json").is_dir());
+}
+
+#[test]
+fn standalone_receipt_path_still_supports_checked_replacement() {
+    let root = tempfile::tempdir().unwrap();
+    let path = persist_enforcement_json(root.path(), "old receipt", false).unwrap();
+    assert_eq!(
+        persist_enforcement_json(root.path(), "new receipt", false).unwrap(),
+        path
+    );
+    assert_eq!(std::fs::read_to_string(path).unwrap(), "new receipt");
 }
 
 /// A "false skip" is a Skipped verdict whose primitive IS actually available.
@@ -354,8 +417,8 @@ fn escape_suite_blocks_or_honestly_skips() {
         escape_fork_bomb(&caps),
     ];
 
-    let path = write_enforcement_json(&caps, &results);
-    eprintln!("enforcement receipt: {}", path.display());
+    let path = write_enforcement_json(&caps, &results).expect("write current enforcement receipt");
+    eprintln!("\nenforcement receipt: {}", path.display());
     eprintln!("capabilities: {}", caps.summary());
     for r in &results {
         eprintln!(

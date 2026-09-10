@@ -185,6 +185,104 @@ fn account_token(http: &Client, url: &str, login: &str, signup: bool) -> String 
 }
 
 #[test]
+fn ci_status_reads_authorized_check_evidence_across_restart() {
+    let temp = private_temp_dir();
+    let home = temp.path().join("home");
+    let data = temp.path().join("data");
+    std::fs::create_dir(&home).unwrap();
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let address = listener.local_addr().unwrap().to_string();
+    drop(listener);
+    let url = format!("http://{address}");
+    let server = start(&home, &data, &address, true);
+    let http = Client::builder()
+        .timeout(Duration::from_secs(10))
+        .build()
+        .unwrap();
+    let admin = account_token(&http, &url, "jeryu-admin", false);
+    let reader = account_token(&http, &url, "ci-reader", true);
+    let unrelated = account_token(&http, &url, "ci-unrelated", true);
+    request(
+        &http,
+        Method::POST,
+        &format!("{url}/api/v1/repos"),
+        &admin,
+        json!({"host":"jeryu","owner":"jeryu-admin","name":"check-evidence",
+            "visibility":"private","initialize_readme":true,"default_branch":"main",
+            "topics":[],"dry_run":false}),
+        201,
+    );
+    request(
+        &http,
+        Method::POST,
+        &format!("{url}/api/v1/admin/repos/jeryu-admin/check-evidence/grants/ci-reader"),
+        &admin,
+        json!({"access":"read"}),
+        200,
+    );
+    let args = ["ci", "status", "--repo", "check-evidence"];
+    assert_eq!(
+        cli(&home, &url, &reader, &args),
+        json!({"total_count":0,"check_runs":[]})
+    );
+    let mut checks = Vec::new();
+    for (index, (status, conclusion)) in [
+        ("queued", Value::Null),
+        ("in_progress", Value::Null),
+        ("completed", json!("failure")),
+        ("completed", json!("skipped")),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        // Local fixture evidence only; UUIDs are allocated by the real server.
+        checks.push(request(
+            &http,
+            Method::POST,
+            &format!("{url}/repos/jeryu-admin/check-evidence/check-runs"),
+            &admin,
+            json!({"name":format!("fixture/check-{index}"),"head_sha":format!("{index:040x}"),
+                "status":status,"conclusion":conclusion,
+                "details_url":"https://example.invalid/fixture",
+                "output":{"title":"fixture","summary":"retained evidence","text":"detail"}}),
+            201,
+        ));
+    }
+    let expected = json!({"total_count":checks.len(),"check_runs":checks});
+    assert_eq!(cli(&home, &url, &admin, &args), expected);
+    assert_eq!(cli(&home, &url, &reader, &args), expected);
+    for (token, repo, status) in [
+        (None, "check-evidence", 401),
+        (Some(unrelated.as_str()), "check-evidence", 403),
+        (Some(admin.as_str()), "missing-evidence", 404),
+    ] {
+        let mut command = isolated_command(&home);
+        command.env("JERYU_API_URL", &url);
+        if let Some(token) = token {
+            command.env("JERYU_TOKEN", token);
+        }
+        let output = command
+            .args([
+                "--owner",
+                "jeryu-admin",
+                "--json",
+                "ci",
+                "status",
+                "--repo",
+                repo,
+            ])
+            .output()
+            .unwrap();
+        assert_eq!(output.status.code(), Some(3));
+        assert!(output.stdout.is_empty());
+        assert!(String::from_utf8_lossy(&output.stderr).contains(&format!("HTTP {status}")));
+    }
+    drop(server);
+    let _restarted = start(&home, &data, &address, false);
+    assert_eq!(cli(&home, &url, &reader, &args), expected);
+}
+
+#[test]
 fn authenticated_protected_review_checks_merge_and_restart_preserve_exact_head() {
     let temp = private_temp_dir();
     let home = temp.path().join("home");
@@ -503,6 +601,23 @@ fn startup_cli_and_restart_use_durable_state_from_any_directory() {
         .json()
         .unwrap();
     let token = token["token"].as_str().unwrap();
+    let runners = cli(&home, &url, token, &["runners", "status"]);
+    assert_eq!(runners["local"]["state"], "unknown");
+    assert_eq!(runners["local"]["nodes"], 0);
+    assert_eq!(runners["local"]["totalSlots"], 0);
+    assert_eq!(runners["local"]["activeSlots"], 0);
+    assert_eq!(runners["local"]["nodeDetails"], json!([]));
+    let human = isolated_command(&home)
+        .env("JERYU_API_URL", &url)
+        .env("JERYU_TOKEN", token)
+        .args(["runners", "status"])
+        .output()
+        .unwrap();
+    assert!(human.status.success());
+    assert_eq!(
+        String::from_utf8(human.stdout).unwrap().trim(),
+        "runner fabric: state=unknown online=0 offline=0 activeSlots=0"
+    );
     let repo = cli(
         &home,
         &url,
@@ -574,6 +689,9 @@ fn startup_cli_and_restart_use_durable_state_from_any_directory() {
     assert_eq!(users[0]["login"], "jeryu-admin");
     drop(server);
     let _server = start(&home, &data, &address, false);
+    let runners = cli(&home, &url, token, &["runners", "status"]);
+    assert_eq!(runners["local"]["state"], "unknown");
+    assert_eq!(runners["local"]["totalSlots"], 0);
     let issues = cli(
         &home,
         &url,

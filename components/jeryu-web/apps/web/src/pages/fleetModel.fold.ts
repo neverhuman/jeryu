@@ -90,6 +90,8 @@ function fleetUtilization(pools: FleetPool[]): number {
 
 function emptyState(): FleetState {
   return {
+    capacityUnknown: true,
+    capacityUpdatedAt: null,
     health: 'unknown',
     totals: {
       repos: 0,
@@ -118,6 +120,11 @@ export function fleetStateFromBootstrap(tui: unknown): FleetState {
   const root = asRecord(tui);
   if (!root) return emptyState();
   const activity = asRecord(root.pool_activity);
+  const freshness = asRecord(activity?.freshness);
+  const capacityUnknown = !activity || (
+    activity.freshness != null &&
+    (!freshness || (freshness.state !== 'fresh' && freshness.state !== 'live'))
+  );
   const poolsRaw = activity && Array.isArray(activity.pools) ? activity.pools : [];
   const reposRaw = activity && Array.isArray(activity.repos) ? activity.repos : [];
   const unplaceableRaw =
@@ -125,19 +132,30 @@ export function fleetStateFromBootstrap(tui: unknown): FleetState {
 
   const pools = poolsRaw
     .map(poolFromRollup)
-    .filter((p): p is FleetPool => p !== undefined);
+    .filter((p): p is FleetPool => p !== undefined)
+    .map((pool) => capacityUnknown
+      ? { ...pool, capacityKnown: false, saturated: false }
+      : pool);
   const unplaceable = unplaceableRaw.map((d) => {
     const r = asRecord(d);
     return { tags: strList(r?.tags), count: num(r?.count) };
   });
   const components = componentsFromSystem(root.system);
   const totals = totalsFromActivity(pools, reposRaw.length);
+  const capacityKnown = !capacityUnknown && pools.length > 0 &&
+    pools.every((pool) => pool.capacityKnown);
 
   return {
-    health: healthFromActivity(pools, reposRaw.length, unplaceable),
+    capacityUnknown,
+    capacityUpdatedAt: freshness
+      ? (typeof freshness.observed_at === 'string' ? freshness.observed_at : null)
+      : (typeof root.generated_at === 'string' ? root.generated_at : null),
+    health: capacityKnown
+      ? healthFromActivity(pools, reposRaw.length, unplaceable)
+      : 'unknown',
     totals,
     pools,
-    bottlenecks: bottlenecksFromActivity(pools, unplaceable),
+    bottlenecks: capacityKnown ? bottlenecksFromActivity(pools, unplaceable) : [],
     components,
     stuckRunnerTotal: totals.stuckRunners,
     utilization: fleetUtilization(pools),
@@ -190,7 +208,9 @@ export function applyFleetEvents(
     } else if (evt.scope.startsWith('pool.')) {
       const pool = poolFromRollup(payload);
       if (pool) {
-        poolMap.set(pool.pool, pool);
+        poolMap.set(pool.pool, base.capacityUnknown
+          ? { ...pool, capacityKnown: false, saturated: false }
+          : pool);
         lastUpdated = evt.timestamp;
       }
     } else if (evt.scope === 'system.health') {
@@ -209,12 +229,18 @@ export function applyFleetEvents(
   const resolvedTotals = sawActivity
     ? totals
     : totalsFromActivity(pools, totals.repos);
+  // These frames contain job observations, not registry availability evidence.
+  // An unavailable bootstrap source stays unavailable until a new bootstrap.
+  const capacityKnown = !base.capacityUnknown && pools.length > 0 &&
+    pools.every((pool) => pool.capacityKnown);
 
   return {
-    health,
+    capacityUnknown: base.capacityUnknown,
+    capacityUpdatedAt: base.capacityUpdatedAt,
+    health: capacityKnown ? health : 'unknown',
     totals: resolvedTotals,
     pools,
-    bottlenecks,
+    bottlenecks: capacityKnown ? bottlenecks : [],
     components,
     stuckRunnerTotal: resolvedTotals.stuckRunners,
     utilization: fleetUtilization(pools),

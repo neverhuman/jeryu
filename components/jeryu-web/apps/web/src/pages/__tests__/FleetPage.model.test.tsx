@@ -226,4 +226,60 @@ describe('fleetModel projection', () => {
     expect(over?.utilization).toBe(1);
     expect(over?.idleSlots).toBe(0);
   });
+
+  it.each([0, 5])('keeps unknown capacity separate from %i queued jobs', (queued) => {
+    const state = fleetStateFromBootstrap({
+      pool_activity: {
+        freshness: { source: 'broker', state: 'unknown' },
+        repos: [{ repo: 'owner/repo' }],
+        pools: [rollup({ queued_jobs: queued, running_jobs: 2, failed_jobs: 3,
+          active_slots: 0, configured_max_slots: 0, online_runners: 0 })],
+        unplaceable: [],
+      },
+    });
+    expect(state.capacityUnknown).toBe(true);
+    expect(state.health).toBe('unknown');
+    expect(state.bottlenecks).toEqual([]);
+    expect(state.totals).toMatchObject({ repos: 1, pools: 1,
+      queuedJobs: queued, runningJobs: 2, failedJobs: 3 });
+    expect(state.pools[0]).toMatchObject({ pool: 'trusted', capacityKnown: false,
+      saturated: false, queuedJobs: queued, runningJobs: 2, failedJobs: 3 });
+  });
+
+  it('does not establish registry capacity from activity-only websocket frames', () => {
+    const base = fleetStateFromBootstrap({ pool_activity: {
+      freshness: { source: 'broker', state: 'unknown' },
+      repos: [], pools: [], unplaceable: [],
+    } });
+    const next = applyFleetEvents(base, [
+      mkEvent('global.activity', { health: 'healthy', totals: {
+        repos: 1, pools: 1, queued_jobs: 5, running_jobs: 2, failed_jobs: 3,
+        online_runners: 8, stuck_runners: 0,
+      }, bottlenecks: ['invented capacity warning'] }),
+      mkEvent('pool.trusted', rollup({ queued_jobs: 5, running_jobs: 2, failed_jobs: 3 })),
+    ]);
+    expect(next.capacityUnknown).toBe(true);
+    expect(next.capacityUpdatedAt).toBe(base.capacityUpdatedAt);
+    expect(next.health).toBe('unknown');
+    expect(next.bottlenecks).toEqual([]);
+    expect(next.totals).toMatchObject({ queuedJobs: 5, runningJobs: 2, failedJobs: 3 });
+    expect(next.pools[0]).toMatchObject({ capacityKnown: false, saturated: false,
+      queuedJobs: 5, runningJobs: 2, failedJobs: 3 });
+  });
+
+  it.each([undefined, null, -1, Number.NaN])(
+    'does not treat invalid active slot capacity %s as measured zero',
+    (activeSlots) => {
+      const state = fleetStateFromBootstrap({ pool_activity: {
+        repos: [{ repo: 'owner/repo' }],
+        pools: [rollup({ active_slots: activeSlots, queued_jobs: 2 })],
+        unplaceable: [],
+      } });
+      expect(state.health).toBe('unknown');
+      expect(state.bottlenecks).toEqual([]);
+      expect(state.pools[0].capacityKnown).toBe(false);
+      expect(state.pools[0].saturated).toBe(false);
+      expect(state.totals.queuedJobs).toBe(2);
+    }
+  );
 });
