@@ -267,4 +267,120 @@ run_coverage_case sandbox normal 1
    $(readlink -- "$fixture/Cargo.toml") == "$fixture/retained-manifest.toml" ]]
 unlink "$fixture/Cargo.toml"
 mv "$fixture/retained-manifest.toml" "$fixture/Cargo.toml"
+
+# An independent legacy lane must populate its advisory cache before any owning
+# cached audit. These synthetic transports exercise the real dispatch branch.
+{
+  printf '#!/usr/bin/env bash\nset -euo pipefail\nroot=$PWD\naudit_status=$1\ntools_status=$2\n'
+  cat <<'LEGACY_MOCKS'
+cargo() {
+  printf 'cargo %s\n' "$*" >>calls
+  [[ $# == 5 && $1 == audit && $2 == --deny && $3 == warnings &&
+     $4 == --file && $5 == "$root/Cargo.lock" ]] || return 91
+  [[ $audit_status == 0 ]] || return "$audit_status"
+  printf 'fresh synthetic advisory database\n' >"$root/advisory-ready"
+}
+bash() {
+  printf 'bash %s\n' "$*" >>"$root/calls"
+  case "$*" in
+    'scripts/bootstrap-ci-tools.sh --legacy') return "$tools_status" ;;
+    'ops/ci/pr-ci.sh') [[ -f "$root/advisory-ready" ]] || return 92 ;;
+    *) return 93 ;;
+  esac
+}
+web_build() { printf 'web_build\n' >>calls; }
+source() {
+  [[ $* == scripts/bootstrap-jankurai.sh ]] || return 94
+  printf 'source %s\n' "$*" >>calls
+}
+bootstrap_public_jankurai() { printf 'bootstrap_public_jankurai\n' >>calls; }
+case legacy in
+LEGACY_MOCKS
+  sed -n '/^  legacy)$/,/^    ;;$/p' "$root/scripts/ci.sh"
+  printf 'esac\n'
+} >"$fixture/legacy-dispatch.sh"
+for scenario in fresh unavailable-db advisory-finding unavailable-tool; do
+  case_root="$fixture/legacy-$scenario"
+  mkdir -p "$case_root/components/example"
+  audit_status=0 tools_status=0 expected=0 result=0
+  case $scenario in
+    unavailable-db) audit_status=23; expected=23 ;;
+    advisory-finding) audit_status=44; expected=44 ;;
+    unavailable-tool) tools_status=45; expected=45 ;;
+  esac
+  (cd "$case_root" && bash "$fixture/legacy-dispatch.sh" "$audit_status" "$tools_status") >"$case_root/output" 2>&1 || result=$?
+  [[ $result == "$expected" ]]
+  if [[ $expected == 0 ]]; then
+    [[ -f "$case_root/advisory-ready" &&
+       $(grep -c '^bash ops/ci/pr-ci.sh$' "$case_root/calls") == 2 ]]
+  else
+    [[ ! -e "$case_root/advisory-ready" ]]
+    if grep -qE '^(web_build|source |bootstrap_public_jankurai|bash ops/ci/pr-ci.sh)' "$case_root/calls"; then
+      printf 'Legacy dispatch continued after a failed prerequisite\n' >&2
+      exit 1
+    else
+      scan_status=$?
+      [[ $scan_status == 1 ]] || exit "$scan_status"
+    fi
+  fi
+  passed=$((passed + 1))
+done
+
+# Source admission needs all locked workspace/target inputs before offline metadata.
+# Extract the actual branch; Cargo is synthetic and cannot fetch or compile here.
+{
+  printf '#!/usr/bin/env bash\nset -euo pipefail\nroot=$PWD\nscenario=$1\n'
+  cat <<'SOURCE_MOCKS'
+bash() {
+  [[ $* == tests/ci-matrix.sh ]] || return 91
+  printf 'bash %s\n' "$*" >>calls
+  [[ $scenario != matrix-failure ]] || return 21
+}
+cargo() {
+  printf 'cargo %s\n' "$*" >>calls
+  case "$*" in
+    'fetch --locked')
+      [[ $scenario != fetch-failure ]] || return 23
+      printf 'all synthetic locked inputs\n' >full-cache-ready ;;
+    'run --locked -p jeryu-split-tool --bin jeryu-split -- monorepo-check')
+      [[ -f full-cache-ready ]] || return 92
+      [[ $scenario != check-failure ]] || return 24 ;;
+    'run --locked -p jeryu-split-tool --bin jeryu-split -- manifest --check-paths'|\
+    'run --locked -p jeryu-split-tool --bin jeryu-split -- proof-inventory --check')
+      [[ -f full-cache-ready ]] || return 92 ;;
+    *) return 93 ;;
+  esac
+}
+case source in
+SOURCE_MOCKS
+  sed -n '/^  source)$/,/^    ;;$/p' "$root/scripts/ci.sh"
+  printf 'esac\n'
+} >"$fixture/source-dispatch.sh"
+cat >"$fixture/source-expected" <<'SOURCE_CALLS'
+bash tests/ci-matrix.sh
+cargo fetch --locked
+cargo run --locked -p jeryu-split-tool --bin jeryu-split -- monorepo-check
+cargo run --locked -p jeryu-split-tool --bin jeryu-split -- manifest --check-paths
+cargo run --locked -p jeryu-split-tool --bin jeryu-split -- proof-inventory --check
+SOURCE_CALLS
+for scenario in fresh fetch-failure check-failure matrix-failure; do
+  case_root="$fixture/source-$scenario"
+  mkdir "$case_root"
+  expected=0 calls_count=5 result=0
+  case $scenario in
+    fetch-failure) expected=23; calls_count=2 ;;
+    check-failure) expected=24; calls_count=3 ;;
+    matrix-failure) expected=21; calls_count=1 ;;
+  esac
+  (cd "$case_root" && bash "$fixture/source-dispatch.sh" "$scenario") >"$case_root/output" 2>&1 || result=$?
+  [[ $result == "$expected" ]]
+  head -n "$calls_count" "$fixture/source-expected" >"$case_root/expected"
+  cmp "$case_root/expected" "$case_root/calls"
+  if [[ $scenario == fresh || $scenario == check-failure ]]; then
+    [[ -f "$case_root/full-cache-ready" ]]
+  else
+    [[ ! -e "$case_root/full-cache-ready" ]]
+  fi
+  passed=$((passed + 1))
+done
 printf 'CI matrix and required dispatch checks passed: %s scenarios\n' "$passed"

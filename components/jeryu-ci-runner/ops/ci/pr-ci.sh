@@ -38,7 +38,9 @@ cd "$repo_root"
 source ops/ci/lib.sh
 require_jankurai
 # shellcheck source=ops/ci/hosted-git-env.sh
-source "${repo_root}/ops/ci/hosted-git-env.sh"
+if [[ ${JERYU_MONOREPO_CANDIDATE:-0} == 0 ]]; then
+  source "${repo_root}/ops/ci/hosted-git-env.sh"
+fi
 
 # jeryu governs the worker count from live load; never default high.
 if [ -n "${JERYU_CI_JOBS:-}" ]; then

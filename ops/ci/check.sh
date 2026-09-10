@@ -37,4 +37,5 @@ bash tests/ci-matrix.sh
 bash tests/component-ci-dispatch.sh
 bash tests/clone-family-hostiles.sh
 bash tests/security-lane-hostiles.sh
+bash tests/public-component-security-hostiles.sh
 printf 'check ok: %s\n' "$(pwd)"

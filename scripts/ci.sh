@@ -14,6 +14,8 @@ web_build() { npm ci; npm run build; }
 case ${1:-all} in
   source)
     bash tests/ci-matrix.sh
+    # Full offline metadata also needs workspace and other-target dependencies.
+    cargo fetch --locked
     cargo run --locked -p jeryu-split-tool --bin jeryu-split -- monorepo-check
     cargo run --locked -p jeryu-split-tool --bin jeryu-split -- manifest --check-paths
     cargo run --locked -p jeryu-split-tool --bin jeryu-split -- proof-inventory --check
@@ -115,6 +117,9 @@ case ${1:-all} in
   legacy)
     # Matrix jobs and direct local lanes have independent prerequisite state.
     bash scripts/bootstrap-ci-tools.sh --legacy
+    # Prepare the same advisory database consumed by the cached owning checks.
+    # Direct legacy runs and hosted matrix jobs start with independent caches.
+    cargo audit --deny warnings --file "$root/Cargo.lock"
     web_build
     source scripts/bootstrap-jankurai.sh
     bootstrap_public_jankurai

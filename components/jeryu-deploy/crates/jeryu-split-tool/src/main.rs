@@ -16,6 +16,7 @@ use toml::Value;
 mod audit_score;
 mod build_config;
 mod canonical_json;
+mod mirror_update;
 mod monorepo;
 mod proof_inventory;
 mod split_export;
@@ -65,6 +66,27 @@ enum Command {
         /// Use an explicitly verified local source for preparatory lock resolution.
         #[arg(long, requires = "resolve_lock")]
         prepare_local: Option<PathBuf>,
+    },
+    /// Prepare an offline successor to an existing mirror without updating refs.
+    PrepareMirrorUpdate {
+        #[arg(long)]
+        source_repo: PathBuf,
+        #[arg(long)]
+        source: String,
+        #[arg(long)]
+        component: String,
+        #[arg(long)]
+        export_tree: String,
+        #[arg(long)]
+        mirror: PathBuf,
+        #[arg(long)]
+        expected_tip: String,
+        /// Exact for-each-ref tag snapshot from the admitted existing mirror.
+        #[arg(long)]
+        expected_tags: PathBuf,
+        /// Explicit first transition of an existing mirror without split provenance.
+        #[arg(long)]
+        initial_tip: Option<String>,
     },
     /// Validate and render the split-family manifest.
     Manifest {
@@ -256,6 +278,25 @@ fn run(cli: Cli) -> Result<()> {
             resolve_lock,
             prepare_local.as_deref(),
         ),
+        Command::PrepareMirrorUpdate {
+            source_repo,
+            source,
+            component,
+            export_tree,
+            mirror,
+            expected_tip,
+            expected_tags,
+            initial_tip,
+        } => mirror_update::prepare(mirror_update::Request {
+            source_repo: &source_repo,
+            source: &source,
+            component: &component,
+            export_tree: &export_tree,
+            mirror: &mirror,
+            expected_tip: &expected_tip,
+            expected_tags: &expected_tags,
+            initial_tip: initial_tip.as_deref(),
+        }),
         Command::Manifest {
             manifest,
             json,

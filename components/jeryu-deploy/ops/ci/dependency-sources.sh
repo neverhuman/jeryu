@@ -4,6 +4,16 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "${ROOT}"
+
+# Installed split transport remains below; public monorepo uses its real graph.
+if [[ ${JERYU_MONOREPO_CANDIDATE:-0} != 0 ]]; then
+  candidate_root=$(env -i PATH=/usr/bin:/bin GIT_CONFIG_GLOBAL=/dev/null \
+    GIT_CONFIG_NOSYSTEM=1 GIT_NO_REPLACE_OBJECTS=1 /usr/bin/git -C "$ROOT" rev-parse --show-toplevel)
+  [[ $ROOT == "$candidate_root/components/jeryu-deploy" ]] || {
+    printf 'public dependency proof requires the exact monorepo component\n' >&2; exit 1;
+  }
+  exec bash "$candidate_root/ops/ci/public-dependency-sources.sh" jeryu-deploy
+fi
 source "${ROOT}/ops/ci/hosted-git-env.sh"
 
 overlay="${ROOT}/.cargo/hosted-gitconfig"
