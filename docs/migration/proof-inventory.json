@@ -1111,6 +1111,14 @@
       "component": "jeryu-ci-runner",
       "declaration": null,
       "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-ci-runner/crates/jeryu-sandbox-linux/src/launch/internals/tests.rs",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "cf1963d89d3a694167f7708e6075aacf14a32048357075dad9ab149c5f79bb77"
+    },
+    {
+      "component": "jeryu-ci-runner",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
       "path": "components/jeryu-ci-runner/crates/jeryu-sandbox-linux/tests/cgroup_confinement.rs",
       "port_status": "pending-equivalence-proof",
       "sha256": "5732420da260284a539fcc15700b5101c9ca58c0a2dd51e26c6757dabc337ff7"
@@ -6351,6 +6359,14 @@
       "component": "jeryu-tool",
       "declaration": null,
       "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-tool/crates/jeryu-tool-control/tests/premerge_custody.rs",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "ad173f91f008f493ae67eab08f8dbc5ac0db43a342e5cb68f4e12c99fb912fbb"
+    },
+    {
+      "component": "jeryu-tool",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
       "path": "components/jeryu-tool/crates/jeryu-tool-control/tests/properties.rs",
       "port_status": "pending-equivalence-proof",
       "sha256": "c9efdd0b901df47ef717579c0eb62605d49b4e9c8b5b55ff54faa8ca45dcb925"
@@ -6449,7 +6465,15 @@
       "kind": "entrypoint",
       "path": "components/jeryu-tool/ops/ci/pr-ci.sh",
       "port_status": "pending-equivalence-proof",
-      "sha256": "e14beb9fb3eabfe020a1f9d5fe7e67b4c839fa289b579552e2dd03454d0fc066"
+      "sha256": "723ef080ace9f8f1cfacb14bfae1d646ff424bd66cbb8a57a91fa7cf02383e12"
+    },
+    {
+      "component": "jeryu-tool",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-tool/ops/ci/premerge-attempt.sh",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "a03efaf5a4757a735377b5e9666439f7bccc85a3f207001971b9c309cdee2357"
     },
     {
       "component": "jeryu-tool",

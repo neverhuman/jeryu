@@ -31,7 +31,7 @@ use crate::capability::{EnforcementLevel, SandboxCapabilities};
 use jeryu_runner_core::job::JobRequest;
 use jeryu_runner_core::sandbox::{LandlockRule, SandboxPlan};
 use std::collections::BTreeMap;
-use std::io::{Error as IoError, ErrorKind};
+use std::io::Error as IoError;
 use std::os::fd::{AsRawFd, FromRawFd, OwnedFd, RawFd};
 use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
@@ -123,14 +123,14 @@ impl EnforcementReport {
     }
 }
 
-/// Compiled, fork-safe sandbox payload. Everything that allocates is built in
-/// the parent BEFORE the fork; `pre_exec` only replays syscalls.
+/// Sandbox payload with parent-prepared Landlock and seccomp state. The
+/// compatibility cgroup path write still allocates during child setup.
 struct SandboxPayload {
     cgroup_procs: Option<PathBuf>,
     apply_user_ns: bool,
     apply_mount_ns: bool,
     apply_pid_ns: bool,
-    landlock: Option<LandlockPayload>,
+    landlock: Option<OwnedFd>,
     seccomp_bpf: Option<seccompiler::BpfProgram>,
     /// Slave end of an allocated PTY to become the child's controlling terminal
     /// (stdin/stdout/stderr). `None` keeps the default piped/null stdio.
@@ -146,11 +146,6 @@ struct SandboxPayload {
 #[derive(Clone, Copy)]
 struct RlimitFallback {
     memory_max_bytes: u64,
-}
-
-struct LandlockPayload {
-    abi: i32,
-    rules: Vec<LandlockRule>,
 }
 
 /// Spawn `job`'s command under the sandbox described by `plan`, given the probed
@@ -288,7 +283,7 @@ pub fn spawn_sandboxed_with_io(
         return Err(SandboxError::new("sandbox_unavailable", reason.clone()));
     }
 
-    let mut payload = build_payload(plan, caps)?;
+    let mut payload = build_payload(plan, caps, &job.workspace)?;
     let cgroup_cleanup = payload.cgroup_procs.clone();
 
     let mut cmd = Command::new(&job.command);
@@ -313,12 +308,11 @@ pub fn spawn_sandboxed_with_io(
     }
 
     // SAFETY: the closure runs in the forked child between fork() and exec().
-    // Every call inside is a direct syscall (setpgid, prctl, unshare, write,
-    // landlock_*, seccomp) or a syscall-only helper from the landlock/seccompiler
-    // crates. No parent allocator state is mutated, and any failure is returned
-    // as an Err which makes the spawn fail closed (the job is never exec'd with
-    // a partial sandbox).
-    // SAFETY: pre_exec runs the fail-closed child setup above; no shared state.
+    // Landlock construction and path lookup have finished in the parent; the
+    // child only restricts the prepared descriptor and preserves raw errno.
+    // Existing cgroup path writes still allocate here, so this correction alone
+    // does not establish allocation-free setup for the entire child sequence.
+    // Any setup error makes spawn fail closed before the job is exec'd.
     unsafe {
         cmd.pre_exec(move || apply_in_child(&payload));
     }
