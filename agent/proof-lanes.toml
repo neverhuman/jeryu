@@ -117,3 +117,33 @@ name = "legacy"
 command = "just legacy"
 purpose = "retain original proof entrypoints until replacement equivalence is verified"
 requires_network = true
+
+[[lane]]
+name = "components-ci"
+command = "bash scripts/ci.sh rust && bash scripts/ci.sh legacy"
+purpose = "workspace tests plus retained component proof declarations and thresholds"
+requires_network = true
+
+[[lane]]
+name = "web-ci"
+command = "bash scripts/ci.sh web"
+purpose = "web unit, contract, browser, accessibility, performance and rendered UX proof"
+requires_network = true
+
+[[lane]]
+name = "runtime-ci"
+command = "bash scripts/ci.sh rust && bash scripts/ci.sh runtime"
+purpose = "server and CLI contracts, installation and durable standalone runtime"
+requires_network = true
+
+[[lane]]
+name = "security-ci"
+command = "bash scripts/ci.sh security"
+purpose = "verified portable tool bootstrap and dependency policy"
+requires_network = true
+
+[[lane]]
+name = "web-audit-ci"
+command = "bash scripts/ci.sh web && npm audit --audit-level=high"
+purpose = "locked web workspace and audited performance tool compatibility"
+requires_network = true

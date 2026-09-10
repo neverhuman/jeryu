@@ -16,21 +16,59 @@ formatting, 106 CI dispatch cases, 44 split-tool binary tests, five CLI tests,
 one committed-source export test, warning-denied all-target split-tool Clippy,
 and the owning inventory check. The inventory contains 934 source inputs.
 The Rust score validator passed its 256 policy cases and 59 root report cases
-through the maintained shell commands. These are scoped results: the complete
-586-case report suite and seven component score migrations remain open.
-The root auditor command and minimum 85 are unchanged; no new actual auditor
-pass is claimed. Independent review verified unchanged source and closure of
-owned processes and all three CI locks for the generator and selected run.
+through the maintained shell commands. These scoped results predate the
+remaining component score adapters; their original evidence remains preserved.
+
+The later eight-row selection at `37b08b28` plus diff `a2cc3c77` passed
+formatting and 106 dispatch cases, 44 split-tool tests, five CLI compatibility
+tests, one native-export and one score-export regression, warning-denied
+split-tool Clippy, and the owning inventory check. The maintained score scripts
+passed 256 policy cases, the full 586 report cases and 18 synthetic transport
+cases. All seven real standalone process tests passed under umask `0002`,
+including default first start, password change and durable restart; CLI Clippy
+also passed. Two rows remained failed: Tool tests could not compile because of
+an ambiguous empty-vector assertion, and the auxiliary wrapper incorrectly
+required 67 cases when its owning script passed 75. Those failed results are
+retained.
+
+After the one-line assertion and its generated inventory hash were corrected,
+the four-row retry at `37b08b28` plus diff `32e7ae0e` passed formatting and
+106 dispatch cases, all 16 selected Tool inventory tests and one repair-guidance
+test, warning-denied Tool Clippy, the 939-input inventory drift check, and all
+75 auxiliary control cases. The selected Tool tests filtered 26 and 41 unrelated
+tests respectively, with none ignored. This combines six successful rows from
+the first run with four scoped retry rows; the entire eight-row selection was
+not rerun at the corrected source. Fresh-user source installation, component
+export qualification and complete final-source CI remain open. The root auditor
+command and minimum 85 are unchanged; its last canonical result remains 64/85,
+and no new actual auditor pass is claimed.
 
 This source also scopes Work commands to their owning package with locked
 resolution, strengthens the actual governed-auditor wrapper checks, and keeps
-failed test scratch for verified cleanup. Its private candidate qualification
-is still pending. Root and generated Runner sandbox lanes now invoke one
-Runner-owned proof command, with identical required native and Agentbridge
-checks. Actual native qualification remains pending: the first complete-source
-VM attempt failed after provisioning and before source compilation or sandbox
-execution. Its evidence is retained; the separately reviewed operational
-successor addresses receipt durability and process-closure races.
+failed test scratch for verified cleanup. At clean `37b08b28`, all seven private
+Work qualification phases passed: clone, pinned public auditor build, package
+checks, governed-path defenses, properties, migrations and contracts. The 18
+Rust tests passed with no ignored or filtered tests. Independent review verified
+the expected auditor digest and receipt, exact build-container removal, source
+stability, private clone cleanup and closure of owned processes and all three
+locks. The external governed-path fixture was preserved, restored and safely
+retired; its private archive remains. These checks reused Cargo/Rustup caches
+and do not prove anonymous installation or the complete Work score lane.
+
+The shared root sandbox command also passed at `37b08b28` in a disposable
+Linux VM: 45 native cases and eight Agentbridge cases (four driver, three PTY
+and one selected cgroup opt-out case), with no false skips and all four escape
+attempts blocked. The other cgroup-target case was filtered by the maintained
+command. Compilation and tests ran offline under host-restricted networking
+after public dependency fetching. Independent review verified source/compiler
+bindings, owned VM/process and three-lock closure, and preservation/restoration
+manifests before scratch removal; the private recovery archive is retained.
+This qualifies the shared root native lane, not OCI, generated split execution,
+anonymous public-origin installation or complete CI. Source arrived through an
+exact local Git bundle. Earlier failed VM evidence and its separate closure
+remain unchanged. The subsequent adapter, inventory and first-start changes
+passed the scoped checks described above; the native lane has not been rerun
+against that successor.
 
 Earlier, the ten-step ordinary run at `ea65912f` recorded every selected step
 and closed with a clean source tree and no remaining owned processes or CI

@@ -106,6 +106,30 @@ pub(super) fn export_tree(
             git(root, &["show", &format!("{source}:{path}")], None)?,
         );
     }
+    // Shared score transport is source-owned, not compiled into the exporter.
+    // Generated mirrors receive the same source/directory custody helpers.
+    let score_transport = matches!(
+        component,
+        "jeryu-core"
+            | "jeryu-deploy"
+            | "jeryu-jira"
+            | "jeryu-intelligence"
+            | "jeryu-release-ops"
+            | "jeryu-tool"
+            | "jeryu-web"
+    );
+    if score_transport {
+        for path in [
+            "scripts/check-audit-score.sh",
+            "scripts/source-build.sh",
+            "tests/scratch.sh",
+        ] {
+            files.insert(
+                path.into(),
+                git(root, &["show", &format!("{source}:{path}")], None)?,
+            );
+        }
+    }
     files.insert("CONTRIBUTING.md".into(), format!(
         "# Contributing\n\nThis repository is a generated downstream mirror of [neverhuman/jeryu](https://github.com/neverhuman/jeryu). Submit changes there, under `{prefix}/`.\n\nThis preview binds source commit `{source}` in `.jeryu-source.json`. Generation and independent checks do not establish publication qualification.\n"));
     for path in ["AGENTS.md", "README.md"] {
@@ -116,8 +140,13 @@ pub(super) fn export_tree(
     }
     files.insert("AGENTS.md".into(), format!(
         "# {component} mirror instructions\n\nThis is a generated downstream repository. Develop changes in [neverhuman/jeryu](https://github.com/neverhuman/jeryu), under `{prefix}/`. Do not run a competing source writer or edit generated manifests, locks, provenance, or workflow files here.\n\nUse `bash scripts/split-ci.sh` for independent verification. Original ownership and proof guidance is retained in [the imported instructions](docs/split-original-guidance/AGENTS.md); historical source routing and release authority declarations there are superseded by monorepo development. Preserve all immutable tags and use protected forward-only mirror updates after qualification.\n"));
+    let score_guidance = if score_transport {
+        "\n\nThe retained component score command requires its existing auditor setup. Its Rust report validator additionally needs rustup, lsof and GNU timeout on Linux. Run `bash ops/ci/score.sh` to build the validator from this descriptor's exact public monorepo commit, or explicitly use `bash ops/ci/score.sh --prepare-local /absolute/clean/monorepo` for preparatory local Git transport before that commit is public. Preparatory execution is not anonymous qualification. Failed or uncertain source-build attempts are retained for supervised custody."
+    } else {
+        ""
+    };
     files.insert("README.md".into(), format!(
-        "# {component}\n\nA generated component of [Jeryu](https://github.com/neverhuman/jeryu), licensed under Apache-2.0. This tree derives from monorepo commit `{source}`; `.jeryu-source.json` records its provenance and qualification status.\n\nRun `bash scripts/split-ci.sh` for independent checks with the pinned Rust toolchain, Node.js 26.1.0, Git, jq, ripgrep, a C compiler, pkg-config and OpenSSL development headers. Cross-component Rust dependencies resolve the originating public monorepo commit. Runner sandbox checks additionally require a disposable capable Linux host and `JERYU_DISPOSABLE_SANDBOX=1 bash scripts/split-ci.sh sandbox`.\n\nDevelop and review changes in the monorepo. See [contribution instructions](CONTRIBUTING.md) and [the imported component documentation](docs/split-original-guidance/README.md). Full forge installation and release qualification are maintained centrally.\n"));
+        "# {component}\n\nA generated component of [Jeryu](https://github.com/neverhuman/jeryu), licensed under Apache-2.0. This tree derives from monorepo commit `{source}`; `.jeryu-source.json` records its provenance and qualification status.\n\nRun `bash scripts/split-ci.sh` for independent checks with the pinned Rust toolchain, Node.js 26.1.0, Git, jq, ripgrep, a C compiler, pkg-config and OpenSSL development headers. Cross-component Rust dependencies resolve the originating public monorepo commit. Runner sandbox checks additionally require a disposable capable Linux host and `JERYU_DISPOSABLE_SANDBOX=1 bash scripts/split-ci.sh sandbox`.\n\nDevelop and review changes in the monorepo. See [contribution instructions](CONTRIBUTING.md) and [the imported component documentation](docs/split-original-guidance/README.md). Full forge installation and release qualification are maintained centrally.{score_guidance}\n"));
     let temporary = tempfile::tempdir()?;
     let index = temporary.path().join("index");
     git(root, &["read-tree", source_tree.trim()], Some(&index))?;

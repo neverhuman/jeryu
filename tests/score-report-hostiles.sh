@@ -1,16 +1,18 @@
 #!/usr/bin/env bash
-# Exercise report admission and the owning Cache/Runner shell score policies.
-# The common Rust policy/profile matrix is tested by score-policy-hostiles.sh.
-# The unchanged legacy Deploy PR tail still executes its existing Python body.
+# Execute owning score scripts with the real Rust gate; auditor transport is synthetic.
+# Cache/Runner retain their shell policies. No Python interpreter is executed.
 set -euo pipefail
-root_only=0
+mode=all
 case $# in
   0) ;;
   1)
-    [[ $1 == --root-only ]] || { printf 'usage: %s [--root-only]\n' "$0" >&2; exit 2; }
-    root_only=1
+    case $1 in
+      --root-only) mode=root ;;
+      --policy-matrix) mode=policy ;;
+      *) printf 'usage: %s [--root-only|--policy-matrix]\n' "$0" >&2; exit 2 ;;
+    esac
     ;;
-  *) printf 'usage: %s [--root-only]\n' "$0" >&2; exit 2 ;;
+  *) printf 'usage: %s [--root-only|--policy-matrix]\n' "$0" >&2; exit 2 ;;
 esac
 root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)
 source "$root/tests/scratch.sh"
@@ -42,7 +44,7 @@ SCORE_TEST_GATE_BIN=$(jq -ers '
 ' "$scratch/score-gate-build.json")
 [[ $SCORE_TEST_GATE_BIN == /* && -x $SCORE_TEST_GATE_BIN ]]
 export SCORE_TEST_GATE_BIN
-mkdir "$scratch/agent" "$scratch/ops" "$scratch/ops/ci" "$scratch/schemas"
+mkdir "$scratch/agent" "$scratch/ops" "$scratch/ops/ci" "$scratch/schemas" "$scratch/scripts"
 for path in owner-map.json test-map.json generated-zones.toml proof-lanes.toml \
   audit-policy.toml boundaries.toml JANKURAI_STANDARD.md tool-adoption.toml \
   coverage-sources.toml; do
@@ -80,17 +82,30 @@ cargo() {
   shift 9
   "$SCORE_TEST_GATE_BIN" "$@"
 }
-# Preserve the existing Python transport boundary for the unchanged component scripts.
-python3() {
-  if [[ ${SCORE_TEST_FULL_POLICY:-0} == 1 ]]; then
-    printf 'policy\n' >>calls
-    command python3 "$@"
-  else
-    printf 'policy-transport-not-executed\n' >>calls
-    return 79
-  fi
+# Only the owning script's closed Git root lookup is synthetic.
+env() {
+  local expected=(-i PATH=/usr/bin:/bin HOME=/nonexistent GIT_CONFIG_GLOBAL=/dev/null
+    GIT_CONFIG_SYSTEM=/dev/null GIT_CONFIG_NOSYSTEM=1 GIT_NO_REPLACE_OBJECTS=1
+    GIT_OPTIONAL_LOCKS=0 /usr/bin/git -c core.fsmonitor=false rev-parse --show-toplevel)
+  local index=0 argument
+  [[ $# == ${#expected[@]} ]] || return 98
+  for argument in "$@"; do
+    [[ $argument == "${expected[$index]}" ]] || return 98
+    index=$((index + 1))
+  done
+  printf '%s\n' "$PWD"
 }
 LIB
+# Installation/root selection is covered separately by score-transport-hostiles.sh.
+# This narrow transport checks the literal owner and runs the real gate on real inputs.
+cat >"$scratch/scripts/check-audit-score.sh" <<'GATE'
+set -euo pipefail
+[[ $# == 4 && $1 == --owner && $2 == "$SCORE_TEST_OWNER" &&
+   $3 == --component-root && $4 == "$PWD" ]] || exit 98
+printf 'policy\n' >>calls
+exec "$SCORE_TEST_GATE_BIN" audit-score-check --owner "$2" \
+  --policy "$PWD/agent/audit-policy.toml" --report "$PWD/.jankurai/repo-score.json"
+GATE
 # Test Runner's actual floor helper without its unrelated hosted tool setup.
 sed -n '/^readonly JERYU_FLEET_MINIMUM_SCORE=/p;/^audit_effective_floor() {$/,/^}$/p' \
   "$root/components/jeryu-ci-runner/ops/ci/lib.sh" >>"$scratch/ops/ci/lib.sh"
@@ -99,10 +114,12 @@ template='{"score":85,"caps_applied":[],"findings":[],"decision":{"minimum_score
 cases=0
 expect() {
   local expected=$1 report=$2 auditor_status=${3:-0} audit_expected=${4:-1} actual
+  local policy_expected=${5:-1}
   printf '%s\n' "$report" >"$scratch/report-input.json"
   : >"$scratch/calls"
   if (cd "$scratch" && SCORE_TEST_AUDITOR_STATUS=$auditor_status \
-      SCORE_TEST_SHELL_POLICY=$shell_policy SCORE_TEST_RUST_POLICY=$rust_policy SCORE_TEST_EXPECTED_FLOOR=$policy_floor bash "$script") \
+      SCORE_TEST_SHELL_POLICY=$shell_policy SCORE_TEST_RUST_POLICY=$rust_policy \
+      SCORE_TEST_OWNER=$component SCORE_TEST_EXPECTED_FLOOR=$policy_floor bash "$script") \
     >"$scratch/stdout" 2>"$scratch/stderr"; then
     actual=0
   else
@@ -116,9 +133,11 @@ expect() {
   if [[ $component == jeryu-tool ]]; then expected_calls=$'adoption\n'; fi
   if [[ $component == jeryu-deploy ]]; then expected_calls=$'governed-transport\n'; fi
   if (( audit_expected )); then expected_calls+=audit; fi
-  if (( expected == 79 )); then expected_calls+=$'\npolicy-transport-not-executed'; fi
   if (( rust_policy && audit_expected && auditor_status == 0 )); then
     expected_calls+=$'\nrust-policy'
+  elif (( ! shell_policy && audit_expected && auditor_status == 0 )) &&
+       [[ $component == jeryu-core || $policy_expected == 1 ]]; then
+    expected_calls+=$'\npolicy'
   fi
   [[ $(<"$scratch/calls") == "$expected_calls" ]] || {
     printf '%s case %s: unexpected producer/policy order\n' "$component" "$cases" >&2
@@ -137,12 +156,71 @@ expect() {
   fi
   cases=$((cases + 1))
 }
+# The exact 32 original policy fixtures per owner now traverse actual scripts.
+if [[ $mode == policy ]]; then
+  for component in jeryu jeryu-core jeryu-deploy jeryu-jira jeryu-intelligence \
+    jeryu-release-ops jeryu-tool jeryu-web; do
+    script="$root/components/$component/ops/ci/score.sh"
+    shell_policy=0 rust_policy=0 policy_floor=85 minimum=85
+    case $component in
+      jeryu) script="$root/ops/ci/score.sh"; rust_policy=1 ;;
+      jeryu-intelligence) minimum=82 ;;
+      jeryu-tool) minimum=65 ;;
+    esac
+    for specification in '85 85 0' '85 84 1' '90 89 1' '90 90 0' '100 100 0'; do
+      read -r floor score expected <<<"$specification"
+      printf 'minimum_score = %s\n' "$floor" >"$scratch/agent/audit-policy.toml"
+      expect "$expected" "{\"score\":$score,\"caps_applied\":[],\"findings\":[],\"decision\":{}}"
+    done
+    printf 'minimum_score = 85\n' >"$scratch/agent/audit-policy.toml"
+    for fields in \
+      '{"score":100,"caps_applied":["cap"]}' \
+      '{"score":100,"caps":["cap"]}' \
+      '{"score":100,"hard_findings":1}' \
+      '{"score":100,"decision":{"hard_findings":1}}' \
+      '{"score":100,"decision":{"hard_findings":0},"hard_findings":1}' \
+      '{"score":true}' '{"score":"100"}' '{"score":100.0}' '{"score":101}' \
+      '{"score":100,"caps_applied":{}}' \
+      '{"score":100,"caps_applied":[],"caps":["concealed-cap"]}' \
+      '{"score":100,"findings":{}}' \
+      '{"score":100,"findings":[{"severity":"high"}]}' \
+      '{"score":100,"findings":[{"severity":"critical"}]}' \
+      '{"score":100,"findings":[{"severity":"low","hardness":"hard"}]}' \
+      '{"score":100,"findings":[{"severity":"unknown"}]}' \
+      '{"score":100,"decision":{"hard_findings":-1}}' \
+      '{"score":100,"decision":{"hard_findings":true}}'; do
+      report=$(jq -c --argjson fields "$fields" \
+        '. + $fields' <<<'{"caps_applied":[],"findings":[],"decision":{}}')
+      policy_expected=0
+      if [[ $fields == '{"score":100.0}' ]]; then
+        # Preserve the original floating token; jq normalizes it to an integer.
+        report='{"score":100.0,"caps_applied":[],"findings":[],"decision":{}}'
+        policy_expected=1
+      fi
+      expect 1 "$report" 0 1 "$policy_expected"
+    done
+    for policy in '' 'minimum_score = [' 'minimum_score = true' \
+      'minimum_score = "85"' 'minimum_score = 85.0' 'minimum_score = 101'; do
+      printf '%s\n' "$policy" >"$scratch/agent/audit-policy.toml"
+      expect 1 '{"score":100,"caps_applied":[],"findings":[],"decision":{}}'
+    done
+    printf 'minimum_score = %s\n' "$((minimum - 1))" >"$scratch/agent/audit-policy.toml"
+    expect 1 '{"score":100,"caps_applied":[],"findings":[],"decision":{}}'
+    printf 'minimum_score = %s\n' "$minimum" >"$scratch/agent/audit-policy.toml"
+    expect 0 "{\"score\":$minimum,\"caps_applied\":[],\"findings\":[],\"decision\":{}}"
+    expect 1 "{\"score\":$((minimum - 1)),\"caps_applied\":[],\"findings\":[],\"decision\":{}}"
+  done
+  [[ $cases == 256 ]] || { printf 'required policy case count changed: %s\n' "$cases" >&2; exit 1; }
+  printf '%s owning-script Rust policy/report cases passed; report suite not run\n' "$cases"
+  exit 0
+fi
+
 components=(jeryu jeryu-intelligence jeryu-release-ops jeryu-tool jeryu-web
   jeryu-cache jeryu-ci-runner jeryu-deploy jeryu-jira)
-if (( root_only )); then components=(jeryu); fi
+if [[ $mode == root ]]; then components=(jeryu); fi
 for component in "${components[@]}"; do
   script="$root/components/$component/ops/ci/score.sh"
-  shell_policy=0 rust_policy=0 policy_floor=85 success=79
+  shell_policy=0 rust_policy=0 policy_floor=85 success=0
   printf 'minimum_score = 85\n' >"$scratch/agent/audit-policy.toml"
   case $component in
     jeryu) script="$root/ops/ci/score.sh"; rust_policy=1 success=0 ;;
@@ -159,7 +237,7 @@ for component in "${components[@]}"; do
   expect "$empty_decision" "$(jq '.hard_findings=0|.caps=[]|.decision={}' <<<"$valid")"
   for score in 0 64 65 81 82 84 85 90 91 92 100; do
     expected=$success
-    if (( (shell_policy || rust_policy) && score < policy_floor )); then expected=1; fi
+    if (( score < policy_floor )); then expected=1; fi
     expect "$expected" "$(jq --argjson score "$score" '.score=$score' <<<"$valid")"
   done
   for mutation in \
@@ -175,14 +253,14 @@ for component in "${components[@]}"; do
     '.decision.hard_findings=1' '.decision.hard_findings=-1' \
     '.decision.hard_findings="0"' '.decision.hard_findings=false' '.decision.hard_findings=[]' \
     '.decision=null' '.decision=[]' 'del(.decision)'; do
-    expect 1 "$(jq "$mutation" <<<"$valid")"
+    expect 1 "$(jq "$mutation" <<<"$valid")" 0 1 0
   done
   expect 1 "$valid
-$valid"
-  expect 1 ''
-  expect 1 '{'
-  expect 1 '[]'
-  expect 1 'null'
+$valid" 0 1 0
+  expect 1 '' 0 1 0
+  expect 1 '{' 0 1 0
+  expect 1 '[]' 0 1 0
+  expect 1 'null' 0 1 0
   expect 23 "$valid" 23
   if (( shell_policy )); then
     for mutation in '.decision.minimum_score=85.5' '.decision.minimum_score="85"' \
@@ -217,7 +295,7 @@ $valid"
   fi
 done
 
-if (( root_only )); then
+if [[ $mode == root ]]; then
   [[ $cases == 59 ]] || { printf 'required root report case count changed: %s\n' "$cases" >&2; exit 1; }
   printf '%s root report/producer cases passed; scoped Rust root gate only, full suite not run\n' "$cases"
   exit 0
@@ -226,7 +304,7 @@ fi
 # Exercise the actual Deploy PR audit-through-security dispatch. The earlier
 # build/web stages are outside this report-admission regression. Only auditor
 # transport and unrelated security/lock work are synthetic; the owning score
-# entrypoint and its jq/Python validators execute unchanged.
+# entrypoint, retained jq preflight and real Rust policy gate execute.
 pr_script="$root/components/jeryu-deploy/ops/ci/pr-ci.sh"
 printf '%s\n' '#!/usr/bin/env bash' 'set -euo pipefail' \
   'source ops/ci/lib.sh' \
@@ -249,7 +327,7 @@ expect_pr() {
   printf 'minimum_score = %s\n' "$policy" >"$scratch/agent/audit-policy.toml"
   printf '%s\n' "$report" >"$scratch/report-input.json"
   : >"$scratch/calls"
-  if (cd "$scratch" && repo_root="$scratch" SCORE_TEST_FULL_POLICY=1 \
+  if (cd "$scratch" && repo_root="$scratch" SCORE_TEST_OWNER=jeryu-deploy \
       SCORE_TEST_DEPLOY_SCORE="$root/components/jeryu-deploy/ops/ci/score.sh" \
       SCORE_TEST_SHELL_POLICY=0 SCORE_TEST_EXPECTED_FLOOR=85 \
       SCORE_TEST_AUDITOR_STATUS=$auditor_status SCORE_TEST_SECURITY_STATUS=$security_status \
@@ -288,4 +366,4 @@ expect_pr 23 "$template" "$pr_audit" 85 23
 expect_pr 29 "$template" "$pr_policy"$'\nsecurity' 85 0 29
 expect_pr 0 "$(jq '.score=90|.decision.minimum_score=90' <<<"$template")" "$pr_success" 90
 [[ $cases == 586 ]] || { printf 'required report case count changed: %s\n' "$cases" >&2; exit 1; }
-printf '%s report/producer and Deploy PR dispatch cases passed; real Rust root gate and legacy Python PR policy executed\n' "$cases"
+printf '%s report/producer and Deploy PR dispatch cases passed; real Rust gates and existing Cache/Runner shell policies executed\n' "$cases"

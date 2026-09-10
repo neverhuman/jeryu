@@ -6,7 +6,7 @@ use sha2::{Digest, Sha256};
 use std::{
     io::Read,
     net::TcpListener,
-    os::unix::fs::{OpenOptionsExt, PermissionsExt},
+    os::unix::fs::{DirBuilderExt, MetadataExt, OpenOptionsExt, PermissionsExt},
     path::Path,
     process::{Child, Command, Stdio},
     time::{Duration, Instant},
@@ -153,11 +153,17 @@ fn request(
     serde_json::from_str(&body).unwrap()
 }
 
-fn account_token(http: &Client, url: &str, login: &str, signup: bool) -> String {
+fn account_session(
+    http: &Client,
+    url: &str,
+    login: &str,
+    password: &str,
+    signup: bool,
+) -> (Value, String) {
     let route = if signup { "signup" } else { "login" };
     let response = http
         .post(format!("{url}/api/v1/auth/{route}"))
-        .json(&json!({"login":login,"password":"standalone-fixture-password"}))
+        .json(&json!({"login":login,"password":password}))
         .send()
         .unwrap()
         .error_for_status()
@@ -170,6 +176,12 @@ fn account_token(http: &Client, url: &str, login: &str, signup: bool) -> String 
         .unwrap()
         .to_owned();
     let authenticated: Value = response.json().unwrap();
+    (authenticated, cookie)
+}
+
+fn account_token(http: &Client, url: &str, login: &str, signup: bool) -> String {
+    let (authenticated, cookie) =
+        account_session(http, url, login, "standalone-fixture-password", signup);
     let token: Value = http
         .post(format!("{url}/api/v1/auth/tokens"))
         .header("cookie", cookie)
@@ -489,6 +501,153 @@ fn authenticated_protected_review_checks_merge_and_restart_preserve_exact_head()
         std::fs::read_to_string(clone.join("README.md")).unwrap(),
         "reviewed source\n"
     );
+}
+
+#[test]
+fn unconfigured_first_start_changes_password_and_preserves_default_state() {
+    // Exercise both documented defaults without any Jeryu data/store/bootstrap setting.
+    for use_xdg in [false, true] {
+        let temp = private_temp_dir();
+        let home = temp.path().join("home");
+        let xdg = temp.path().join("xdg");
+        let unrelated = temp.path().join("unrelated");
+        for directory in [&home, &xdg, &unrelated] {
+            std::fs::DirBuilder::new()
+                .mode(0o700)
+                .create(directory)
+                .unwrap();
+        }
+        let data = if use_xdg {
+            xdg.join("jeryu")
+        } else {
+            home.join(".local/share/jeryu")
+        };
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap().to_string();
+        drop(listener);
+        let url = format!("http://{address}");
+        let command = || {
+            let mut command = isolated_command(&home);
+            command
+                .args(["serve", "--bind", &address])
+                .current_dir(&unrelated)
+                .stdout(Stdio::null())
+                .stderr(Stdio::null());
+            if use_xdg {
+                command.env("XDG_DATA_HOME", &xdg);
+            }
+            command
+        };
+        let server = wait_until_ready(command(), &address);
+        let receipt_path = data.join("bootstrap-credentials.json");
+        let metadata = std::fs::symlink_metadata(&receipt_path).unwrap();
+        assert!(metadata.is_file());
+        assert_eq!(metadata.permissions().mode() & 0o777, 0o600);
+        assert_eq!(metadata.uid(), std::fs::metadata(&home).unwrap().uid());
+        assert_eq!(metadata.nlink(), 1);
+        let receipt_bytes = std::fs::read(&receipt_path).unwrap();
+        let receipt: Value = serde_json::from_slice(&receipt_bytes).unwrap();
+        let credentials = receipt["credentials"].as_array().unwrap();
+        assert_eq!(credentials.len(), 1);
+        assert_eq!(credentials[0]["login"], "jeryu-admin");
+        assert_eq!(credentials[0]["role"], "admin");
+        let password = credentials[0]["password"].as_str().unwrap();
+        assert!(!password.is_empty());
+        let http = Client::builder()
+            .timeout(Duration::from_secs(10))
+            .build()
+            .unwrap();
+        let (authenticated, cookie) = account_session(&http, &url, "jeryu-admin", password, false);
+        assert_eq!(authenticated["mustChangePassword"], true);
+        let blocked = http
+            .get(format!("{url}/api/v1/admin/users"))
+            .header("cookie", &cookie)
+            .send()
+            .unwrap();
+        assert_eq!(blocked.status(), 403);
+        let blocked: Value = blocked.json().unwrap();
+        assert_eq!(blocked["code"], "password_change_required");
+        let changed: Value = http
+            .post(format!("{url}/api/v1/auth/password"))
+            .header("cookie", &cookie)
+            .header("x-jeryu-csrf", authenticated["csrfToken"].as_str().unwrap())
+            .json(&json!({
+                "currentPassword": password,
+                "newPassword": "standalone-fixture-password"
+            }))
+            .send()
+            .unwrap()
+            .error_for_status()
+            .unwrap()
+            .json()
+            .unwrap();
+        assert_eq!(changed["mustChangePassword"], false);
+        let token = account_token(&http, &url, "jeryu-admin", false);
+        let users = request(
+            &http,
+            Method::GET,
+            &format!("{url}/api/v1/admin/users"),
+            &token,
+            Value::Null,
+            200,
+        );
+        assert_eq!(users.as_array().unwrap().len(), 1);
+        assert_eq!(users[0]["login"], "jeryu-admin");
+        cli(
+            &home,
+            &url,
+            &token,
+            &["forge", "repo", "create", "first-start"],
+        );
+        cli(
+            &home,
+            &url,
+            &token,
+            &[
+                "forge",
+                "issue",
+                "create",
+                "--repo",
+                "first-start",
+                "--title",
+                "survives password change and restart",
+            ],
+        );
+        assert!(data.join("forge.sqlite").is_file());
+        assert!(!unrelated.join("forge.sqlite").exists());
+        if use_xdg {
+            assert!(!home.join(".local/share/jeryu").exists());
+        } else {
+            assert!(!xdg.join("jeryu").exists());
+        }
+        // Compare privately: an assertion failure must not print credential bytes.
+        assert!(std::fs::read(&receipt_path).unwrap() == receipt_bytes);
+        drop(server);
+        // Follow the documented cleanup of the obsolete one-time credential.
+        std::fs::remove_file(&receipt_path).unwrap();
+        let _server = wait_until_ready(command(), &address);
+        let token = account_token(&http, &url, "jeryu-admin", false);
+        let issues = cli(
+            &home,
+            &url,
+            &token,
+            &["forge", "issue", "list", "--repo", "first-start"],
+        );
+        assert_eq!(issues[0]["title"], "survives password change and restart");
+        let old_password = http
+            .post(format!("{url}/api/v1/auth/login"))
+            .json(&json!({"login":"jeryu-admin","password":password}))
+            .send()
+            .unwrap();
+        assert_eq!(old_password.status(), 401);
+        assert!(std::fs::read_dir(&data).unwrap().all(|entry| {
+            !entry
+                .unwrap()
+                .file_name()
+                .to_string_lossy()
+                .starts_with("bootstrap-credentials")
+        }));
+    }
 }
 
 #[test]
