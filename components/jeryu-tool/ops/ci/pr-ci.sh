@@ -54,6 +54,7 @@ if [[ -f "${host_bin}" && ! -L "${host_bin}" ]]; then
   host_sha="$(sha256sum "${host_bin}" 2>/dev/null | awk '{print $1}' || true)"
 fi
 candidate_root=""
+evidence_dir=""
 if [[ "${JAIN_RELEASE_CI:-0}" == "1" ]]; then
   source ops/ci/lib.sh
   require_jankurai
@@ -69,11 +70,10 @@ else
       "${host_version:-missing}" "${host_sha:-missing}" >&2
     exit 1
   fi
-  candidate_root="$(mktemp -d /tmp/jeryu-tool-premerge-candidate.XXXXXX)"
-  trap 'rm -rf "${candidate_root}"' EXIT
-  evidence_dir="${repo_root}/target/jankurai/premerge-candidate"
-  rm -rf "${evidence_dir}"
-  mkdir -p "${evidence_dir}"
+  # Keep every attempt until the separate preservation/retirement procedure.
+  # A previous receipt or a failed candidate is never disposable CI scratch.
+  source ops/ci/premerge-attempt.sh
+  premerge_begin "${repo_root}"
   "${repo_root}/ops/qualify-jankurai-candidate.sh" "${candidate_root}" "${evidence_dir}"
   mapfile -t candidate_envs < <(find "${evidence_dir}" -maxdepth 1 -type f -name '*.env' -print)
   [[ "${#candidate_envs[@]}" -eq 1 ]] || {

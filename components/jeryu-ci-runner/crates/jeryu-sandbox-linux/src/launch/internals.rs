@@ -1,29 +1,24 @@
-//! Private fork-safe sandbox payload construction and child setup.
+//! Private parent-prepared sandbox state and child setup.
 
 use super::cgroup::create_cgroup;
 use super::pty::wire_pty_slave;
 use super::*;
 
-/// Build the fork-safe payload in the parent: create the cgroup, precompile the
-/// seccomp BPF program, and capture Landlock rules + ABI.
+#[cfg(test)]
+mod tests;
+
+/// Populate the actual Landlock ruleset and precompile seccomp in the parent,
+/// then create the compatibility cgroup leaf after fallible preparation.
 pub(super) fn build_payload(
     plan: &SandboxPlan,
     caps: &SandboxCapabilities,
+    workspace: &Path,
 ) -> SandboxResult<SandboxPayload> {
-    let cgroup_procs = match &caps.cgroup_v2_subtree {
-        Some(parent) => Some(create_cgroup(
-            parent,
-            &plan.cgroup_limits,
-            plan.require_cgroup,
-        )?),
-        None => None,
-    };
-
     let landlock = match caps.landlock_abi {
-        Some(abi) if !plan.landlock_rules.is_empty() => Some(LandlockPayload {
-            abi,
-            rules: plan.landlock_rules.clone(),
-        }),
+        Some(abi) if !plan.landlock_rules.is_empty() => Some(
+            prepare_landlock(&plan.landlock_rules, abi, workspace)
+                .map_err(|error| SandboxError::new("landlock_prepare_failed", error))?,
+        ),
         _ => None,
     };
 
@@ -34,6 +29,16 @@ pub(super) fn build_payload(
         )
     } else {
         None
+    };
+
+    // Complete fallible parent preparation before creating a cgroup leaf.
+    let cgroup_procs = match &caps.cgroup_v2_subtree {
+        Some(parent) => Some(create_cgroup(
+            parent,
+            &plan.cgroup_limits,
+            plan.require_cgroup,
+        )?),
+        None => None,
     };
 
     Ok(SandboxPayload {
@@ -150,13 +155,21 @@ pub(super) fn apply_in_child(payload: &SandboxPayload) -> std::io::Result<()> {
 
     // 5. Landlock — workspace-only-writable ruleset.
     if let Some(landlock) = &payload.landlock {
-        apply_landlock(landlock).map_err(|err| IoError::new(ErrorKind::PermissionDenied, err))?;
+        // SAFETY: the parent created and populated this live ruleset descriptor.
+        // It remains owned by payload through spawn; flags zero requests no
+        // optional behavior. This syscall does not resolve paths or allocate.
+        if unsafe { libc::syscall(libc::SYS_landlock_restrict_self, landlock.as_raw_fd(), 0) } != 0
+        {
+            return Err(IoError::last_os_error());
+        }
     }
 
     // 6. seccomp — last, so our own setup syscalls above were unrestricted.
     if let Some(bpf) = &payload.seccomp_bpf {
-        seccompiler::apply_filter(bpf)
-            .map_err(|err| IoError::new(ErrorKind::PermissionDenied, err.to_string()))?;
+        seccompiler::apply_filter(bpf).map_err(|error| match error {
+            seccompiler::Error::Prctl(error) | seccompiler::Error::Seccomp(error) => error,
+            _ => IoError::from_raw_os_error(libc::EINVAL),
+        })?;
     }
 
     Ok(())
@@ -209,16 +222,20 @@ fn set_one_rlimit(resource: libc::__rlimit_resource_t, value: u64) {
     unsafe { libc::setrlimit(resource, &limit) };
 }
 
-/// Apply the Landlock ruleset inside the child. Opening the path FDs here is a
-/// pure syscall; the landlock crate allocates internally, but the child is
-/// single-threaded between fork and exec so this is the established safe pattern.
-fn apply_landlock(payload: &LandlockPayload) -> Result<(), String> {
+/// Resolve paths and create all kernel rules before fork. The library allocates
+/// while constructing rules, so it must not run in a multithreaded parent's
+/// pre-exec child, which can inherit locked allocator state.
+fn prepare_landlock(
+    rules: &[LandlockRule],
+    requested_abi: i32,
+    workspace: &Path,
+) -> Result<OwnedFd, String> {
     use landlock::{
         ABI, Access, AccessFs, BitFlags, PathBeneath, PathFd, Ruleset, RulesetAttr,
         RulesetCreatedAttr,
     };
 
-    let abi = match payload.abi {
+    let abi = match requested_abi {
         1 => ABI::V1,
         2 => ABI::V2,
         3 => ABI::V3,
@@ -233,7 +250,7 @@ fn apply_landlock(payload: &LandlockPayload) -> Result<(), String> {
         .create()
         .map_err(|e| e.to_string())?;
 
-    for rule in &payload.rules {
+    for rule in rules {
         // Compute the access bits this rule grants, honoring read/write/execute
         // independently so an exec-only or read-only-NO-exec rule is expressed
         // faithfully.
@@ -268,7 +285,14 @@ fn apply_landlock(payload: &LandlockPayload) -> Result<(), String> {
         }
         // A non-existent path simply yields no rule rather than failing the
         // whole ruleset (e.g. /nix/store may be absent on this host).
-        let Ok(fd) = PathFd::new(&rule.path) else {
+        // Command changes to the job workspace before pre_exec. Preserve that
+        // relative-path interpretation while resolving paths in the parent.
+        let path = if rule.path.is_absolute() {
+            rule.path.clone()
+        } else {
+            workspace.join(&rule.path)
+        };
+        let Ok(fd) = PathFd::new(path) else {
             continue;
         };
         ruleset = ruleset
@@ -276,8 +300,21 @@ fn apply_landlock(payload: &LandlockPayload) -> Result<(), String> {
             .map_err(|e| e.to_string())?;
     }
 
-    ruleset.restrict_self().map_err(|e| e.to_string())?;
-    Ok(())
+    let descriptor: Option<OwnedFd> = ruleset.into();
+    let descriptor = descriptor
+        .ok_or_else(|| "Landlock capability did not produce a kernel ruleset".to_string())?;
+    if descriptor.as_raw_fd() < 3 {
+        // A service may start with a closed standard stream. Keep this ruleset
+        // outside Command's child stdio slots, which are wired before pre_exec.
+        // SAFETY: descriptor is live; fcntl returns a new independently owned FD.
+        let duplicate = unsafe { libc::fcntl(descriptor.as_raw_fd(), libc::F_DUPFD_CLOEXEC, 3) };
+        if duplicate == -1 {
+            return Err(IoError::last_os_error().to_string());
+        }
+        // SAFETY: successful F_DUPFD_CLOEXEC returned a new descriptor we own.
+        return Ok(unsafe { OwnedFd::from_raw_fd(duplicate) });
+    }
+    Ok(descriptor)
 }
 
 /// Write to a `/proc` or cgroup control file, returning a useful error.

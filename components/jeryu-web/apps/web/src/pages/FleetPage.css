@@ -246,6 +246,10 @@
   min-width: 0;
 }
 
+.fleet__node-box-top {
+  flex-wrap: wrap;
+}
+
 .fleet__node-box-name,
 .fleet__node-box-count {
   font-family: var(--font-mono);

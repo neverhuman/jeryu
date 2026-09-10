@@ -152,6 +152,19 @@ five CLI-compatibility tests, warning-denied split-tool Clippy and the owning
 inventory check. This selected result does not establish complete CI or the
 full disposable native sandbox proof.
 
+A subsequent scoped batch at `c9d3f77c` plus source diff `33cb9bdd` passed all
+five selected phases. Landlock rules and path resolution now happen in the
+parent before fork, with five real kernel regressions passing. The existing
+cgroup child setup remains outside this scoped correction. Tool's legacy
+premerge fallback creates private, unique attempts and retains evidence and
+candidate state for separate verified retirement, including failed and
+interrupted runs; all four custody regressions passed. Warning-denied Clippy,
+formatting, 74 CI-matrix assertions, five Fleet browser cases, and the
+32 binary plus five CLI-compatibility split-tool tests passed. The owning
+inventory contains 929 checked source hashes. The browser screenshot confirms
+readable node names beside wrapped unknown-capacity labels. Full native
+sandbox, complete CI and release qualification remain pending.
+
 The successor retains the public `--store` / `JERYU_STORE` interface: SQLite is
 the default, and Redline aliases visibly select that same durable engine. A
 reviewed sandbox probe correction rejects failed controller delegation before
