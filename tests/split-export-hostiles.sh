@@ -218,3 +218,6 @@ passed=$((passed + 1))
 jeryu_remove_test_scratch
 trap - EXIT
 printf 'Split export orchestration: %s synthetic cases passed; no real split qualification.\n' "$passed"
+
+# The shared local-source transport is exercised separately from orchestration.
+bash "$root/tests/split-local-hostiles.sh" "$root"

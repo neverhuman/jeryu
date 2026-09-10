@@ -143,8 +143,9 @@ jeryu_web_vendored_check() {
 }
 
 jeryu_web_begin() {
-  local git_root provenance selection source_commit source_tree observed
-  [[ $# == 1 && ${jeryu_web_active:-0} == 0 ]] || return 1
+  local git_root provenance selection source_commit source_tree observed source_url
+  [[ ( $# == 1 || ( $# == 3 && $2 == --prepare-local ) ) && ${jeryu_web_active:-0} == 0 ]] || return 1
+  jeryu_web_prepare_source=${3:-} jeryu_web_prepare_before=''
   jeryu_web_component=$1
   jeryu_web_physical_directory "$jeryu_web_component" || return 1
   git_root=$(jeryu_web_git "$jeryu_web_component" rev-parse --show-toplevel) || return 1
@@ -155,6 +156,7 @@ jeryu_web_begin() {
   provenance=crates/jeryu-api/Cargo.toml
   [[ $jeryu_web_component == "$git_root" ]] || provenance=components/jeryu-deploy/$provenance
   jeryu_web_git "$git_root" cat-file -e "HEAD:$provenance" || return 1
+  [[ -z $jeryu_web_prepare_source || $jeryu_web_component == "$git_root" ]] || return 1
   jeryu_web_component_git=$git_root
   jeryu_web_component_before=$(jeryu_web_source_snapshot "$git_root") || return 1
   jeryu_web_scratch=$(umask 077; mktemp -d -t jeryu-deploy-web.XXXXXXXX) || return 1
@@ -180,8 +182,19 @@ jeryu_web_begin() {
         (.original_component_tree|test("^[0-9a-f]{40}$")))
       | [.source_commit,.original_component_tree] | @tsv' "$provenance") || return 1
     read -r source_commit source_tree <<< "$selection"
+    source_url=https://github.com/neverhuman/jeryu.git
+    jeryu_web_mode=public-source-export
+    if [[ -n $jeryu_web_prepare_source ]]; then
+      # This helper is part of the held, clean exported source snapshot.
+      # shellcheck source=scripts/source-build.sh
+      source "$git_root/scripts/source-build.sh"
+      jeryu_web_prepare_before=$(split_source_snapshot "$jeryu_web_prepare_source" "$source_commit" jeryu-deploy "$source_tree") || return 1
+      source_url="file://$jeryu_web_prepare_source"
+      jeryu_web_mode=local-source-preparation
+      printf 'web transport: local-source-preparation commit=%s; public origin unproven\n' "$source_commit" >&2
+    fi
     jeryu_web_git "$jeryu_web_scratch" clone --no-local --no-checkout --quiet \
-      https://github.com/neverhuman/jeryu.git "$jeryu_web_scratch/source" || return 1
+      "$source_url" "$jeryu_web_scratch/source" || return 1
     jeryu_web_source=$jeryu_web_scratch/source
     jeryu_web_git "$jeryu_web_source" fetch --quiet --no-tags origin "$source_commit" || return 1
     jeryu_web_git "$jeryu_web_source" -c core.hooksPath=/dev/null checkout --quiet --detach "$source_commit" || return 1
@@ -189,8 +202,8 @@ jeryu_web_begin() {
     [[ $observed == "$source_commit" ]] || return 1
     observed=$(jeryu_web_git "$jeryu_web_source" rev-parse HEAD:components/jeryu-deploy) || return 1
     [[ $observed == "$source_tree" ]] || return 1
-    jeryu_web_mode=public-source-export
   else
+    [[ -z $jeryu_web_prepare_source ]] || return 1
     jeryu_web_mode=committed-vendor
   fi
   if [[ -n $jeryu_web_source ]]; then
@@ -216,6 +229,10 @@ jeryu_web_begin() {
   jeryu_web_dist=$JERYU_WEB_DIST
   jeryu_web_bundle_before=$(jeryu_web_bundle_digest "$JERYU_WEB_DIST" 1) || return 1
   jeryu_web_references "$JERYU_WEB_DIST" || return 1
+  if [[ -n $jeryu_web_prepare_source ]]; then
+    observed=$(split_source_snapshot "$jeryu_web_prepare_source" "$source_commit" jeryu-deploy "$source_tree") || return 1
+    [[ $observed == "$jeryu_web_prepare_before" ]] || return 1
+  fi
   jeryu_web_prepared=1
   printf 'web gate: %s bundle prepared from checked source\n' "$jeryu_web_mode"
 }
@@ -225,6 +242,10 @@ jeryu_web_finish() {
   [[ ${jeryu_web_active:-0} == 1 ]] || return "$status"
   if (( status == 0 )); then
     [[ $jeryu_web_prepared == 1 ]] || status=1
+    if [[ -n $jeryu_web_prepare_source ]]; then
+      after=$(split_source_snapshot "$jeryu_web_prepare_source" "$(jeryu_web_git "$jeryu_web_source" rev-parse HEAD)") || status=1
+      [[ $after == "$jeryu_web_prepare_before" ]] || status=1
+    fi
     [[ $JERYU_WEB_DIST == "$jeryu_web_dist" && $JERYU_REQUIRE_WEB == 1 ]] || status=1
     after=$(jeryu_web_source_snapshot "$jeryu_web_component_git") || status=1
     [[ $after == "$jeryu_web_component_before" ]] || status=1

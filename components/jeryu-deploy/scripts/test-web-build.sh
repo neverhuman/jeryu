@@ -3,7 +3,9 @@
 set -euo pipefail
 root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)
 helper=${1:-$root/ops/ci/web-build.sh}
-[[ $# -le 1 ]]
+source_helper=${2:-$root/scripts/source-build.sh}
+if [[ ! -f $source_helper ]]; then source_helper=$root/../../scripts/source-build.sh; fi
+[[ $# -le 2 ]]
 # shellcheck source=ops/ci/web-build.sh
 source "$helper"
 # Observations populated by the sourced helper; empty values cannot satisfy tests.
@@ -319,6 +321,65 @@ for export_case in clean wrong_tree wrong_schema wrong_component unresolved_lock
         else
           success
         fi ;;
+    esac
+  )
+  passed=$((passed+1))
+done
+# Explicit local preparation must prove the same descriptor without relying on
+# inherited public-URL routing. These are tiny Git fixtures, not product source.
+for local_case in clean wrong_head wrong_tree dirty hidden alias source_after; do
+  (
+    label=local_origin_$local_case
+    seed monorepo
+    source_repository=$repository
+    source_commit=$(real_git "$source_repository" rev-parse HEAD)
+    source_component_tree=$(real_git "$source_repository" rev-parse HEAD:components/jeryu-deploy)
+    label=local_export_$local_case
+    seed export
+    unset jeryu_web_active
+    mkdir -p "$repository/scripts"
+    install -m 0600 "$source_helper" "$repository/scripts/source-build.sh"
+    jq -n --arg source "$source_commit" --arg tree "$source_component_tree" '
+      {schema_version:"jeryu.split-provenance/v1",component:"jeryu-deploy",
+       source_commit:$source,original_component_tree:$tree,
+       lock_regeneration_required:false,publication_qualified:false}' > "$repository/.jeryu-source.json"
+    case $local_case in
+      wrong_head) sed -i "s/$source_commit/0000000000000000000000000000000000000000/" "$repository/.jeryu-source.json" ;;
+      wrong_tree) sed -i "s/$source_component_tree/0000000000000000000000000000000000000000/" "$repository/.jeryu-source.json" ;;
+    esac
+    commit_fixture "$repository"
+    prepare=$source_repository
+    case $local_case in
+      dirty) printf 'changed local source\n' >> "$source_repository/README.md" ;;
+      hidden) real_git "$source_repository" update-index --assume-unchanged README.md ;;
+      alias) ln -s "$source_repository" "$temporary/local-source-alias"; prepare=$temporary/local-source-alias ;;
+    esac
+    : > "$temporary/clone.trace"
+    jeryu_web_git() {
+      local directory=$1
+      shift
+      if [[ $1 == clone ]]; then
+        printf 'local clone reached\n' >> "$temporary/clone.trace"
+        [[ $# == 6 && $5 == "file://$source_repository" && $6 == "$jeryu_web_scratch/source" ]] || return 96
+      fi
+      real_git "$directory" "$@"
+    }
+    case $local_case in
+      wrong_head|wrong_tree|dirty|hidden|alias)
+        expect 1 jeryu_web_begin "$component" --prepare-local "$prepare"
+        [[ ! -s $temporary/clone.trace ]]
+        ;;
+      *)
+        expect 0 jeryu_web_begin "$component" --prepare-local "$prepare"
+        [[ $jeryu_web_mode == local-source-preparation && -s $temporary/clone.trace ]]
+        if [[ $local_case == source_after ]]; then
+          printf 'changed original source\n' >> "$source_repository/README.md"
+          expect 1 jeryu_web_finish 0
+          retained
+        else
+          success
+        fi
+        ;;
     esac
   )
   passed=$((passed+1))

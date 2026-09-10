@@ -65,6 +65,28 @@ without a pull fallback. The actual disposable-VM matrix of nine checks and
 15 runs remains required; these preparation results do not qualify OCI or
 complete CI.
 
+At clean checkpoint `22c7bf43`, the real OCI command ran in a disposable VM
+after successful provisioning and a restricted-network restart. It failed with
+missing or contradictory OOM evidence: zero tests passed, one failed, none
+were ignored and four were filtered. The original error omitted the failing
+probe and observed container state; it does not establish an engine regression.
+The wrapper also reported incomplete process closure. Later independent
+process and open-handle checks confirmed shutdown; the original failed result
+and private VM scratch remain preserved.
+
+The next source, `22c7bf43` plus diff `50101876`, adds exact OCI failure
+context without changing acceptance checks and explicit local preparation for
+unpublished split sources. Public dependency URLs and commit identities remain
+unchanged. All five selected check groups passed: formatting and 106 dispatch
+cases; 47 split-tool binary tests, six CLI tests, one native-export and one
+score-export regression, warning-denied Clippy and the 940-input inventory
+check; 24 orchestration plus 40 local-source controls; 54 Deploy web-helper
+cases; and four ordinary OCI tests with owning Clippy. The named real-Docker
+test remained explicitly ignored in this ordinary run. All selected processes
+and three CI locks closed with source unchanged. Real OCI, independent builds
+of all ten exports, anonymous final-source installation and complete CI still
+require qualification.
+
 This source also scopes Work commands to their owning package with locked
 resolution, strengthens the actual governed-auditor wrapper checks, and keeps
 failed test scratch for verified cleanup. At clean `37b08b28`, all seven private
