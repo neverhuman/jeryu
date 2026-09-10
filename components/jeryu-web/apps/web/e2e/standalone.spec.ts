@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-test('browser authenticates against the standalone backend and retains its session @bff', async ({ page }) => {
+test('browser authenticates against the standalone backend and retains its session @bff', async ({ page }, testInfo) => {
   const password = process.env.JERYU_BROWSER_PASSWORD;
   if (!password) throw new Error('disposable BFF password is required');
   await page.goto('/');
@@ -23,6 +23,14 @@ test('browser authenticates against the standalone backend and retains its sessi
   await page.getByRole('button', { name: 'Back to repositories' }).click();
   await page.getByRole('button', { name: /create repository/i }).click();
   const dialog = page.getByRole('dialog');
+  await expect(dialog.getByRole('option', { name: 'local (unavailable)', exact: true })).toBeDisabled();
+  await expect(dialog.getByRole('option', { name: 'internal (unavailable)', exact: true })).toBeDisabled();
+  await expect(dialog.getByLabel('Topics (unavailable)', { exact: true })).toBeDisabled();
+  await expect(dialog.getByLabel('Visibility', { exact: true })).toHaveValue('private');
+  await testInfo.attach('standalone-repository-create-controls', {
+    body: await page.screenshot({ fullPage: true }),
+    contentType: 'image/png',
+  });
   const name = `browser-${Date.now()}`;
   await dialog.getByLabel('Owner', { exact: true }).fill(account.login);
   await dialog.getByLabel('Name', { exact: true }).fill(name);

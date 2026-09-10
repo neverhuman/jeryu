@@ -3,6 +3,10 @@
   width: 100%;
 }
 
+.work-page .page__roadmap-note a {
+  text-decoration: underline;
+}
+
 .work-page__header,
 .work-detail__header {
   display: flex;

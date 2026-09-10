@@ -28,9 +28,9 @@ impl From<RunnerExecutorArg> for RunnerExecutor {
 /// Runner command group.
 #[derive(Debug, Subcommand)]
 pub enum RunnerCommands {
-    /// List registered runners and their executors.
+    /// Unavailable: list registered runners (no server transport).
     List,
-    /// Enroll a node as a runner.
+    /// Unavailable: enroll a runner (no server transport).
     Enroll {
         /// Node identifier to enroll.
         node: String,
@@ -38,12 +38,12 @@ pub enum RunnerCommands {
         #[arg(long, value_enum, default_value_t = RunnerExecutorArg::Native)]
         executor: RunnerExecutorArg,
     },
-    /// Drain a runner: stop accepting leases and await in-flight work.
+    /// Unavailable: drain a runner (no server transport).
     Drain {
         /// Runner identifier to drain.
         id: String,
     },
-    /// Rotate a runner enrollment credential.
+    /// Unavailable: rotate a runner credential (no server transport).
     Rotate {
         /// Runner identifier whose credential to rotate.
         id: String,

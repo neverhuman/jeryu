@@ -1,9 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 
 import { apiGet } from '../api/client';
 import { endpoints } from '../api/endpoints';
 import type { WorkItemListResponse } from '../api/types';
+import { useAuth } from '../hooks/useAuth';
 import { useResolveRepo } from '../hooks/useResolveRepo';
 import {
   DEFAULT_WORK_FILTERS,
@@ -46,7 +48,7 @@ export function WorkPage(props: WorkPageProps = {}): JSX.Element {
   return (
     <WorkBoard
       title="Work"
-      subtitle="Split-wide work tracker for tasks, bugs, chores, docs, and CI follow-up."
+      subtitle="Track tasks, bugs, chores, documentation, and CI follow-up across your repositories."
       queryKey={['work']}
       queryUrl={endpoints.work()}
       createUrl={endpoints.work()}
@@ -105,6 +107,7 @@ function WorkBoard({
   createUrl,
   repoScoped,
 }: WorkBoardProps): JSX.Element {
+  const { user } = useAuth();
   const [filters, setFilters] = useState<WorkFilters>(DEFAULT_WORK_FILTERS);
 
   const work = useQuery({
@@ -150,11 +153,19 @@ function WorkBoard({
         assignees={assignees}
       />
 
-      <WorkCreateForm
-        createUrl={createUrl}
-        queryKey={queryKey}
-        repoScoped={repoScoped}
-      />
+      {repoScoped || user?.role === 'admin' ? (
+        <WorkCreateForm
+          createUrl={createUrl}
+          queryKey={queryKey}
+          repoScoped={repoScoped}
+        />
+      ) : (
+        <p className="page__roadmap-note">
+          Creating work without a repository requires an administrator.{' '}
+          <Link to="/repos">Choose a repository</Link> where you have write access
+          and open its Work tab to create an item.
+        </p>
+      )}
 
       {work.isPending ? (
         <p className="page__roadmap-note">Loading work.</p>

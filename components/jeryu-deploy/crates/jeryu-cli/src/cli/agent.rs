@@ -6,7 +6,7 @@ use std::path::PathBuf;
 /// Agent-edit command group.
 #[derive(Debug, Subcommand)]
 pub enum AgentCommands {
-    /// Import or inspect portable native CLI auth.
+    /// Unavailable: portable agent auth has no server transport.
     #[command(subcommand)]
     Auth(AgentAuthCommands),
 
@@ -42,14 +42,14 @@ pub enum AgentCommands {
 /// Auth subcommands.
 #[derive(Debug, Subcommand)]
 pub enum AgentAuthCommands {
-    /// Import portable auth from the host into Jeryu-owned storage.
+    /// Unavailable: import portable agent auth (no server transport).
     Import {
         /// Host tool whose portable auth should be imported.
         #[arg(long = "from-host")]
         from_host: AgentToolArg,
     },
 
-    /// Check imported portable auth.
+    /// Unavailable: check portable agent auth (no server transport).
     Doctor {
         /// Tool to check.
         tool: AgentToolArg,

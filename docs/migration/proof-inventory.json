@@ -2789,7 +2789,15 @@
       "kind": "proof-implementation-or-input",
       "path": "components/jeryu-deploy/crates/jeryu-api/src/web/tests.rs",
       "port_status": "pending-equivalence-proof",
-      "sha256": "5c683245789b8495545b59f359626e48404c5acc5ba6a81f9620d9e9b90668e2"
+      "sha256": "e61b2f7f66948deb6f7b2b5f9ab156a86773d68b6d51eb88c1efa9ec8c400d0b"
+    },
+    {
+      "component": "jeryu-deploy",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-deploy/crates/jeryu-api/src/web/tests/git_authorization.rs",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "bc3e6dbef12624d2e9ed0746f0124c835154df8ed07c3b96093a442ba537576c"
     },
     {
       "component": "jeryu-deploy",
@@ -2798,6 +2806,14 @@
       "path": "components/jeryu-deploy/crates/jeryu-api/src/web/tests/pull_review_routes.rs",
       "port_status": "pending-equivalence-proof",
       "sha256": "f046c358dadf53c3e975753f8634e528849434ac93a8b38a2d89989f10c19317"
+    },
+    {
+      "component": "jeryu-deploy",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-deploy/crates/jeryu-api/src/web/tests/work_authorization.rs",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "bb92f8467c3af7d4fa857cd0e4a905871a6c46562a322d0ca084f1a535822af0"
     },
     {
       "component": "jeryu-deploy",
@@ -2869,7 +2885,7 @@
       "kind": "proof-implementation-or-input",
       "path": "components/jeryu-deploy/crates/jeryu-cli/tests/cli_snapshots.rs",
       "port_status": "pending-equivalence-proof",
-      "sha256": "be61aa4b1442365a66ee36a38d0e33f7ddf4c0b946d4720f382d12b5532317a7"
+      "sha256": "235dac9d25e6981f224c4903e1cb2102db215e9c09213eb22e5f2559681b2725"
     },
     {
       "component": "jeryu-deploy",
@@ -2877,7 +2893,15 @@
       "kind": "proof-implementation-or-input",
       "path": "components/jeryu-deploy/crates/jeryu-cli/tests/standalone.rs",
       "port_status": "pending-equivalence-proof",
-      "sha256": "1b545c4460954f3295507e871afc9fbdef3b6cb837dbca2598a6755dc4e3c3ec"
+      "sha256": "eca579474d2eede6bbd35a234b1db4171ae8793ec5628df3ee1d5679664cdce4"
+    },
+    {
+      "component": "jeryu-deploy",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-deploy/crates/jeryu-cli/tests/support/recovery.rs",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "ddaa53a6ae0a183f641e1472805e40f07bc0a9b413ce941097077c4f9a70e467"
     },
     {
       "component": "jeryu-deploy",
@@ -2886,6 +2910,22 @@
       "path": "components/jeryu-deploy/crates/jeryu-split-tool/Cargo.toml",
       "port_status": "pending-equivalence-proof",
       "sha256": "9b04f86bda31295ac5697760e0f1e93ffc8f5e8fa9afc9fc2422e1feaba91812"
+    },
+    {
+      "component": "jeryu-deploy",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-deploy/crates/jeryu-split-tool/src/audit_acquisition.rs",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "d401e7c47d4c21f13849867c1859844d5f7aeb95629dd7d2c24f66ac70c8eeed"
+    },
+    {
+      "component": "jeryu-deploy",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-deploy/crates/jeryu-split-tool/src/audit_acquisition_tests.rs",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "575aa786d4615aa9fb33639a73feac9c15b8538fae426a3a576909d54ed4b66e"
     },
     {
       "component": "jeryu-deploy",
@@ -2901,7 +2941,7 @@
       "kind": "proof-implementation-or-input",
       "path": "components/jeryu-deploy/crates/jeryu-split-tool/src/audit_census.rs",
       "port_status": "pending-equivalence-proof",
-      "sha256": "b715f76aa5d49681383e3a2148322703984149d7c1de28e6f8724aa8b7e99c1a"
+      "sha256": "1c07d5b8bf648ca67a914d1e43424ca8667d2a98bb0aa55080acf708aa064fe9"
     },
     {
       "component": "jeryu-deploy",
@@ -2933,7 +2973,7 @@
       "kind": "proof-implementation-or-input",
       "path": "components/jeryu-deploy/crates/jeryu-split-tool/src/audit_execution.rs",
       "port_status": "pending-equivalence-proof",
-      "sha256": "55b0ad3fe8be084fa33aa3f8ad11d5595a992b0063d26cfc5c3fc41b23949f8d"
+      "sha256": "4bf741421f48e2a07f726b377d3a0fe7805eb9d69684cbf9ed34ebc51c4ac744"
     },
     {
       "component": "jeryu-deploy",
@@ -2941,7 +2981,7 @@
       "kind": "proof-implementation-or-input",
       "path": "components/jeryu-deploy/crates/jeryu-split-tool/src/audit_execution_tests.rs",
       "port_status": "pending-equivalence-proof",
-      "sha256": "d5be26cf06a766cb0b7349df8c611c042a17007251c492f6b41243537dee4197"
+      "sha256": "6da801422f92478a540dae169df1f6dd6c44e2bf214de1c30482b0e6452ea21d"
     },
     {
       "component": "jeryu-deploy",
@@ -2982,6 +3022,22 @@
       "path": "components/jeryu-deploy/crates/jeryu-split-tool/src/audit_score_tests.rs",
       "port_status": "pending-equivalence-proof",
       "sha256": "97c8621f87c6ca8d98ab42023317fd3ed7887810240d9a5183cb2511864b9356"
+    },
+    {
+      "component": "jeryu-deploy",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-deploy/crates/jeryu-split-tool/src/audit_source_custody.rs",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "6dc14580012f8bfb19c60ea41c79f43a2d5a30fbc0cf488e07b072f23d86e42f"
+    },
+    {
+      "component": "jeryu-deploy",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-deploy/crates/jeryu-split-tool/src/audit_source_graph.rs",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "39e80cf0f6caf135c497fa5b0fdb0b2f386b2192480220c0d6216a67ec691dd6"
     },
     {
       "component": "jeryu-deploy",
@@ -4881,7 +4937,7 @@
       "kind": "proof-implementation-or-input",
       "path": "components/jeryu-jira/crates/jeryu-jira/src/store/tests.rs",
       "port_status": "pending-equivalence-proof",
-      "sha256": "867eca44ce2e911468c8eb0109f511bb4ea4a2a6da5a17b7bd62879d53ec9acf"
+      "sha256": "dfa39bab421b218caddbd6e3c46c7df0b11f52ae4b7ab52fedb9d40ac9b71fd7"
     },
     {
       "component": "jeryu-jira",
@@ -4905,7 +4961,7 @@
       "kind": "proof-implementation-or-input",
       "path": "components/jeryu-jira/crates/jeryu-jira/tests/support/mod.rs",
       "port_status": "pending-equivalence-proof",
-      "sha256": "3d65e815c9581927c1cc58cda712545c2b7b43d76113b46643a02995b99a7cfd"
+      "sha256": "efea782ee64ca49338d9f6ffe048523d474227aefffaccd579b6fff1c59c5e6f"
     },
     {
       "component": "jeryu-jira",
@@ -6423,7 +6479,7 @@
       "kind": "proof-implementation-or-input",
       "path": "components/jeryu-tool/crates/jeryu-tool-control/src/pin.rs",
       "port_status": "pending-equivalence-proof",
-      "sha256": "d50e5ff57572a6733982eee6f26337280dba68c722d57a33c4d32c3c69233bd1"
+      "sha256": "5fa3f92f258a1ff9112c855d89ea91d4de89357ed414fbdfb9d48c91c77b42a2"
     },
     {
       "component": "jeryu-tool",
@@ -6439,7 +6495,7 @@
       "kind": "proof-implementation-or-input",
       "path": "components/jeryu-tool/crates/jeryu-tool-control/src/pin_tests.rs",
       "port_status": "pending-equivalence-proof",
-      "sha256": "cab725376d5a2d7d175f2becc449f5fcdf999ac68c9f217b5ccc47c502bbebed"
+      "sha256": "940bd750e938067bae3db4fda9d43e977126c433f11dd80adc4f99779241d196"
     },
     {
       "component": "jeryu-tool",
@@ -6927,7 +6983,7 @@
       "kind": "proof-implementation-or-input",
       "path": "components/jeryu-tool/tool-manifest.toml",
       "port_status": "pending-equivalence-proof",
-      "sha256": "c7f4e3f7d07db0a6661eb24bbe330f9722d88b5e59e6523b391aa416c9a4c2cb"
+      "sha256": "8d46ebaa94beee0fda8710d628402963e026febf14f2e7c3d793eaf1349647a9"
     },
     {
       "component": "jeryu-tool",
@@ -7125,7 +7181,7 @@
       "kind": "proof-implementation-or-input",
       "path": "components/jeryu-web/apps/web/e2e/02-repos.spec.ts",
       "port_status": "pending-equivalence-proof",
-      "sha256": "e143cc861ba556e98a4d1365560836e6bdfcb82c9a8214b7bde25691f4e97c98"
+      "sha256": "3d13cca99664b38aaf014e2c51fdbea29d4cd83c87bfc9e5a5db22f8b5aeda94"
     },
     {
       "component": "jeryu-web",
@@ -7301,7 +7357,7 @@
       "kind": "proof-implementation-or-input",
       "path": "components/jeryu-web/apps/web/e2e/24-work-tracker.spec.ts",
       "port_status": "pending-equivalence-proof",
-      "sha256": "16e2cb7dda177d989e4c4ee39e1fe5e027d3832c5163429657d5235276860863"
+      "sha256": "4ee2777619260135190dd88b2751cc07d78d242d78cb0450e5393dcecb839391"
     },
     {
       "component": "jeryu-web",
@@ -7397,7 +7453,7 @@
       "kind": "proof-implementation-or-input",
       "path": "components/jeryu-web/apps/web/e2e/standalone.spec.ts",
       "port_status": "pending-equivalence-proof",
-      "sha256": "1748dd72d25d642a3acb4c86a2a7d811ab5db349cc85f4867e86c41fdc83d842"
+      "sha256": "cb804bfb04ec95dc44dfd981474968b9acf0bc70b59e27724d51c0d66020f181"
     },
     {
       "component": "jeryu-web",
@@ -7813,7 +7869,7 @@
       "kind": "proof-implementation-or-input",
       "path": "components/jeryu-web/apps/web/src/pages/__tests__/WorkPage.test.tsx",
       "port_status": "pending-equivalence-proof",
-      "sha256": "9ef4580c1d318f4e60764dd5cc34fb2d75f5865dd004ae7340fdcaa99dcd0036"
+      "sha256": "91b819e03d8fce4ca010148a31ab88418d399fb4041ec55eecfee09210ae24a2"
     },
     {
       "component": "jeryu-web",
@@ -7869,7 +7925,7 @@
       "kind": "proof-implementation-or-input",
       "path": "components/jeryu-web/apps/web/src/pages/__tests__/workPageTestHelpers.tsx",
       "port_status": "pending-equivalence-proof",
-      "sha256": "fec1bd9dc7e9220ea89ef92fe99e057e048cc7f25bde7e6119b4737153edf075"
+      "sha256": "5de2c1e6d8d13f6481897eebd77a2f58c3cbc445d2b3559732dc9e9b29e1ee19"
     },
     {
       "component": "jeryu-web",
@@ -8349,7 +8405,7 @@
       "kind": "proof-implementation-or-input",
       "path": "scripts/ci-browser-server.sh",
       "port_status": "pending-equivalence-proof",
-      "sha256": "2c199b479c596ef5a9dbacfd7557c72105780cc8028ecd87163e8dc22ff4bbae"
+      "sha256": "59ef6caa94ba03cdcae9a579a4bb0eefa74c416891e77067cfdac870ab839cd0"
     },
     {
       "component": "jeryu",

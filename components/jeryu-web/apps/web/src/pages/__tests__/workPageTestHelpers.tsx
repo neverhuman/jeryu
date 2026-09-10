@@ -3,15 +3,28 @@ import { render } from '@testing-library/react';
 import { MemoryRouter, Routes } from 'react-router-dom';
 import { vi } from 'vitest';
 
-export function renderRoute(route: string, child: JSX.Element): void {
+import { AUTH_ME_QUERY_KEY, AuthProvider, type AuthUser } from '../../hooks/useAuth';
+
+export function renderRoute(
+  route: string,
+  child: JSX.Element,
+  role: AuthUser['role'] = 'user'
+): void {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
+  client.setQueryData<AuthUser>(AUTH_ME_QUERY_KEY, {
+    login: 'alice',
+    role,
+    mustChangePassword: false,
+  });
   render(
     <QueryClientProvider client={client}>
-      <MemoryRouter initialEntries={[route]}>
-        <Routes>{child}</Routes>
-      </MemoryRouter>
+      <AuthProvider>
+        <MemoryRouter initialEntries={[route]}>
+          <Routes>{child}</Routes>
+        </MemoryRouter>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }

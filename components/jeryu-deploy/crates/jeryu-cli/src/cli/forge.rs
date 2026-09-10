@@ -83,7 +83,7 @@ pub enum PrCommands {
         /// Pull request number (#N).
         #[arg(long)]
         pr: u64,
-        /// Trust tier for the risk gate.
+        /// Compatibility value: only trusted is supported; the server enforces merge policy.
         #[arg(long, default_value = "trusted")]
         trust_tier: String,
     },

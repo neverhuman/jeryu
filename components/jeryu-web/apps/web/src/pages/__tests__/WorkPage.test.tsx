@@ -14,7 +14,7 @@ describe('WorkPage', () => {
   });
 
   it('renders split-wide work items with provider-shaped issue and PR links', async () => {
-    mockFetch([
+    const requests = mockFetch([
       [
         '/api/v1/work',
         {
@@ -47,6 +47,10 @@ describe('WorkPage', () => {
 
     expect(await screen.findByText('Fix cache key')).toBeInTheDocument();
     expect(screen.getByText('JRY-1')).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Create work item' })).not.toBeInTheDocument();
+    expect(screen.getByText(/Creating work without a repository requires an administrator/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Choose a repository' })).toHaveAttribute('href', '/repos');
+    expect(requests.every((request) => request.method === 'GET')).toBe(true);
     expect(screen.getAllByText('cache').length).toBeGreaterThan(0);
     expect(screen.getByRole('link', { name: '#42' })).toHaveAttribute(
       'href',
@@ -58,7 +62,7 @@ describe('WorkPage', () => {
     );
   });
 
-  it('submits split-wide create payloads without BigInt serialization', async () => {
+  it('lets administrators submit split-wide create payloads without BigInt serialization', async () => {
     const requests = mockFetch([
       ['/api/v1/work', { total: 0, items: [] }],
       {
@@ -74,7 +78,7 @@ describe('WorkPage', () => {
     ]);
     const user = userEvent.setup();
 
-    renderRoute('/work', <Route path="/work" element={<WorkPage />} />);
+    renderRoute('/work', <Route path="/work" element={<WorkPage />} />, 'admin');
 
     const createRegion = await screen.findByRole('region', {
       name: 'Create work item',

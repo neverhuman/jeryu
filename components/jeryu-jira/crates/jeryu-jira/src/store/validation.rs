@@ -1,7 +1,19 @@
 use crate::contracts::{
-    WorkFilter, WorkIssueLink, WorkItem, WorkPrincipal, WorkPrincipalKind, WorkPullRequestLink,
+    CreateWorkItemRequest, WorkFilter, WorkIssueLink, WorkItem, WorkPrincipal, WorkPrincipalKind,
+    WorkPullRequestLink,
 };
 use crate::{Result, WorkError};
+
+impl CreateWorkItemRequest {
+    /// Validate creation fields before starting a linked operation in another store.
+    pub fn validate(&self) -> Result<()> {
+        validate_title(&self.title)?;
+        for assignee in &self.assignees {
+            validate_principal(assignee)?;
+        }
+        Ok(())
+    }
+}
 
 pub(super) fn validate_title(title: &str) -> Result<()> {
     validate_body(title, "work title")

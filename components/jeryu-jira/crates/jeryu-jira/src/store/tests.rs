@@ -10,6 +10,18 @@ use crate::{
     WorkPriority, WorkPullRequestLink, WorkRepository, WorkStatus,
 };
 
+std::thread_local! {
+    static AFTER_DETAIL_ITEM: std::cell::RefCell<Option<Box<dyn FnOnce()>>> =
+        const { std::cell::RefCell::new(None) };
+}
+
+pub(super) fn after_detail_item_read() {
+    let callback = AFTER_DETAIL_ITEM.with(|hook| hook.borrow_mut().take());
+    if let Some(callback) = callback {
+        callback();
+    }
+}
+
 fn store() -> (TestDatabase, WorkStore) {
     let database = TestDatabase::temporary();
     let store = WorkStore::open(database.path()).expect("open store");
@@ -75,6 +87,79 @@ fn create_patch_comment_and_reopen_persist() {
     assert_eq!(detail.item.status, WorkStatus::InProgress);
     assert_eq!(detail.comments.len(), 1);
     assert_eq!(detail.comments[0].author.id, "local");
+}
+
+#[test]
+fn detail_keeps_item_and_comments_in_one_snapshot_during_link_changes() {
+    let (_database, store) = store();
+    let connection = store.connect().expect("writer setup connection");
+    connection
+        .pragma_update(None, "journal_mode", "WAL")
+        .expect("allow writer commits while a reader holds its snapshot");
+    let item = store
+        .create(CreateWorkItemRequest {
+            repo: Some(repo()),
+            title: "Snapshot fixture".to_string(),
+            ..CreateWorkItemRequest::default()
+        })
+        .expect("create item");
+    store
+        .add_comment(
+            &item.key,
+            CreateWorkCommentRequest {
+                body: "Comment before the link".to_string(),
+                author: None,
+            },
+        )
+        .expect("initial comment");
+    let expected_link = WorkIssueLink {
+        owner: "another-owner".to_string(),
+        repo: "private-repository".to_string(),
+        number: 7,
+        url: None,
+    };
+    let writer = store.clone();
+    let key = item.key.clone();
+    let link = expected_link.clone();
+    AFTER_DETAIL_ITEM.with(|hook| {
+        *hook.borrow_mut() = Some(Box::new(move || {
+            writer
+                .link(
+                    &key,
+                    CreateWorkLinkRequest {
+                        issue: Some(link),
+                        pull_request: None,
+                    },
+                )
+                .expect("writer commits changed access binding");
+            writer
+                .add_comment(
+                    &key,
+                    CreateWorkCommentRequest {
+                        body: "Comment after the link".to_string(),
+                        author: None,
+                    },
+                )
+                .expect("writer commits later comment");
+        }));
+    });
+
+    let before = store.detail(&item.key).expect("coherent initial snapshot");
+    assert!(before.item.issue.is_none());
+    assert_eq!(before.comments.len(), 1);
+    assert_eq!(before.comments[0].body, "Comment before the link");
+
+    let after = store
+        .detail(&item.key)
+        .expect("coherent subsequent snapshot");
+    assert_eq!(after.item.issue, Some(expected_link));
+    assert_eq!(after.comments.len(), 2);
+    assert!(
+        after
+            .comments
+            .iter()
+            .any(|comment| comment.body == "Comment after the link")
+    );
 }
 
 #[test]

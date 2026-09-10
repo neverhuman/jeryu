@@ -63,6 +63,25 @@ Work now writes security evidence through its owning Rust package. The scanner
 commands and failure outcome remain required. The complete selected source,
 standalone exports and public installation still need final qualification.
 
+Selected working-tree verification based on `30617123` passed the complete API
+suite (304 tests), owning Work suite (32), CLI snapshots (42), seven standalone
+process scenarios and 209 browser unit tests. Selected rendered scenarios and
+an actual backend browser scenario also passed. Warning-denied Clippy passed
+for API, CLI and Work. These results precede the final candidate; later source
+changes still require their owning checks. An initial stale API expectation
+failed, was independently reviewed and corrected, and remains in retained
+failure evidence. No complete matrix or release audit is implied.
+
+The subsequent acquisition/recovery slice passed 104 split-tool tests and 44
+Tool control tests, with warning-denied Clippy for the split tool, Tool and
+CLI. Seven standalone process scenarios and three recovery-helper tests passed
+across the retained runs, including stopped whole-data archive/restore of Git,
+credentials, Work items and comments. The latest Work guidance also passed a
+rendered browser test and screenshot inspection. The split-tool and standalone
+tests used already-built binaries under a fresh unprivileged UID with zero capabilities;
+they do not establish an empty-cache source installation. Earlier cleanup
+permission failures and recovery-fixture corrections remain retained.
+
 ## Public repositories and dependencies
 
 GitHub `neverhuman/jeryu` main was still
@@ -94,4 +113,5 @@ independently qualified SQLite release. The peer-deleted-checkout evidence
 gap remains documented in the historical record.
 
 See [CI coverage](CI-COVERAGE.md), [auxiliary proofs](AUXILIARY-PROOFS.md),
+[capability coverage](CAPABILITY-COVERAGE.md), [original dispositions](DISPOSITION.md),
 [split publication](SPLIT-PUBLICATION.md) and the [migration plan](PLAN.md).

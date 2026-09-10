@@ -1,7 +1,7 @@
 // CreateRepoForm.tsx — step 1 of the create-repo dialog (W-FE-08).
 //
-// Renders the editable fields (host/owner/name/description/visibility/
-// default branch/topics/initialize_readme) and submits to the parent's
+// Renders supported repository fields and marks unavailable options.
+// Submits to the parent's
 // `onPreview` after validating that owner and name are present. State is
 // owned by the dialog via `useCreateRepoDialog`; this component is a
 // controlled view over that draft.
@@ -61,7 +61,7 @@ export function CreateRepoForm({
             }
           >
             <option value="jeryu">jeryu</option>
-            <option value="local">local</option>
+            <option value="local" disabled>local (unavailable)</option>
           </select>
         </div>
         <div className="create-repo-dialog__field">
@@ -83,7 +83,7 @@ export function CreateRepoForm({
             }
           >
             <option value="private">private</option>
-            <option value="internal">internal</option>
+            <option value="internal" disabled>internal (unavailable)</option>
             <option value="public">public</option>
           </select>
         </div>
@@ -175,10 +175,11 @@ export function CreateRepoForm({
             className="create-repo-dialog__label"
             htmlFor="create-repo-topics"
           >
-            Topics (comma-separated)
+            Topics (unavailable)
           </label>
           <input
             id="create-repo-topics"
+            disabled
             className="create-repo-dialog__input"
             value={topicsText}
             onChange={(e) => setTopicsText(e.target.value)}

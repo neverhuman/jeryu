@@ -36,7 +36,7 @@ pub use runner::{RunnerCommands, RunnerExecutorArg};
     name = "jeryu",
     about = "jeryu operator and agent CLI for the jeryu forge",
     long_about = "Operate and automate a jeryu forge: repositories, pull requests, \
-issues, CI runs, runners, proofs, releases, and cache.",
+issues, agents, and CI run status. Command help identifies unavailable operations.",
     version
 )]
 pub struct Cli {
@@ -64,11 +64,11 @@ pub enum Commands {
     #[command(subcommand)]
     Forge(ForgeCommands),
 
-    /// CI: compile a workflow to IR, schedule a run, inspect, and explain.
+    /// CI: read check runs; run scheduling and explanation are unavailable.
     #[command(subcommand)]
     Ci(CiCommands),
 
-    /// Runners: list, enroll, drain, and rotate build runners.
+    /// Unavailable: runner administration has no server transport.
     #[command(subcommand)]
     Runner(RunnerCommands),
 
@@ -76,18 +76,18 @@ pub enum Commands {
     #[command(subcommand)]
     Agent(AgentCommands),
 
-    /// Proofs: verify a changeset and explain a blocker.
+    /// Unavailable: proof commands have no server transport.
     #[command(subcommand)]
     Proof(ProofCommands),
 
-    /// Release: compose the signed release-ready gate for a version.
+    /// Unavailable: compose a release gate (no server transport).
     Release {
         /// Version label to gate (e.g. 3.0.1-rc.1).
         #[arg(long)]
         version: String,
     },
 
-    /// Cache: integrity and content-addressed store operations.
+    /// Unavailable: cache self-test has no server transport.
     #[command(subcommand)]
     Cache(CacheCommands),
 
@@ -151,14 +151,14 @@ pub enum Commands {
     #[command(subcommand)]
     Autonomy(AutonomyCommands),
 
-    /// Onboard: rehearse onboarding an existing checkout onto a jeryu forge.
+    /// Rehearse onboarding with --dry-run; execution is unavailable.
     Onboard(OnboardArgs),
 }
 
 /// Cache command group.
 #[derive(Debug, Subcommand)]
 pub enum CacheCommands {
-    /// Run the cache integrity/false-hit self-test and report.
+    /// Unavailable: run the cache integrity self-test (no server transport).
     #[command(name = "self-test")]
     SelfTest,
 }
