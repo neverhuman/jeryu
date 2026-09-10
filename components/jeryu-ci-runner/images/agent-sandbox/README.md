@@ -1,76 +1,79 @@
-# agent-sandbox image
+# Agent sandbox image preparation
 
-The **minimal, locked-down container** a confined coding agent runs in. It is the
-image side of the sandbox-session flow: an operator clicks a repo → jeryu launches an
-isolated runner from THIS image, checked out at latest `main` on a freshly-assigned
-unique branch, and the agent works there and submits to jeryu for PR CI.
+This recipe is **unqualified**. The required root OCI lane currently proves the
+small OCI probe image; it does not build or qualify this coding-agent image.
+Do not invoke the legacy smoke harness or publish this image until the artifact
+and lifecycle requirements below are implemented and independently qualified.
 
-## What's inside (and nothing else)
-- Pinned **Rust** toolchain (+ clippy, rustfmt) and **Node + Vite/TypeScript/React**.
-- This repo's **prefetched build dependencies** (cargo + npm caches) so the first build
-  is warm and no network is needed.
-- The agent CLIs: **Codex, Jekko, Claude**.
-- The pinned **jankurai** auditor (**1.6.11**, identity-locked) at
-  `/opt/rust/cargo/bin/jankurai` — the runtime is `--network none`, so the auditor must
-  ship in the image for the in-sandbox CI lanes to audit offline.
-- The **`jeryu-git` guard installed as `git`** (deny-by-default allowlist — only
-  branch-local activity on the assigned branch; no push/fetch/worktree/branch-create)
-  plus **refusal wrappers** for `gh`/`curl`/`wget`/`ssh`/`scp`/`nc`.
-- A non-root user `agent` (uid/gid 1000).
+The recipe now uses the monorepo root as its build context. The guard package
+belongs to `components/jeryu-release-ops/crates/jeryu-git-guard`; the Web application
+and UX package use the root npm workspace and package-lock.json. Cargo build and
+fetch are locked, npm dependency failures abort the build, Jekko installation is
+mandatory, and entrypoint HOME-cache creation failures prevent the agent from
+starting. These source corrections do not prove a successful image build.
 
-No SSH client, no docker CLI, no extra packages, **no credentials** (injected per-run by
-`jeryu-agent-auth`).
+## Intended contents and runtime contract
 
-## How it's locked down at runtime
-`OciSpec::from_agent_job` (crates/jeryu-runner-oci) runs this image with:
-`--read-only` root + `--tmpfs /tmp`, `--cap-drop=ALL`, `--security-opt no-new-privileges`,
-`--security-opt seccomp=/opt/jeryu/seccomp/<name>.json` where `<name>` is the plan's
-seccomp name (`oci-docker-phase4-seccomp`; see `seccomp/oci-docker-phase4-seccomp.json`),
-`--user 1000:1000`, `--memory`/`--pids-limit` from the plan's cgroup caps,
-`--network none`, and **ONLY** the workspace bind-mounted at `/workspace`. So the agent
-can reach nothing on the host beyond its own writable workspace.
+The image must supply Rust with clippy/rustfmt, Node and the Web build tools,
+Codex, Jekko, Claude, prefetched Cargo/npm dependencies, the authenticated pinned
+Jankurai auditor, and the Jeryu Git guard. The guard is installed as `git` with
+refusal wrappers for network, privilege, package-installation and host-management
+tools. Credentials must be injected per run, never included in the build context
+or image layers.
 
-## Disabled tools — the agent JUST edits + builds + commits in its branch
-A refusal wrapper is installed AS every tool the agent does not need for that, so it
-exits 127 with a short explanation instead of working. The agent uses `cargo`/`rustc`/
-`rustup`/`node`/`npm`/`npx`/`tsc`/`vite` to build and the **git guard** to commit — and
-nothing else. Disabled:
-- **symlinks** (`ln`) — edit the real files directly; never link out of the workspace
-  (also denied at the `symlink`/`symlinkat` syscall level in
-  `seccomp/oci-docker-phase4-seccomp.json`);
-- networking: `gh curl wget ssh scp sftp nc ncat netcat telnet socat git-remote-http(s)`;
-- privilege: `sudo su doas`;
-- package installs: `apt apt-get aptitude dpkg pip pip3 gem` (the image is fixed; deps prefetched);
-- containers/orchestration: `docker podman nerdctl kubectl ctr runc`;
-- scheduling/daemons: `crontab at batch systemctl service`;
-- mount/disk/namespace escape: `mount umount dd mkfs nsenter unshare chroot setarch`;
-- keys/ownership/external-open: `ssh-keygen ssh-add gpg chown xdg-open open`.
+`OciSpec::from_agent_job` describes the runtime: read-only root, writable
+`/tmp` and the assigned workspace, dropped capabilities, no-new-privileges,
+the shipped seccomp profile, user 1000:1000, memory/PID limits and no network.
+The image recipe alone does not establish that an engine enforced those options.
 
-The **git guard** (`jeryu-git` installed as `git`) separately forbids new branches /
-switching branches / push / fetch / clone / worktrees — the agent can only commit, diff,
-revert, etc. on its assigned branch and submit to jeryu for PR CI.
+## Required artifacts before an image can qualify
 
-## How CI lanes find the auditor
-Lanes always resolve jankurai via **`$JERYU_JANKURAI_BIN`** (baked into the image as
-`/opt/rust/cargo/bin/jankurai`) or that explicit path — **never** a bare `jankurai`
-PATH lookup, which a stale build earlier on PATH can shadow with the wrong version.
-The path is exactly what `ops/ci/common.sh` derives from `CARGO_HOME`, so the lanes
-run unchanged inside the sandbox. The pin (repo/rev/version) **must stay in sync with
-`ops/ci/ensure-jankurai.sh`** — that script is the source of truth, and a pin bump
-there requires rebuilding this image (the runtime has no network to install at session
-time). The build and the smoke both assert the exact version string.
+| Input | Current recipe | Required evidence |
+| --- | --- | --- |
+| Source | Root-context COPY | Exact commit/tree and a verified committed-source context; no ambient untracked files, credentials, runtime state or build caches |
+| Rust builder/runtime | Rust 1.95 image tag and rustup 1.95 default; root rust-toolchain.toml currently selects 1.97.1 | Qualified digest-bound builder and runtime toolchain consistent with the source; tool versions and offline build evidence |
+| Runtime OS, APT and Node | Debian bookworm tag, live APT, downloaded rustup/NodeSource scripts and Node 22.x | Approved immutable distributions/checksums and dependency provenance; runtime compatibility and security scan |
+| Agent tools | Unversioned npm packages @openai/codex, @anthropic-ai/claude-code and @jeryu/jekko-cli | Exact package versions, resolved artifact integrity and license/provenance; all three executable/version checks |
+| Web tools/cache | Unversioned global Vite/TypeScript plus root locked workspace dependencies | Bound global-tool distributions and a real offline workspace build using the image cache |
+| Auditor | Private-forge ordinary Cargo install with only a version comparison | Existing public-candidate build/verification plus separately qualified image placement and authority evidence; never a rewritten host receipt |
+| Published image | No qualified registry or image digest established here | Owning publication authority, immutable digest, SBOM, signature and exact-source runtime receipt |
 
-## Build
-```
-docker build -f images/agent-sandbox/Dockerfile -t localhost/jeryu/agent-sandbox:latest .
-```
-The runner references it via `JERYU_AGENT_IMAGE` (default
-`localhost/jeryu/agent-sandbox:latest`). CI does not build it — the
-`FakeContainerRuntime` exercises the run args without a daemon.
+The Jekko package name above is only the recipe's current install coordinate.
+No exact Jekko distribution or installation authority is established by that
+name. This document does not assert that the package is publicly available or
+that its absence is proven. Failing its installation now fails the image build.
 
-## Where this sits in the session flow
-1. ✅ this image (light, locked-down) + `OciSpec::from_agent_job` (hardened run args)
-2. ⬜ warm runner pool + claim → checkout latest `main` → assign a unique branch
-3. ⬜ create-session API + TUI/web "New Session" button
-4. ⬜ device-auth-once inheritance (credentials injected per run)
-5. ⬜ mediated publish (agent commits → jeryu opens the PR → host-ci gate)
+The root `scripts/bootstrap-jankurai.sh` already calls the owning public-candidate
+installer and verifier. That verifier checks the immutable builder/source pins,
+golden binary digest, version, source and content-addressed receipt while holding
+the binary descriptor and installation lock. An image preparation step must use
+that existing admission, retain the actual receipt and revalidate the held binary
+when copying it. Its candidate receipt does **not** authorize rewriting the
+installation path or claiming the governed image installation succeeded. The
+existing generated pin block remains untouched by this preparation change.
+
+## Remaining real smoke and custody work
+
+The legacy `ops/agent-sandbox/smoke.sh` retains all 21 checks: four filesystem
+checks, one network check, four refusal-wrapper checks, one raw symlink check,
+five Git checks, three toolchain checks and three auditor path/version checks.
+It now fails if the engine is absent, arguments are unsupported, a check fails,
+or the aggregate contains anything other than exactly 21 passes.
+
+Those checks still do not qualify the image. Broad nonzero assertions can mistake
+engine/tool failure for enforcement, non-root permission failures do not establish
+a read-only mount, and path/version assertions do not authenticate the auditor.
+The old harness also uses a shared image tag, unbounded engine commands and
+unverified destructive cleanup. Keep it uninvoked while those defects remain.
+
+Move the real 21-behavior proof into the existing OCI Engine's bounded, exact-ID
+container lifecycle. Add tool-distribution, authenticated auditor, offline Cargo
+and Web-build assertions. Bind every result to the exact source/profile/image;
+record creation and exit identity, actual refusal causes, logs and successful
+container removal. Preserve uncertain scratch and evidence for guarded retirement.
+Only then make that shared owning command mandatory in local and hosted CI.
+Missing capabilities, skipped proofs and incomplete counts must fail. The small
+probe-image lane remains a separate required proof.
+
+See [publication prerequisites](PUBLISH.md). No build, real smoke or publication
+is authorized by this document.

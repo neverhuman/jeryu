@@ -49,6 +49,15 @@ if [[ -n $prepare_local ]]; then
   trap 'exit 130' INT
   trap 'exit 143' TERM
 fi
+# These components need only ordinary Cargo commands. Re-enter the unchanged
+# public dispatch once under verified, invocation-scoped local transport; the
+# outer trap still checks the raw source and generated tree after every outcome.
+if [[ -n $prepare_local && $lane == ordinary &&
+      ( $component == jeryu-cache || $component == jeryu-core || $component == jeryu-intelligence ) ]]; then
+  split_source_run "$prepare_local" "$source_commit" "$component" "$component_tree" \
+    bash "$split_root/scripts/split-ci.sh" ordinary
+  exit 0
+fi
 split_cargo() {
   if [[ -n $prepare_local ]]; then
     split_source_run "$prepare_local" "$source_commit" "$component" "$component_tree" cargo "$@"
