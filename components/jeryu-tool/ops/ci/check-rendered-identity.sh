@@ -37,8 +37,8 @@ while [[ $# -gt 0 ]]; do
       else
         [[ $value == *=* && ! -v overrides[$name] ]]
         path=${value#*=}
-        expected="$root/components/$name"
-        [[ $name != jeryu ]] || expected=$root
+        expected="$monorepo_root/components/$name"
+        [[ $name != jeryu ]] || expected=$monorepo_root
         [[ $path == "$expected" && $(realpath -e -- "$path") == "$expected" ]]
         overrides[$name]=1
       fi
