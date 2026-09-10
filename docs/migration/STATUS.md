@@ -87,6 +87,35 @@ and three CI locks closed with source unchanged. Real OCI, independent builds
 of all ten exports, anonymous final-source installation and complete CI still
 require qualification.
 
+At clean checkpoint `2fde8651`, the full-source disposable OCI VM passed the
+shared command: one required test, nine checks and 15 unique container runs,
+with no failures or skips. The 32 MiB probe had verified OOM exit 137; the
+256 MiB control exited normally. Both VM processes closed. Original, restored
+and rechecked manifests matched before guarded scratch removal; the private
+recovery archive remains. The earlier failed OOM attempt remains unexplained
+and preserved. This is exact local-source OCI evidence, not agent-image proof.
+
+The same checkpoint passed the actual Cache split qualification. Two independent
+exports produced identical trees and lockfiles; both metadata graphs contained
+exactly five local Cache packages. Formatting, warning-denied all-target and
+all-feature Clippy, all-feature tests and the final build passed. Eleven Rust
+summaries contained 44 passes with none failed, ignored or filtered. Source,
+process and three-lock closure were verified. The source clone and two resolver
+roots remain private pending separate preservation and retirement. This local
+preparation has no external Jeryu dependency edges; Intelligence must exercise
+that case, and anonymous public-origin qualification remains open.
+
+The subsequent ten-path source selection, `2fde8651` plus diff `1ef68edd`,
+passed all four owning check groups: formatting and 106 dispatch cases; the
+47 split binary tests, six CLI tests and two export regressions with Clippy and
+the 941-input inventory check; 24 orchestration and 49 local-source cases; and
+seven ordinary OCI tests plus four agent-image shell tests with owning Clippy.
+The single named real-Docker test remained explicitly ignored in this ordinary
+run. OCI cleanup now binds full container identity and bounds failure waits;
+image preparation errors propagate; local split preparation batches its strict
+Cargo commands. These changes still require a new real OCI run, actual split
+execution and complete CI. No full agent-image build or release is qualified.
+
 This source also scopes Work commands to their owning package with locked
 resolution, strengthens the actual governed-auditor wrapper checks, and keeps
 failed test scratch for verified cleanup. At clean `37b08b28`, all seven private

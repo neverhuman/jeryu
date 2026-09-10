@@ -10,6 +10,6 @@
 # (e.g. an interrupt `docker kill`) reach the agent directly.
 set -e
 if [ -n "${HOME}" ]; then
-  mkdir -p "${HOME}/.cache" 2>/dev/null || true
+  mkdir -p "${HOME}/.cache"
 fi
 exec "$@"

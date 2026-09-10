@@ -15,25 +15,26 @@
 #   * a non-root user `agent` (uid/gid 1000).
 # Credentials are NEVER baked in — they are injected per-run (see jeryu-agent-auth).
 #
-# Build:  docker build -f images/agent-sandbox/Dockerfile -t localhost/jeryu/agent-sandbox:latest .
-#         (the runner references it via JERYU_AGENT_IMAGE)
+# Build context: the complete monorepo root, supplied from verified committed source.
+# This is an unqualified preparation recipe; see README.md for required artifact and
+# custody proofs before any build or publication. JERYU_AGENT_IMAGE selects the result.
 
 # ---- toolchain build stage: compile the jeryu-git guard from the repo ----------------
 # The guard lives in a Cargo WORKSPACE whose root Cargo.toml lists every member, so a
 # manifest-path build of one crate still makes cargo read all members. We therefore copy
-# the whole (already-small, see .dockerignore) context and build the one binary by
+# the whole verified root context and build the one binary by
 # package selector. The guard is pure std, so this is fast and self-contained.
 FROM rust:1.95-slim-bookworm AS guard-build
 ENV CARGO_HOME=/opt/rust/cargo
 WORKDIR /src
 COPY . /src
-RUN cargo build --release -p jeryu-git-guard --bin jeryu-git \
+RUN cargo build --locked --release -p jeryu-git-guard --bin jeryu-git \
     && cp target/release/jeryu-git /jeryu-git
 # Warm this repo's cargo registry cache here, where the FULL workspace source exists, so
 # the runtime image can ship it for an offline (`--network none`) first build. Doing it
 # in this stage avoids copying every member crate into the runtime just to satisfy
 # `cargo fetch`'s workspace-manifest read.
-RUN cargo fetch --locked || cargo fetch || true
+RUN cargo fetch --locked
 
 # ---- jankurai build stage: compile the pinned auditor ---------------------------------
 # KEEP IN SYNC with ops/ci/ensure-jankurai.sh (the pin source of truth). The runtime
@@ -118,8 +119,9 @@ RUN curl -fsSL "https://deb.nodesource.com/setup_${NODE_MAJOR}.x" | bash - \
     && rm -rf /var/lib/apt/lists/* /root/.npm
 
 # Jekko (jeryu's own agent CLI) — installed from the internal registry/release.
-# Kept as a clearly-marked install hook so the image build stays reproducible.
-RUN npm install -g @jeryu/jekko-cli || echo "jekko: install from internal registry at build time"
+# The exact distribution and its provenance still need qualification. A missing
+# package is a build failure, not an image with a silently absent agent.
+RUN npm install -g @jeryu/jekko-cli
 
 # The git guard becomes the ONLY `git` on the agent PATH; a refusal wrapper is installed
 # as every tool a "just edit + build + commit code in this branch" agent does NOT need.
@@ -137,7 +139,7 @@ RUN npm install -g @jeryu/jekko-cli || echo "jekko: install from internal regist
 #   * mount / disk / namespace escape: mount umount dd mkfs nsenter unshare chroot setarch
 #   * keys / ownership / external-open: ssh-keygen ssh-add gpg chown xdg-open open
 COPY --from=guard-build /jeryu-git /opt/jeryu/bin/git
-COPY images/agent-sandbox/bin/refuse /opt/jeryu/bin/refuse
+COPY components/jeryu-ci-runner/images/agent-sandbox/bin/refuse /opt/jeryu/bin/refuse
 RUN for tool in \
       gh curl wget ssh scp sftp nc ncat netcat telnet socat \
       git-remote-https git-remote-http \
@@ -152,7 +154,7 @@ RUN for tool in \
     && chmod -R 0555 /opt/jeryu/bin
 
 # The seccomp profile the runner references at /opt/jeryu/seccomp/<name>.json.
-COPY images/agent-sandbox/seccomp/ /opt/jeryu/seccomp/
+COPY components/jeryu-ci-runner/images/agent-sandbox/seccomp/ /opt/jeryu/seccomp/
 
 # Prefetch this repo's build dependencies so the agent's first build is warm and the
 # container needs no network (it runs --network none). The cargo registry cache is taken
@@ -160,9 +162,10 @@ COPY images/agent-sandbox/seccomp/ /opt/jeryu/seccomp/
 # resolve every member); the npm deps are installed here from the lockfile.
 WORKDIR /opt/jeryu/repo
 COPY --from=guard-build /opt/rust/cargo/registry /opt/rust/cargo/registry
-COPY Cargo.toml Cargo.lock ./
-COPY apps/web/package.json apps/web/package-lock.json ./apps/web/
-RUN (cd apps/web && npm ci --no-audit --no-fund || true)
+COPY package.json package-lock.json ./
+COPY components/jeryu-web/apps/web/package.json ./components/jeryu-web/apps/web/
+COPY components/jeryu-web/ux-qa/package.json ./components/jeryu-web/ux-qa/
+RUN npm ci --no-audit --no-fund
 
 # Non-root user (uid/gid 1000). The container runs `--read-only`, so the ONLY writable
 # spots are `--tmpfs /tmp` and the workspace bind-mount. The agent CLIs (codex/claude)
@@ -170,7 +173,7 @@ RUN (cd apps/web && npm ci --no-audit --no-fund || true)
 # writable workspace mount lets them start without touching the read-only root. The
 # entrypoint creates $HOME on first use (a fresh workspace mount has no such dir yet),
 # then execs the agent argv emitted by the runner (codex / claude / jekko ...).
-COPY images/agent-sandbox/bin/entrypoint /opt/jeryu/bin/entrypoint
+COPY components/jeryu-ci-runner/images/agent-sandbox/bin/entrypoint /opt/jeryu/bin/entrypoint
 RUN chmod 0555 /opt/jeryu/bin/entrypoint
 # groupadd/useradd live in /usr/sbin, which is intentionally NOT on the agent PATH above;
 # call them by absolute path so the build does not depend on PATH.

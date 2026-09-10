@@ -24,9 +24,12 @@ trap finish EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 fixture=$temporary/source
-mkdir -p "$fixture/components/jeryu-cache"
+mkdir -p "$fixture/components/jeryu-cache" "$fixture/components/jeryu-core" "$fixture/components/jeryu-intelligence"
 printf 'synthetic source\n' > "$fixture/README.md"
 printf 'synthetic component\n' > "$fixture/components/jeryu-cache/Cargo.toml"
+for component in jeryu-core jeryu-intelligence; do
+  printf 'synthetic component\n' > "$fixture/components/$component/Cargo.toml"
+done
 split_source_git "$fixture" init --quiet --initial-branch=main --template=
 split_source_git "$fixture" add .
 split_source_git "$fixture" -c user.name=Fixture -c user.email=fixture@jeryu.invalid \
@@ -179,6 +182,7 @@ case "$*" in
 esac
 printf '%s\n' "$1" >> "$TRANSPORT_TRACE"
 if [[ ${MUTATE_SOURCE:-0} == 1 ]]; then printf 'changed in Cargo fixture\n' >> "$EXPECTED_SOURCE/README.md"; fi
+if [[ ${MUTATE_EXPORT:-0} == 1 ]]; then printf 'changed generated source\n' >> Cargo.toml; fi
 if [[ $1 == test ]]; then exit "${TEST_EXIT:-0}"; fi
 CARGO
 chmod 0700 "$temporary/bin/cargo"
@@ -187,6 +191,7 @@ export TRANSPORT_MODE=local
 : > "$TRANSPORT_TRACE"
 expect 0 bash "$export_fixture/scripts/split-ci.sh" ordinary --prepare-local "$fixture"
 [[ $(<"$TRANSPORT_TRACE") == $'fmt\nclippy\ntest\nbuild' ]]
+[[ $(grep -c '^split transport: local-source-preparation ' "$temporary/stderr") == 1 ]]
 : > "$TRANSPORT_TRACE"
 export TEST_EXIT=23
 expect 23 bash "$export_fixture/scripts/split-ci.sh" ordinary --prepare-local "$fixture"
@@ -195,7 +200,8 @@ unset TEST_EXIT
 : > "$TRANSPORT_TRACE"
 export MUTATE_SOURCE=1
 expect 1 bash "$export_fixture/scripts/split-ci.sh" ordinary --prepare-local "$fixture"
-[[ $(<"$TRANSPORT_TRACE") == fmt ]]
+# Whole-block admission still rejects source mutation after all strict commands.
+[[ $(<"$TRANSPORT_TRACE") == $'fmt\nclippy\ntest\nbuild' ]]
 unset MUTATE_SOURCE
 split_source_git "$fixture" reset --quiet --hard "$revision"
 : > "$TRANSPORT_TRACE"
@@ -207,8 +213,49 @@ split_source_git "$export_fixture" update-index --assume-unchanged .jeryu-source
 expect 1 bash "$export_fixture/scripts/split-ci.sh" ordinary --prepare-local "$fixture"
 [[ ! -s $TRANSPORT_TRACE ]]
 split_source_git "$export_fixture" update-index --no-assume-unchanged .jeryu-source.json
+: > "$TRANSPORT_TRACE"
+export MUTATE_EXPORT=1
+expect 1 bash "$export_fixture/scripts/split-ci.sh" ordinary --prepare-local "$fixture"
+[[ $(<"$TRANSPORT_TRACE") == $'fmt\nclippy\ntest\nbuild' ]]
+unset MUTATE_EXPORT
+export_revision=$(split_source_git "$export_fixture" rev-parse HEAD)
+split_source_git "$export_fixture" reset --quiet --hard "$export_revision"
+: > "$TRANSPORT_TRACE"
 export TRANSPORT_MODE=public
 expect 0 bash "$export_fixture/scripts/split-ci.sh" ordinary
 [[ $(<"$TRANSPORT_TRACE") == $'fmt\nclippy\ntest\nbuild' ]]
 
+# The other two selected components reuse this exact dispatcher and custody.
+export TRANSPORT_MODE=local
+for component in jeryu-core jeryu-intelligence; do
+  component_tree=$(split_source_git "$fixture" rev-parse "HEAD:components/$component")
+  jq --arg component "$component" --arg tree "$component_tree" \
+    '.component=$component | .original_component_tree=$tree' \
+    "$export_fixture/.jeryu-source.json" > "$temporary/provenance.json"
+  install -m 0600 "$temporary/provenance.json" "$export_fixture/.jeryu-source.json"
+  split_source_git "$export_fixture" add .jeryu-source.json
+  split_source_git "$export_fixture" -c commit.gpgsign=false commit --quiet -m "Synthetic $component selection"
+  export_revision=$(split_source_git "$export_fixture" rev-parse HEAD)
+  : > "$TRANSPORT_TRACE"
+  expect 0 bash "$export_fixture/scripts/split-ci.sh" ordinary --prepare-local "$fixture"
+  [[ $(<"$TRANSPORT_TRACE") == $'fmt\nclippy\ntest\nbuild' ]]
+  [[ $(grep -c '^split transport: local-source-preparation ' "$temporary/stderr") == 1 ]]
+  : > "$TRANSPORT_TRACE"
+  export TEST_EXIT=23
+  expect 23 bash "$export_fixture/scripts/split-ci.sh" ordinary --prepare-local "$fixture"
+  [[ $(<"$TRANSPORT_TRACE") == $'fmt\nclippy\ntest' ]]
+  unset TEST_EXIT
+  : > "$TRANSPORT_TRACE"
+  export MUTATE_SOURCE=1
+  expect 1 bash "$export_fixture/scripts/split-ci.sh" ordinary --prepare-local "$fixture"
+  [[ $(<"$TRANSPORT_TRACE") == $'fmt\nclippy\ntest\nbuild' ]]
+  unset MUTATE_SOURCE
+  split_source_git "$fixture" reset --quiet --hard "$revision"
+  : > "$TRANSPORT_TRACE"
+  export MUTATE_EXPORT=1
+  expect 1 bash "$export_fixture/scripts/split-ci.sh" ordinary --prepare-local "$fixture"
+  [[ $(<"$TRANSPORT_TRACE") == $'fmt\nclippy\ntest\nbuild' ]]
+  unset MUTATE_EXPORT
+  split_source_git "$export_fixture" reset --quiet --hard "$export_revision"
+done
 printf 'Split local source transport: %s synthetic cases passed; no real resolution or build.\n' "$passed"

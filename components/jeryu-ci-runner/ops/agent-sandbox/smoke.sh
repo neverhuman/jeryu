@@ -10,9 +10,9 @@
 # Usage:  ops/agent-sandbox/smoke.sh [smoke|full]
 # Engine: ${JERYU_OCI_RUNTIME:-podman} (matches the runner's runtime selection).
 #
-# When no container engine is present the script prints a clear SKIP line and exits 0, so
-# it is safe to invoke from any lane; the assertions only run where an engine exists (a
-# dedicated runner). The daemonless CI never reaches the engine path.
+# A missing engine is a failure. This legacy harness still requires the lifecycle
+# repair documented in images/agent-sandbox/README.md before required-CI use.
+# Keep its real-engine execution separate from ordinary source regressions.
 set -euo pipefail
 
 # BEGIN GENERATED JANKURAI PIN — DO NOT EDIT
@@ -43,19 +43,31 @@ export JERYU_JANKURAI_BUILD_COMMAND="cargo install --locked --offline --path /op
 export JERYU_JANKURAI_BUILD_CONTEXT_SHA256="889d19f86fc390b0f0cf0bd6ecb4d451c51a2d6fb328e5520e4310e7ee5dedd6"
 # END GENERATED JANKURAI PIN
 
+if (( $# > 1 )) || [[ ${1:-smoke} != smoke && ${1:-smoke} != full ]]; then
+  printf 'usage: %s [smoke|full]\n' "$0" >&2
+  exit 2
+fi
 mode="${1:-smoke}"
 runtime="${JERYU_OCI_RUNTIME:-podman}"
 image="localhost/jeryu/agent-sandbox:smoke"
-root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+
 
 if ! command -v "$runtime" >/dev/null 2>&1; then
-  echo "agent-sandbox smoke: SKIP (no container runtime: '$runtime' not on PATH)"
-  exit 0
+  echo "agent-sandbox smoke: FAILED (no container runtime: '$runtime' not on PATH)" >&2
+  exit 1
 fi
+
+component_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+root="$(cd "$component_root/../.." && pwd)"
+[[ -f "$root/Cargo.toml" && -f "$root/package-lock.json" &&
+   -d "$root/components/jeryu-release-ops/crates/jeryu-git-guard" ]] || {
+  echo "agent-sandbox smoke: requires the monorepo root context" >&2
+  exit 1
+}
 
 # The seccomp profile the engine reads from the host. It is the same JSON the image ships
 # at /opt/jeryu/seccomp/, so the symlink syscall block this asserts is the image's own.
-seccomp_profile="$root/images/agent-sandbox/seccomp/oci-docker-phase4-seccomp.json"
+seccomp_profile="$component_root/images/agent-sandbox/seccomp/oci-docker-phase4-seccomp.json"
 branch="agents/smoke/sessions/run1"
 
 # Host-side workspace: a real git repo on the assigned branch, mounted read-write at
@@ -73,14 +85,14 @@ git -C "$work" -c user.email=smoke@jeryu.invalid -c user.name=smoke commit -q --
 git -C "$work" branch -q -M "$branch"
 
 echo "agent-sandbox smoke: building $image with $runtime"
-"$runtime" build -f "$root/images/agent-sandbox/Dockerfile" -t "$image" "$root"
+"$runtime" build -f "$component_root/images/agent-sandbox/Dockerfile" -t "$image" "$root"
 
 # The EXACT hardened flags OciSpec::from_agent_job emits, plus the per-run env a live
 # session injects (the pinned branch for the git guard, git identity, real git path, and
 # safe.directory so the mounted repo is trusted under the non-root uid).
 hard=(
   --read-only
-  --tmpfs /tmp:rw,nosuid,nodev,noexec
+  --tmpfs "/tmp:rw,nosuid,nodev,noexec"
   --cap-drop=ALL
   --security-opt no-new-privileges
   --security-opt "seccomp=$seccomp_profile"
@@ -196,9 +208,9 @@ if [[ "$mode" == "full" ]]; then
   echo "agent-sandbox smoke: full mode ran the complete lockdown battery on $runtime"
 fi
 
-if [[ "$fails" -eq 0 ]]; then
+if [[ "$fails" -eq 0 && "$passes" -eq 21 ]]; then
   echo "agent-sandbox smoke: PASSED"
   exit 0
 fi
-echo "agent-sandbox smoke: FAILED"
+echo "agent-sandbox smoke: FAILED (requires exactly 21 passing checks and zero failures)"
 exit 1

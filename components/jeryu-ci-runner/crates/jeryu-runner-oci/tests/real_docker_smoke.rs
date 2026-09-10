@@ -163,12 +163,105 @@ fn prepare_base(
     Ok(base[0].clone())
 }
 
+const CUSTODY_LABEL: &str = "org.jeryu.oci-proof";
+
+struct OwnedContainer {
+    name: String,
+    id: Option<String>,
+    image: String,
+}
+
+fn validate_container_owner(container: &OwnedContainer, inspected: &Value) -> Result<()> {
+    let id = container
+        .id
+        .as_deref()
+        .context("create identity is unknown; retain resources")?;
+    ensure!(
+        id.len() == 64 && id.bytes().all(|byte| byte.is_ascii_hexdigit()),
+        "invalid full container identity"
+    );
+    ensure!(
+        container.image.strip_prefix("sha256:").is_some_and(
+            |digest| digest.len() == 64 && digest.bytes().all(|byte| byte.is_ascii_hexdigit())
+        ),
+        "invalid content-addressed container image"
+    );
+    ensure!(
+        inspected.as_array().is_some_and(|values| values.len() == 1),
+        "ambiguous container inspection"
+    );
+    let actual = &inspected[0];
+    ensure!(
+        actual["Id"] == id
+            && actual["Name"] == format!("/{}", container.name)
+            && actual["Config"]["Labels"][CUSTODY_LABEL] == container.name
+            && actual["Image"] == container.image
+            && actual["Config"]["Image"] == container.image,
+        "container custody changed; retain resources"
+    );
+    Ok(())
+}
+
+fn remove_owned_container(
+    container: &OwnedContainer,
+    mut docker: impl FnMut(&[String], u64) -> Result<String>,
+) -> Result<()> {
+    let id = container
+        .id
+        .as_deref()
+        .context("create identity is unknown; retain resources")?;
+    ensure!(
+        id.len() == 64 && id.bytes().all(|byte| byte.is_ascii_hexdigit()),
+        "invalid full container identity"
+    );
+    let filter = format!("id={id}");
+    let list = strings(&[
+        "ps",
+        "--all",
+        "--no-trunc",
+        "--filter",
+        &filter,
+        "--format",
+        "{{.ID}}",
+    ]);
+    let present = docker(&list, 10)?;
+    if present.trim().is_empty() {
+        return Ok(());
+    }
+    ensure!(present.trim() == id, "ambiguous container identity listing");
+    let inspected: Value = serde_json::from_str(&docker(&strings(&["inspect", id]), 10)?)?;
+    validate_container_owner(container, &inspected)?;
+    docker(&strings(&["rm", "--force", id]), 10)?;
+    ensure!(
+        docker(&list, 10)?.trim().is_empty(),
+        "container removal was not confirmed"
+    );
+    Ok(())
+}
+
+fn poll_child<T>(
+    budget: Duration,
+    mut poll: impl FnMut() -> std::io::Result<Option<T>>,
+) -> std::io::Result<Option<T>> {
+    let deadline = Instant::now() + budget;
+    loop {
+        if let Some(status) = poll()? {
+            return Ok(Some(status));
+        }
+        if Instant::now() >= deadline {
+            return Ok(None);
+        }
+        std::thread::sleep(Duration::from_millis(25));
+    }
+}
+
 struct Engine {
     scratch: TempDir,
     scratch_identity: (u64, u64),
     scratch_removed: bool,
     sequence: Cell<u64>,
-    containers: Vec<String>,
+    containers: Vec<OwnedContainer>,
+    command_uncertain: Cell<bool>,
     image: Option<String>,
     base: Value,
     evidence: Vec<Value>,
@@ -190,6 +283,7 @@ impl Engine {
             scratch_removed: false,
             sequence: Cell::new(0),
             containers: Vec::new(),
+            command_uncertain: Cell::new(false),
             image: None,
             base: Value::Null,
             evidence: Vec::new(),
@@ -197,6 +291,10 @@ impl Engine {
     }
 
     fn capture(&self, command: &mut Command, seconds: u64) -> Result<Captured> {
+        ensure!(
+            !self.command_uncertain.get(),
+            "prior command closure uncertain; retain resources"
+        );
         let serial = self.sequence.get();
         self.sequence.set(serial + 1);
         let stdout = self.scratch.path().join(format!("command-{serial}.stdout"));
@@ -208,22 +306,46 @@ impl Engine {
             .stdout(file(&stdout)?)
             .stderr(file(&stderr)?)
             .spawn()?;
-        let deadline = Instant::now() + Duration::from_secs(seconds);
-        let status = loop {
-            if let Some(status) = child.try_wait()? {
-                break status;
+        let status = match poll_child(Duration::from_secs(seconds), || child.try_wait()) {
+            Ok(Some(status)) => status,
+            outcome => {
+                // An unreaped Child reserves its PID. Only a positively live timeout
+                // authorizes signalling its process group; a polling error does not.
+                // Neither outcome authorizes resource deletion, even if KILL returns.
+                self.command_uncertain.set(true);
+                eprintln!(
+                    "OCI command closure uncertain: child={} group={}; retain {}",
+                    child.id(),
+                    child.id(),
+                    self.scratch.path().display()
+                );
+                if matches!(&outcome, Ok(None)) {
+                    if let Ok(mut killer) = Command::new("/bin/kill")
+                        .args(["-KILL", "--"])
+                        .arg(format!("-{}", child.id()))
+                        .stdin(Stdio::null())
+                        .stdout(Stdio::null())
+                        .stderr(Stdio::null())
+                        .spawn()
+                    {
+                        eprintln!("OCI bounded group-signal helper: child={}", killer.id());
+                        if !matches!(
+                            poll_child(Duration::from_secs(2), || killer.try_wait()),
+                            Ok(Some(_))
+                        ) {
+                            let _ = killer.kill();
+                            let _ = poll_child(Duration::from_secs(2), || killer.try_wait());
+                        }
+                    }
+                    let _ = child.kill();
+                    let _ = poll_child(Duration::from_secs(2), || child.try_wait());
+                }
+                return match outcome {
+                    Ok(None) => bail!("command exceeded {seconds}s deadline; retain resources"),
+                    Err(error) => Err(error).context("command polling failed; retain resources"),
+                    Ok(Some(_)) => unreachable!(),
+                };
             }
-            if Instant::now() >= deadline {
-                let _ = Command::new("/bin/kill")
-                    .args(["-KILL", "--"])
-                    .arg(format!("-{}", child.id()))
-                    .stderr(Stdio::null())
-                    .status();
-                let _ = child.kill();
-                let _ = child.wait();
-                bail!("command exceeded {seconds}s deadline");
-            }
-            std::thread::sleep(Duration::from_millis(25));
         };
         ensure!(
             fs::metadata(&stdout)?.len() <= 4 * MIB && fs::metadata(&stderr)?.len() <= 4 * MIB,
@@ -336,19 +458,41 @@ impl Engine {
             self.scratch.path().file_name().unwrap().to_string_lossy(),
             self.containers.len()
         );
-        self.containers.push(name.clone());
+        self.containers.push(OwnedContainer {
+            name: name.clone(),
+            id: None,
+            image: spec.image.clone(),
+        });
         ensure!(
             args.first().is_some_and(|arg| arg == "run")
                 && args.get(1).is_some_and(|arg| arg == "--rm"),
             "OciSpec lifecycle changed; review qualification adapter"
         );
-        args.splice(0..2, ["create".into(), "--name".into(), name.clone()]);
+        args.splice(
+            0..2,
+            [
+                "create".into(),
+                "--name".into(),
+                name.clone(),
+                "--label".into(),
+                format!("{CUSTODY_LABEL}={name}"),
+            ],
+        );
         let id = self.successful(&args, 30)?.trim().to_owned();
         ensure!(
             id.len() == 64 && id.bytes().all(|b| b.is_ascii_hexdigit()),
             "missing container identity"
         );
+        let container = self
+            .containers
+            .last_mut()
+            .context("missing tracked create")?;
+        container.id = Some(id.clone());
         let before = self.json(&strings(&["inspect", &id]))?;
+        validate_container_owner(
+            self.containers.last().context("missing tracked create")?,
+            &before,
+        )?;
         let expected_hardening = spec.hardening.as_ref().context("agent hardening missing")?;
         let host = &before[0]["HostConfig"];
         ensure!(
@@ -424,27 +568,33 @@ impl Engine {
         if self.scratch_removed {
             return Ok(());
         }
-        // Attempt every owned container even when a previous create/start failed.
+        ensure!(
+            !self.command_uncertain.get(),
+            "command closure uncertain; retain all OCI resources"
+        );
         let mut failed = Vec::new();
-        for name in std::mem::take(&mut self.containers) {
-            if self
-                .successful(&strings(&["rm", "--force", &name]), 10)
-                .is_ok()
-            {
-                continue;
-            }
-            let filter = format!("name=^/{name}$");
-            let absent = self
-                .successful(
-                    &strings(&["ps", "--all", "--filter", &filter, "--format", "{{.ID}}"]),
-                    10,
-                )
-                .is_ok_and(|ids| ids.trim().is_empty());
-            if !absent {
-                failed.push(name);
+        for container in std::mem::take(&mut self.containers) {
+            let removal = if self.command_uncertain.get() {
+                Err(anyhow::anyhow!(
+                    "prior command closure uncertain; retain resources"
+                ))
+            } else {
+                remove_owned_container(&container, |args, seconds| self.successful(args, seconds))
+            };
+            if let Err(error) = removal {
+                eprintln!(
+                    "OCI container cleanup refused: name={} id={}: {error:#}",
+                    container.name,
+                    container.id.as_deref().unwrap_or("<unknown>")
+                );
+                failed.push(container);
             }
         }
         self.containers = failed;
+        ensure!(
+            self.containers.is_empty() && !self.command_uncertain.get(),
+            "could not confirm every owned container removed; retain image and scratch"
+        );
         let mut image_removed = true;
         if let Some(image) = &self.image {
             if self
@@ -1088,4 +1238,169 @@ fn base_preparation_selects_only_authorized_transport() {
         );
         assert_eq!(calls, 1);
     }
+}
+
+fn custody_fixture() -> (OwnedContainer, Value) {
+    let container = OwnedContainer {
+        name: "jeryu-oci-proof-fixture-0".into(),
+        id: Some("a".repeat(64)),
+        image: format!("sha256:{}", "b".repeat(64)),
+    };
+    let inspected = json!([{
+        "Id": container.id,
+        "Name": format!("/{}", container.name),
+        "Image": container.image,
+        "Config": {"Image": container.image, "Labels": {"org.jeryu.oci-proof": container.name}}
+    }]);
+    (container, inspected)
+}
+
+#[test]
+fn container_custody_rejects_replacement_and_unadmitted_identity() {
+    let (mut container, inspected) = custody_fixture();
+    validate_container_owner(&container, &inspected).unwrap();
+    for pointer in [
+        "/0/Id",
+        "/0/Name",
+        "/0/Image",
+        "/0/Config/Image",
+        "/0/Config/Labels/org.jeryu.oci-proof",
+    ] {
+        let mut changed = inspected.clone();
+        *changed.pointer_mut(pointer).unwrap() = json!("foreign");
+        assert!(
+            validate_container_owner(&container, &changed).is_err(),
+            "{pointer}"
+        );
+    }
+    for changed in [json!([]), json!([inspected[0], inspected[0]]), json!(null)] {
+        assert!(validate_container_owner(&container, &changed).is_err());
+    }
+    container.id = None;
+    assert!(validate_container_owner(&container, &inspected).is_err());
+    container.id = Some("a".repeat(12));
+    assert!(validate_container_owner(&container, &inspected).is_err());
+    container.id = Some("z".repeat(64));
+    assert!(validate_container_owner(&container, &inspected).is_err());
+}
+
+#[test]
+fn container_cleanup_requires_exact_custody_and_confirmed_absence() {
+    let (mut container, inspected) = custody_fixture();
+    let id = container.id.clone().unwrap();
+    let list = strings(&[
+        "ps",
+        "--all",
+        "--no-trunc",
+        "--filter",
+        &format!("id={id}"),
+        "--format",
+        "{{.ID}}",
+    ]);
+    let inspect = strings(&["inspect", &id]);
+    let remove = strings(&["rm", "--force", &id]);
+    let mut calls = Vec::new();
+    remove_owned_container(&container, |args, seconds| {
+        assert_eq!(seconds, 10);
+        calls.push(args.to_vec());
+        Ok(match calls.len() {
+            1 => format!("{id}\n"),
+            2 => inspected.to_string(),
+            3 => format!("{id}\n"),
+            4 => String::new(),
+            _ => panic!("unexpected operation"),
+        })
+    })
+    .unwrap();
+    assert_eq!(
+        calls,
+        vec![list.clone(), inspect.clone(), remove.clone(), list.clone()]
+    );
+
+    // Even if this name has been reused, an absent original CID causes no removal.
+    remove_owned_container(&container, |args, _| {
+        assert_eq!(args, list);
+        Ok(String::new())
+    })
+    .unwrap();
+    for response in [format!("{id}\nforeign"), "short-id".into()] {
+        assert!(
+            remove_owned_container(&container, |args, _| {
+                assert_eq!(args, list);
+                Ok(response.clone())
+            })
+            .is_err()
+        );
+    }
+    // A present ID must still bind every admitted ownership field before rm.
+    for pointer in [
+        "/0/Id",
+        "/0/Name",
+        "/0/Image",
+        "/0/Config/Labels/org.jeryu.oci-proof",
+    ] {
+        let mut changed = inspected.clone();
+        *changed.pointer_mut(pointer).unwrap() = json!("foreign");
+        assert!(
+            remove_owned_container(&container, |args, _| {
+                if args == list {
+                    return Ok(id.clone());
+                }
+                assert_eq!(args, inspect, "no removal after changed custody");
+                Ok(changed.to_string())
+            })
+            .is_err()
+        );
+    }
+    // Each transport failure and nonempty final readback retains the resource.
+    for fail_at in 1..=5 {
+        let mut call = 0;
+        assert!(
+            remove_owned_container(&container, |args, _| {
+                call += 1;
+                if call == fail_at {
+                    bail!("synthetic transport failure");
+                }
+                Ok(match call {
+                    1 => id.clone(),
+                    2 => inspected.to_string(),
+                    3 => {
+                        assert_eq!(args, remove);
+                        id.clone()
+                    }
+                    4 => id.clone(),
+                    _ => panic!("unexpected operation"),
+                })
+            })
+            .is_err()
+        );
+    }
+    container.id = None;
+    assert!(
+        remove_owned_container(&container, |_, _| panic!(
+            "unknown create must never issue cleanup commands"
+        ))
+        .is_err()
+    );
+}
+
+#[test]
+fn child_poll_deadline_and_uncertainty_are_bounded() {
+    let mut calls = 0;
+    let result = poll_child::<()>(Duration::ZERO, || {
+        calls += 1;
+        Ok(None)
+    })
+    .unwrap();
+    assert!(result.is_none());
+    assert_eq!(
+        calls, 1,
+        "a live child must not enter an unconditional wait"
+    );
+    assert_eq!(poll_child(Duration::ZERO, || Ok(Some(7))).unwrap(), Some(7));
+    let error = poll_child::<()>(Duration::ZERO, || {
+        Err(std::io::Error::other("synthetic poll refusal"))
+    })
+    .unwrap_err();
+    assert_eq!(error.to_string(), "synthetic poll refusal");
 }
