@@ -6447,7 +6447,7 @@
       "kind": "proof-implementation-or-input",
       "path": "components/jeryu-tool/crates/jeryu-tool-control/tests/control_cli.rs",
       "port_status": "pending-equivalence-proof",
-      "sha256": "2629c2e2de8b75c554605fa6f0e512a5dc8d74dd56c9833f33d0dba8308408b4"
+      "sha256": "6ace91ad01b44c436329afff3687553202968420e6543737054ce1f38e4b6cd2"
     },
     {
       "component": "jeryu-tool",
@@ -6519,7 +6519,7 @@
       "kind": "proof-implementation-or-input",
       "path": "components/jeryu-tool/ops/ci/check-rendered-identity.sh",
       "port_status": "pending-equivalence-proof",
-      "sha256": "baa3db90c7237af8259859c94837e32ff41a0e381769369c1e4f2144739d658d"
+      "sha256": "bce214697726b018838043dde9587f5528fb1c81e07d6f46698efd0ee7dd6b35"
     },
     {
       "component": "jeryu-tool",
