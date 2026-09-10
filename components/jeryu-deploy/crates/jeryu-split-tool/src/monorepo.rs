@@ -144,7 +144,114 @@ pub(super) fn check(root: &Path) -> Result<()> {
             }
         }
     }
+    // Keep the owning no-deps admission above. Independently inspect the complete
+    // all-feature closure so a second registry/Git identity cannot hide outside it.
+    let full = Command::new("cargo")
+        .current_dir(root)
+        .args([
+            "metadata",
+            "--locked",
+            "--offline",
+            "--all-features",
+            "--format-version",
+            "1",
+        ])
+        .output()?;
+    ensure!(
+        full.status.success(),
+        "full locked Cargo metadata failed: {}",
+        String::from_utf8_lossy(&full.stderr)
+    );
+    validate_full_package_identities(&data, &serde_json::from_slice(&full.stdout)?)?;
     println!("65 packages; unique local Jeryu identities; Apache-2.0 licensing options preserved");
+    Ok(())
+}
+
+fn validate_full_package_identities(
+    owned: &serde_json::Value,
+    full: &serde_json::Value,
+) -> Result<()> {
+    ensure!(
+        owned["workspace_root"].as_str().is_some()
+            && full["workspace_root"] == owned["workspace_root"],
+        "full metadata workspace root changed"
+    );
+    let expected = owned["packages"]
+        .as_array()
+        .context("owning Cargo packages")?;
+    ensure!(
+        expected.len() == 65,
+        "expected all 65 owning package identities"
+    );
+    let mut expected_by_name = BTreeMap::new();
+    let mut expected_ids = BTreeSet::new();
+    for package in expected {
+        let name = package["name"].as_str().context("owning package name")?;
+        let id = package["id"].as_str().context("owning package identity")?;
+        ensure!(
+            package["version"].as_str().is_some()
+                && package["manifest_path"].as_str().is_some()
+                && package["source"].is_null(),
+            "owning package metadata is incomplete or nonlocal"
+        );
+        ensure!(
+            expected_by_name.insert(name, package).is_none() && expected_ids.insert(id),
+            "duplicate owning package identity"
+        );
+    }
+    let member_ids = |data: &serde_json::Value| -> Result<BTreeSet<String>> {
+        let members = data["workspace_members"]
+            .as_array()
+            .context("Cargo workspace members")?;
+        let ids = members
+            .iter()
+            .map(|member| {
+                member
+                    .as_str()
+                    .map(str::to_owned)
+                    .context("Cargo member identity")
+            })
+            .collect::<Result<BTreeSet<_>>>()?;
+        ensure!(
+            ids.len() == members.len(),
+            "duplicate Cargo workspace member"
+        );
+        Ok(ids)
+    };
+    let expected_member_ids: BTreeSet<String> =
+        expected_ids.iter().map(|id| (*id).to_owned()).collect();
+    ensure!(
+        member_ids(owned)? == expected_member_ids && member_ids(full)? == expected_member_ids,
+        "full metadata workspace membership changed"
+    );
+    let mut observed = BTreeSet::new();
+    let mut all_ids = BTreeSet::new();
+    for package in full["packages"].as_array().context("full Cargo packages")? {
+        let name = package["name"].as_str().context("full package name")?;
+        let id = package["id"].as_str().context("full package identity")?;
+        ensure!(all_ids.insert(id), "duplicate full Cargo identity");
+        if let Some(expected) = expected_by_name.get(name) {
+            ensure!(
+                observed.insert(name),
+                "duplicate workspace package in dependency closure: {name}"
+            );
+            for field in ["id", "version", "source", "manifest_path"] {
+                ensure!(
+                    package[field] == expected[field],
+                    "workspace package {name} changed {field} in full metadata"
+                );
+            }
+        } else {
+            ensure!(
+                !name.starts_with("jeryu-"),
+                "unowned Jeryu identity in dependency closure: {name}"
+            );
+        }
+    }
+    ensure!(
+        observed.len() == expected_by_name.len(),
+        "full metadata omitted an owning package"
+    );
     Ok(())
 }
 
@@ -437,5 +544,91 @@ two_consumer_proof_required = true
         changed["jankurai"]["repo"] =
             Value::String("https://github.com/neverhuman/jankurai.git".to_owned());
         assert!(public_auditor_repository(&changed).is_err());
+    }
+    fn complete_metadata() -> (serde_json::Value, serde_json::Value) {
+        let packages: Vec<_> = (0..65).map(|index| {
+            let name = format!("jeryu-fixture-{index}");
+            serde_json::json!({"id":format!("path+file:///source/{name}#5.0.0"),"name":name,"version":"5.0.0","source":null,"manifest_path":format!("/source/{name}/Cargo.toml")})
+        }).collect();
+        let members: Vec<_> = packages
+            .iter()
+            .map(|package| package["id"].clone())
+            .collect();
+        let owned = serde_json::json!({"workspace_root":"/source","workspace_members":members,"packages":packages});
+        let mut full = owned.clone();
+        full["packages"].as_array_mut().unwrap().push(serde_json::json!({"id":"registry+https://github.com/rust-lang/crates.io-index#serde@1.0.0","name":"serde","version":"1.0.0","source":"registry+https://github.com/rust-lang/crates.io-index","manifest_path":"/cache/serde/Cargo.toml"}));
+        (owned, full)
+    }
+
+    #[test]
+    fn full_metadata_accepts_all_65_owning_identities_and_registry_dependencies() {
+        let (owned, full) = complete_metadata();
+        validate_full_package_identities(&owned, &full).unwrap();
+    }
+
+    #[test]
+    fn full_metadata_rejects_registry_and_git_copies_of_workspace_packages() {
+        for source in [
+            "registry+https://github.com/rust-lang/crates.io-index",
+            "git+https://github.com/neverhuman/jeryu.git?rev=deadbeef#deadbeef",
+        ] {
+            let (owned, mut full) = complete_metadata();
+            let mut duplicate = owned["packages"][0].clone();
+            duplicate["source"] = source.into();
+            duplicate["id"] = format!("{source}#jeryu-fixture-0@5.0.0").into();
+            full["packages"].as_array_mut().unwrap().push(duplicate);
+            assert!(validate_full_package_identities(&owned, &full).is_err());
+        }
+    }
+
+    #[test]
+    fn full_metadata_rejects_changed_version_source_identity_and_manifest() {
+        for (field, changed) in [
+            ("version", "5.1.0"),
+            (
+                "source",
+                "registry+https://github.com/rust-lang/crates.io-index",
+            ),
+            ("id", "path+file:///other#5.0.0"),
+            ("manifest_path", "/other/Cargo.toml"),
+        ] {
+            let (owned, mut full) = complete_metadata();
+            full["packages"][0][field] = changed.into();
+            assert!(validate_full_package_identities(&owned, &full).is_err());
+        }
+    }
+
+    #[test]
+    fn full_metadata_rejects_missing_packages_and_changed_workspace() {
+        let (owned, full) = complete_metadata();
+        let mut missing = full.clone();
+        missing["packages"].as_array_mut().unwrap().remove(0);
+        assert!(validate_full_package_identities(&owned, &missing).is_err());
+        let mut moved = full.clone();
+        moved["workspace_root"] = "/other".into();
+        assert!(validate_full_package_identities(&owned, &moved).is_err());
+        let mut members = full;
+        members["workspace_members"]
+            .as_array_mut()
+            .unwrap()
+            .remove(0);
+        assert!(validate_full_package_identities(&owned, &members).is_err());
+    }
+
+    #[test]
+    fn full_metadata_rejects_extra_local_jeryu_package_and_duplicate_rows() {
+        let (owned, full) = complete_metadata();
+        let mut extra = full.clone();
+        let mut package = owned["packages"][0].clone();
+        package["name"] = "jeryu-unowned".into();
+        package["id"] = "path+file:///unowned#5.0.0".into();
+        extra["packages"].as_array_mut().unwrap().push(package);
+        assert!(validate_full_package_identities(&owned, &extra).is_err());
+        let mut duplicate = full;
+        duplicate["packages"]
+            .as_array_mut()
+            .unwrap()
+            .push(owned["packages"][0].clone());
+        assert!(validate_full_package_identities(&owned, &duplicate).is_err());
     }
 }

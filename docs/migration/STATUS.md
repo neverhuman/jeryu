@@ -116,6 +116,32 @@ image preparation errors propagate; local split preparation batches its strict
 Cargo commands. These changes still require a new real OCI run, actual split
 execution and complete CI. No full agent-image build or release is qualified.
 
+At clean checkpoint `c55c8989`, Tool's explicit repository-root renderer passed
+its four process controls and warning-denied Clippy; the actual renderer then
+checked all 11 repository scopes and 83 consumers without drift. The current
+source also passed the real disposable-VM OCI command: one required test, nine
+checks and 15 container runs, including verified 32 MiB OOM and 256 MiB control
+results. Both VM processes closed, and matching original/restored/rechecked
+inventories preceded guarded scratch removal. The private recovery archive
+remains. This does not qualify the separate agent image.
+
+The same checkpoint passed the actual Intelligence split command. Two exports
+produced identical trees, provenance and lockfiles. Each complete graph
+contained 284 packages, including six local and nine external Jeryu packages;
+every external Jeryu identity bound the full originating public monorepo commit.
+Formatting, warning-denied Clippy, tests and final build passed: 32 Rust test
+summaries contained 390 passes with no failures, ignored or filtered tests.
+Independent review verified source stability, process closure and all three
+CI locks. Exact local Git transport and reused Cargo/Rustup caches supplied
+inputs, so anonymous public-origin qualification remains open. Both complete
+source/resolver custody roots remain retained.
+
+A later metadata-only inventory of the earlier Cache qualification's two
+complete retained roots recorded 5,769 entries. It followed no symlinks and
+read no file contents. Both timeout sessions and all three locks closed. This
+inventory supports preservation planning; it authorizes no removal. Original
+roots and partial evidence remain retained.
+
 This source also scopes Work commands to their owning package with locked
 resolution, strengthens the actual governed-auditor wrapper checks, and keeps
 failed test scratch for verified cleanup. At clean `37b08b28`, all seven private

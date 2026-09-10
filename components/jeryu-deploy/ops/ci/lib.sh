@@ -2,7 +2,9 @@
 set -euo pipefail
 
 # shellcheck source=ops/ci/hosted-git-env.sh
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/hosted-git-env.sh"
+if [[ ${JERYU_MONOREPO_CANDIDATE:-0} == 0 ]]; then
+  source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/hosted-git-env.sh"
+fi
 
 # BEGIN GENERATED JANKURAI PIN — DO NOT EDIT
 export JERYU_JANKURAI_SOURCE_REPO="http://127.0.0.1:8787/git/jeryu/jankurai.git"

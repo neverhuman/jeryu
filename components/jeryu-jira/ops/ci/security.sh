@@ -2,6 +2,25 @@
 set -euo pipefail
 source ops/ci/lib.sh
 
+# Public candidate security consumes the one admitted monorepo lock.
+cargo_lock_path="$PWD/Cargo.lock"
+if [[ ${JERYU_MONOREPO_CANDIDATE:-0} != 0 ]]; then
+  require_jankurai
+  # shellcheck source=ops/ci/cargo-scope.sh
+  source ops/ci/cargo-scope.sh
+  [[ $component_root == "$git_root/components/jeryu-jira" ]] || exit 1
+  cargo_lock_path="$git_root/Cargo.lock"
+fi
+[[ -f $cargo_lock_path && ! -L $cargo_lock_path &&
+   $(realpath -e -- "$cargo_lock_path") == "$cargo_lock_path" &&
+   $(stat -c %h -- "$cargo_lock_path") == 1 ]] || {
+  printf 'security requires a physical single-link workspace lock\n' >&2; exit 1;
+}
+exec {cargo_lock_fd}< "$cargo_lock_path"
+cargo_lock_identity=$(stat -Lc '%d:%i:%u:%g:%a:%h:%s:%y:%z' -- "/proc/$BASHPID/fd/$cargo_lock_fd")
+[[ $(stat -c '%d:%i:%u:%g:%a:%h:%s:%y:%z' -- "$cargo_lock_path") == "$cargo_lock_identity" ]] || exit 1
+cargo_lock_before=$(sha256sum -- "$cargo_lock_path")
+
 mkdir -p target/jankurai/security target/security
 checks_tsv="target/jankurai/security/checks.tsv"
 evidence_json="target/jankurai/security/evidence.json"
@@ -62,15 +81,15 @@ else
   record "env-file" "pass" "required" "no .env files found outside ignored build output"
 fi
 
-if cargo metadata --format-version 1 --no-deps >/dev/null; then
+if cargo metadata --locked --format-version 1 --no-deps >/dev/null; then
   record "cargo-metadata" "pass" "required" "workspace dependency metadata resolves"
 else
   record "cargo-metadata" "fail" "required" "cargo metadata failed"
   failed=1
 fi
 
-if [[ -s Cargo.lock ]]; then
-  sha256sum Cargo.lock > target/jankurai/security/Cargo.lock.sha256
+if [[ -s $cargo_lock_path ]]; then
+  printf '%s\n' "$cargo_lock_before" > target/jankurai/security/Cargo.lock.sha256
   cp target/jankurai/security/Cargo.lock.sha256 target/security/Cargo.lock.sha256
   record "sbom-provenance" "pass" "lock-digest" "SBOM provenance input digest recorded in target/jankurai/security/Cargo.lock.sha256"
 else
@@ -110,7 +129,7 @@ else
 fi
 
 if command -v cargo-audit >/dev/null 2>&1; then
-  if cargo audit --deny warnings; then
+  if cargo audit --deny warnings --file "$cargo_lock_path"; then
     record "dependency-audit" "pass" "cargo-audit" "cargo audit completed"
   else
     record "dependency-audit" "fail" "cargo-audit" "cargo audit reported advisories"
@@ -169,6 +188,15 @@ else
   record "actionlint" "not_run" "no-workflows" "no GitHub workflow files are present"
 fi
 
+
+[[ -f $cargo_lock_path && ! -L $cargo_lock_path &&
+   $(realpath -e -- "$cargo_lock_path") == "$cargo_lock_path" &&
+   $(stat -c %h -- "$cargo_lock_path") == 1 &&
+   $(stat -c '%d:%i:%u:%g:%a:%h:%s:%y:%z' -- "$cargo_lock_path") == "$cargo_lock_identity" &&
+   $(stat -Lc '%d:%i:%u:%g:%a:%h:%s:%y:%z' -- "/proc/$BASHPID/fd/$cargo_lock_fd") == "$cargo_lock_identity" &&
+   $(sha256sum -- "$cargo_lock_path") == "$cargo_lock_before" ]] || {
+  printf 'workspace lock changed during security checks\n' >&2; exit 1;
+}
 write_evidence
 cp "$evidence_json" target/security/evidence.json
 
