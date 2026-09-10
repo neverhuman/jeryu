@@ -62,6 +62,9 @@ enum Command {
         /// Regenerate and validate the standalone lock in a disposable Git clone.
         #[arg(long)]
         resolve_lock: bool,
+        /// Use an explicitly verified local source for preparatory lock resolution.
+        #[arg(long, requires = "resolve_lock")]
+        prepare_local: Option<PathBuf>,
     },
     /// Validate and render the split-family manifest.
     Manifest {
@@ -245,7 +248,14 @@ fn run(cli: Cli) -> Result<()> {
             component,
             source,
             resolve_lock,
-        } => split_tree::export_tree(Path::new("."), &component, &source, resolve_lock),
+            prepare_local,
+        } => split_tree::export_tree(
+            Path::new("."),
+            &component,
+            &source,
+            resolve_lock,
+            prepare_local.as_deref(),
+        ),
         Command::Manifest {
             manifest,
             json,

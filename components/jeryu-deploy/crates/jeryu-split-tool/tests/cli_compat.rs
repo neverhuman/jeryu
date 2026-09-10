@@ -186,3 +186,34 @@ fn manifest_command_requires_portal_membership_for_both_schemas() {
         assert!(output.stdout.is_empty(), "{schema}: empty inventory");
     }
 }
+
+#[test]
+fn local_export_arguments_refuse_incomplete_or_duplicate_preparation() {
+    let revision = "a".repeat(40);
+    for extra in [
+        vec!["--prepare-local"],
+        vec!["--prepare-local", "/fixture/source"],
+        vec![
+            "--resolve-lock",
+            "--prepare-local",
+            "/fixture/source",
+            "--prepare-local",
+            "/fixture/other",
+        ],
+    ] {
+        let output = Command::new(env!("CARGO_BIN_EXE_jeryu-split"))
+            .args([
+                "export-tree",
+                "--component",
+                "jeryu-cache",
+                "--source",
+                &revision,
+            ])
+            .args(extra)
+            .output()
+            .expect("parse local export arguments");
+        assert_eq!(output.status.code(), Some(2));
+        assert!(output.stdout.is_empty());
+        assert!(!String::from_utf8_lossy(&output.stderr).contains("retained split lock scratch"));
+    }
+}

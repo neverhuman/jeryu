@@ -79,6 +79,20 @@ fn validate_container_status(code: Option<i32>, state: &Value, expected: i32) ->
     Ok(())
 }
 
+fn validate_probe_status(
+    mode: &str,
+    id: &str,
+    code: Option<i32>,
+    state: &Value,
+    expected: i32,
+) -> Result<()> {
+    validate_container_status(code, state, expected).with_context(|| {
+        format!(
+            "OCI probe mode={mode} container_id={id} expected_exit={expected} attached_exit={code:?} state={state}"
+        )
+    })
+}
+
 fn records(out: &str, mode: &str) -> Result<Vec<Value>> {
     let result: Vec<Value> = out
         .lines()
@@ -390,7 +404,7 @@ impl Engine {
         );
         let output = self.docker(&strings(&["start", "--attach", &id]), 45)?;
         let after = self.json(&strings(&["inspect", &id]))?;
-        validate_container_status(output.code, &after[0]["State"], expected)?;
+        validate_probe_status(mode, &id, output.code, &after[0]["State"], expected)?;
         if expected == 137 {
             ensure!(
                 after[0]["State"]["OOMKilled"] == true,
@@ -917,6 +931,41 @@ fn engine_failures_never_count_as_sandbox_success() {
     assert!(validate_container_status(Some(137), &success, 137).is_err());
     success["OOMKilled"] = json!(true);
     assert!(validate_container_status(Some(137), &success, 137).is_ok());
+
+    let id = "0123456789abcdef".repeat(4);
+    for (mode, expected, oom) in [
+        ("filesystem", 0, None),
+        ("filesystem", 0, Some(json!("false"))),
+        ("filesystem", 0, Some(json!(true))),
+        ("memory", 137, Some(json!(false))),
+    ] {
+        let mut state = json!({"Status":"exited","ExitCode":expected,"Error":"",
+            "StartedAt":"2026-09-09T00:00:00Z"});
+        if let Some(oom) = oom {
+            state["OOMKilled"] = oom;
+        }
+        let error = validate_probe_status(mode, &id, Some(expected), &state, expected).unwrap_err();
+        assert_eq!(
+            error.root_cause().to_string(),
+            "missing or contradictory OOM evidence"
+        );
+        let context = error.to_string();
+        let (identity, observed_state) = context.split_once(" state=").unwrap();
+        assert_eq!(
+            identity,
+            format!(
+                "OCI probe mode={mode} container_id={id} expected_exit={expected} attached_exit=Some({expected})"
+            )
+        );
+        assert_eq!(
+            serde_json::from_str::<Value>(observed_state).unwrap(),
+            state
+        );
+    }
+    assert!(validate_probe_status("memory", &id, Some(137), &success, 137).is_ok());
+    success["ExitCode"] = json!(0);
+    success["OOMKilled"] = json!(false);
+    assert!(validate_probe_status("filesystem", &id, Some(0), &success, 0).is_ok());
 }
 
 #[test]

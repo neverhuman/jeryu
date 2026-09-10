@@ -2,7 +2,7 @@
 
 use anyhow::{Context, Result, ensure};
 use serde_json::Value;
-use std::{collections::BTreeMap, fs, path::Path, process::Command};
+use std::{collections::BTreeMap, fs, os::unix::fs::PermissionsExt, path::Path, process::Command};
 
 use crate::split_tree::git;
 
@@ -110,97 +110,197 @@ fn project_npm(mut package: Value, mut lock: Value, prefix: &str) -> Result<(Val
     Ok((package, lock))
 }
 
-/// Cargo/npm operate on an exact export commit in an automatically removed clone.
+/// Resolve exact export locks, retaining scratch for supervised custody.
 /// This returns a lock, never a publication or anonymous-build attestation.
-pub(super) fn resolve_lock(root: &Path, tree: &str, source: &str, npm: bool) -> Result<String> {
+pub(super) fn resolve_lock(
+    root: &Path,
+    tree: &str,
+    source: &str,
+    npm: bool,
+    prepare_local: Option<&Path>,
+    component: &str,
+) -> Result<String> {
     let root = root.canonicalize()?;
-    let output = Command::new("git")
-        .current_dir(&root)
-        .env("GIT_AUTHOR_NAME", "Jeryu split export")
-        .env("GIT_AUTHOR_EMAIL", "split@jeryu.invalid")
-        .env("GIT_COMMITTER_NAME", "Jeryu split export")
-        .env("GIT_COMMITTER_EMAIL", "split@jeryu.invalid")
-        .env("GIT_AUTHOR_DATE", "2000-01-01T00:00:00Z")
-        .env("GIT_COMMITTER_DATE", "2000-01-01T00:00:00Z")
-        .args([
-            "-c",
-            "commit.gpgsign=false",
-            "commit-tree",
-            tree,
-            "-m",
-            "Disposable split lock validation",
-        ])
-        .output()?;
-    ensure!(
-        output.status.success(),
-        "cannot create disposable export commit"
-    );
-    let commit = String::from_utf8(output.stdout)?;
-    let temporary = tempfile::tempdir()?;
-    let checkout = temporary.path().join("checkout");
-    checked(
-        Command::new("git")
-            .args(["clone", "--no-local", "--no-checkout", "--quiet"])
-            .arg(&root)
-            .arg(&checkout),
-        "standalone Git clone",
+    // Keeping the directory immediately prevents error paths from discarding
+    // a failed clone or resolver output. The supervising caller owns retirement.
+    let temporary = tempfile::Builder::new()
+        .prefix("jeryu-split-lock.")
+        .permissions(fs::Permissions::from_mode(0o700))
+        .tempdir()?
+        .keep();
+    eprintln!("retained split lock scratch: {}", temporary.display());
+    let helper = temporary.join("source-build.sh");
+    fs::write(
+        &helper,
+        git(
+            &root,
+            &["show", &format!("{source}:scripts/source-build.sh")],
+            None,
+        )?,
     )?;
-    checked(
-        Command::new("git")
-            .current_dir(&checkout)
-            .args(["fetch", "--quiet", "--no-tags"])
-            .arg(&root)
-            .arg(commit.trim()),
-        "fetch exact export commit",
-    )?;
-    git(
-        &checkout,
-        &[
-            "-c",
-            "core.hooksPath=/dev/null",
-            "checkout",
-            "--quiet",
-            "--detach",
-            commit.trim(),
-        ],
+    let component_tree = git(
+        &root,
+        &["rev-parse", &format!("{source}:components/{component}")],
         None,
     )?;
-    let lock_name = if npm {
-        "package-lock.json"
-    } else {
-        "Cargo.lock"
-    };
-    let seed = fs::read_to_string(checkout.join(lock_name))?;
-    if npm {
-        checked(
-            Command::new("npm").current_dir(&checkout).args([
-                "install",
-                "--package-lock-only",
-                "--ignore-scripts",
-                "--offline",
-                "--no-audit",
-                "--no-fund",
-            ]),
-            "npm lock resolution",
+    let before = prepare_local
+        .map(|local| local_snapshot(&helper, local, source, component, component_tree.trim()))
+        .transpose()
+        .with_context(|| {
+            format!(
+                "local source refused; retained resolver scratch {}",
+                temporary.display()
+            )
+        })?;
+    if let (Some(local), Some(snapshot)) = (prepare_local, before.as_ref()) {
+        fs::write(
+            temporary.join("local-source.path"),
+            local.as_os_str().as_encoded_bytes(),
         )?;
-    } else {
-        let output = Command::new("cargo")
-            .current_dir(&checkout)
-            .args(["metadata", "--format-version", "1", "--all-features"])
+        fs::write(temporary.join("local-source.before"), snapshot)?;
+        fs::write(
+            temporary.join("transport.txt"),
+            "local-source-preparation; public origin unproven\n",
+        )?;
+    }
+    let result = (|| {
+        let output = crate::split_tree::source_git_command(&root)
+            .current_dir(&root)
+            .env("GIT_AUTHOR_NAME", "Jeryu split export")
+            .env("GIT_AUTHOR_EMAIL", "split@jeryu.invalid")
+            .env("GIT_COMMITTER_NAME", "Jeryu split export")
+            .env("GIT_COMMITTER_EMAIL", "split@jeryu.invalid")
+            .env("GIT_AUTHOR_DATE", "2000-01-01T00:00:00Z")
+            .env("GIT_COMMITTER_DATE", "2000-01-01T00:00:00Z")
+            .args([
+                "-c",
+                "commit.gpgsign=false",
+                "commit-tree",
+                tree,
+                "-m",
+                "Disposable split lock validation",
+            ])
             .output()?;
         ensure!(
             output.status.success(),
-            "standalone Cargo resolution failed: {}",
-            String::from_utf8_lossy(&output.stderr)
+            "cannot create disposable export commit"
         );
-        let metadata: Value = serde_json::from_slice(&output.stdout)?;
-        check_identities(&metadata, source)?;
+        let commit = String::from_utf8(output.stdout)?;
+        let checkout = temporary.join("checkout");
+        checked(
+            crate::split_tree::source_git_command(&root)
+                .args(["clone", "--no-local", "--no-checkout", "--quiet"])
+                .arg(&root)
+                .arg(&checkout),
+            "standalone Git clone",
+        )?;
+        checked(
+            crate::split_tree::source_git_command(&root)
+                .current_dir(&checkout)
+                .args(["fetch", "--quiet", "--no-tags"])
+                .arg(&root)
+                .arg(commit.trim()),
+            "fetch exact export commit",
+        )?;
+        checked(
+            crate::split_tree::source_git_command(&root)
+                .current_dir(&checkout)
+                .args([
+                    "-c",
+                    "core.hooksPath=/dev/null",
+                    "checkout",
+                    "--quiet",
+                    "--detach",
+                    commit.trim(),
+                ]),
+            "checkout exact export commit",
+        )?;
+        let lock_name = if npm {
+            "package-lock.json"
+        } else {
+            "Cargo.lock"
+        };
+        let seed = fs::read_to_string(checkout.join(lock_name))?;
+        if npm {
+            checked(
+                Command::new("npm").current_dir(&checkout).args([
+                    "install",
+                    "--package-lock-only",
+                    "--ignore-scripts",
+                    "--offline",
+                    "--no-audit",
+                    "--no-fund",
+                ]),
+                "npm lock resolution",
+            )?;
+        } else {
+            let mut command = if let Some(local) = prepare_local {
+                local_cargo(&helper, local, source, component, component_tree.trim())
+            } else {
+                let mut command = Command::new("cargo");
+                command.args(["metadata", "--format-version", "1", "--all-features"]);
+                command
+            };
+            let output = command.current_dir(&checkout).output()?;
+            fs::write(temporary.join("metadata.stdout"), &output.stdout)?;
+            fs::write(temporary.join("metadata.stderr"), &output.stderr)?;
+            ensure!(
+                output.status.success(),
+                "standalone Cargo resolution failed: {}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+            let metadata: Value = serde_json::from_slice(&output.stdout)?;
+            check_identities(&metadata, source)?;
+        }
+        let resolved = fs::read_to_string(checkout.join(lock_name))?;
+        check_locked_versions(&seed, &resolved, npm)?;
+        // npm may reorder equivalent objects; retain the deterministic seed.
+        Ok(if npm { seed } else { resolved })
+    })();
+    if let Some(local) = prepare_local {
+        let after = local_snapshot(&helper, local, source, component, component_tree.trim())?;
+        fs::write(temporary.join("local-source.after"), &after)?;
+        ensure!(
+            Some(after) == before,
+            "local split source changed during resolution"
+        );
     }
-    let resolved = fs::read_to_string(checkout.join(lock_name))?;
-    check_locked_versions(&seed, &resolved, npm)?;
-    // npm may serialize equivalent objects differently across versions. Retain
-    // the deterministic projection after validating the complete resolved graph.
-    Ok(if npm { seed } else { resolved })
+    result
+}
+
+fn local_snapshot(
+    helper: &Path,
+    local: &Path,
+    source: &str,
+    component: &str,
+    tree: &str,
+) -> Result<Vec<u8>> {
+    let output = Command::new("/bin/bash")
+        .env_remove("BASH_ENV")
+        .env_remove("ENV")
+        .args([
+            "-c",
+            "source \"$1\"; split_source_snapshot \"$2\" \"$3\" \"$4\" \"$5\"",
+            "split-source",
+        ])
+        .arg(helper)
+        .arg(local)
+        .args([source, component, tree])
+        .output()?;
+    ensure!(
+        output.status.success() && !output.stdout.is_empty(),
+        "local split source admission failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    Ok(output.stdout)
+}
+
+fn local_cargo(helper: &Path, local: &Path, source: &str, component: &str, tree: &str) -> Command {
+    let mut command = Command::new("/bin/bash");
+    command.env_remove("BASH_ENV").env_remove("ENV")
+        .args(["-c", "source \"$1\"; split_source_run \"$2\" \"$3\" \"$4\" \"$5\" cargo metadata --format-version 1 --all-features", "split-source"])
+        .arg(helper).arg(local).args([source, component, tree]);
+    command
 }
 
 fn checked(command: &mut Command, context: &str) -> Result<()> {
@@ -345,5 +445,121 @@ mod tests {
             check_locked_versions(npm, &npm.replace("sha512-fixture", "sha512-tampered"), true)
                 .is_err()
         );
+    }
+    #[test]
+    fn local_transport_keeps_public_source_identity_checks() {
+        let source = "a".repeat(40);
+        let public = format!("git+https://github.com/neverhuman/jeryu.git?rev={source}#{source}");
+        let mut metadata = serde_json::json!({"workspace_members":["local"], "packages":[
+            {"name":"jeryu-one", "id":"local", "source":null},
+            {"name":"jeryu-two", "id":"remote", "source":public}
+        ]});
+        assert!(check_identities(&metadata, &source).is_ok());
+        for invalid in [
+            "git+file:///fixture/source#revision",
+            "git+https://github.com/neverhuman/jeryu.git?rev=other#other",
+        ] {
+            metadata["packages"][1]["source"] = Value::String(invalid.into());
+            assert!(check_identities(&metadata, &source).is_err());
+        }
+    }
+
+    #[test]
+    fn local_cargo_passes_source_as_arguments_without_changing_metadata_request() {
+        let command = local_cargo(
+            Path::new("/fixture/helper"),
+            Path::new("/fixture/source"),
+            &"a".repeat(40),
+            "jeryu-cache",
+            &"b".repeat(40),
+        );
+        assert_eq!(command.get_program(), "/bin/bash");
+        let args: Vec<_> = command
+            .get_args()
+            .map(|value| value.to_str().unwrap())
+            .collect();
+        assert_eq!(args[0], "-c");
+        assert!(args[1].ends_with("cargo metadata --format-version 1 --all-features"));
+        assert_eq!(
+            args[2..],
+            [
+                "split-source",
+                "/fixture/helper",
+                "/fixture/source",
+                &"a".repeat(40),
+                "jeryu-cache",
+                &"b".repeat(40)
+            ]
+        );
+        assert!(!args[1].contains("file://"));
+    }
+    #[test]
+    fn refused_local_admission_retains_the_exact_resolver_scratch() {
+        use std::os::unix::fs::MetadataExt;
+        let temporary = tempfile::tempdir().unwrap();
+        let root = temporary.path();
+        fs::create_dir_all(root.join("scripts")).unwrap();
+        fs::create_dir_all(root.join("components/jeryu-cache")).unwrap();
+        let helper = "split_source_snapshot() { return 79; }\n";
+        fs::write(root.join("scripts/source-build.sh"), helper).unwrap();
+        fs::write(root.join("components/jeryu-cache/Cargo.toml"), "fixture\n").unwrap();
+        for args in [
+            vec!["init", "--quiet", "--initial-branch=main", "--template="],
+            vec!["add", "."],
+            vec![
+                "-c",
+                "user.name=Fixture",
+                "-c",
+                "user.email=fixture@jeryu.invalid",
+                "-c",
+                "commit.gpgsign=false",
+                "commit",
+                "--quiet",
+                "-m",
+                "Synthetic source admission",
+            ],
+        ] {
+            let output = crate::split_tree::source_git_command(root)
+                .args(args)
+                .output()
+                .unwrap();
+            assert!(
+                output.status.success(),
+                "{}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+        }
+        let source = git(root, &["rev-parse", "HEAD"], None).unwrap();
+        let tree = git(root, &["rev-parse", "HEAD^{tree}"], None).unwrap();
+        let error = resolve_lock(
+            root,
+            tree.trim(),
+            source.trim(),
+            false,
+            Some(root),
+            "jeryu-cache",
+        )
+        .unwrap_err();
+        assert!(format!("{error:#}").contains("local split source admission failed"));
+        let message = error.to_string();
+        let retained = Path::new(
+            message
+                .strip_prefix("local source refused; retained resolver scratch ")
+                .unwrap(),
+        );
+        let retained_metadata = fs::symlink_metadata(retained).unwrap();
+        assert!(retained_metadata.file_type().is_dir());
+        assert_eq!(retained_metadata.permissions().mode() & 0o777, 0o700);
+        assert_eq!(fs::read_dir(retained).unwrap().count(), 1);
+        let input = retained.join("source-build.sh");
+        let metadata = fs::symlink_metadata(&input).unwrap();
+        assert!(metadata.file_type().is_file());
+        assert_eq!(metadata.nlink(), 1);
+        assert_eq!(fs::read_to_string(&input).unwrap(), helper);
+        assert!(!retained.join("checkout").exists());
+        // Only this known fixture file/directory can be unlinked; never recurse
+        // through a resolver attempt whose contents are not the asserted input.
+        fs::remove_file(input).unwrap();
+        fs::remove_dir(retained).unwrap();
     }
 }
