@@ -67,8 +67,8 @@ required_check = "jeryu-release-ops/required"
 name = "jeryu-tool"
 path = "components/jeryu-tool"
 github = "https://github.com/neverhuman/jeryu-tool.git"
-tag = "jeryu-tool-family-72035eaf"
-tree = "cc544ff524c5bedeb779191ac49ddfb78ce5e60d"
+tag = "jeryu-tool-family-typep3"
+tree = "48ba887698ceca24afcad4b488dd8a0a3b490fad"
 required_check = "jeryu-tool/required"
 
 [[repo]]
