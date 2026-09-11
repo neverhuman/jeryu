@@ -43,6 +43,26 @@ fn headers() -> HeaderMap {
     headers
 }
 
+fn open_sqlite_after_last_writer(path: &std::path::Path) -> ForgeCore {
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+    loop {
+        match ForgeCore::open_sqlite(path) {
+            Ok(core) => return core,
+            Err(error) => {
+                let message = error.to_string();
+                if std::time::Instant::now() < deadline
+                    && message.contains("resource lease refused")
+                    && message.contains("would block")
+                {
+                    std::thread::sleep(std::time::Duration::from_millis(5));
+                    continue;
+                }
+                panic!("reopen after last writer dropped: {error}");
+            }
+        }
+    }
+}
+
 async fn body(response: Response) -> Value {
     serde_json::from_slice(&to_bytes(response.into_body(), 1 << 20).await.unwrap()).unwrap()
 }
@@ -92,7 +112,7 @@ async fn preview_is_read_only_and_create_replays_after_database_reopen() {
     drop(state);
 
     let reopened = Arc::new(WebState::new_with_git_storage(
-        ForgeCore::open_sqlite(database).unwrap(),
+        open_sqlite_after_last_writer(&database),
         storage,
     ));
     let response = create(
