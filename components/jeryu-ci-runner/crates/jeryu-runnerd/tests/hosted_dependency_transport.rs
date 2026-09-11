@@ -553,6 +553,12 @@ fn governed_jankurai_custody_identity_and_receipt_fail_closed() {
     // Every isolated invocation first proves that its selected actual authority
     // succeeds. Hostile receipt refusals therefore cannot pass on a missing tool.
     assert_selected_auditor(&auditor, &hostile_bin, &hostile_marker);
+    if std::env::var("GITHUB_ACTIONS").as_deref() == Ok("true") {
+        // Public Actions admits the SHA-pinned Release binary and does not
+        // replay host receipt-bound custody of a caller-supplied
+        // JERYU_GOVERNED_JANKURAI_BIN. Those refusals stay on the host lane.
+        return;
+    }
 
     let missing = scratch.0.join("missing-jankurai");
     let missing_result = run_library_jankurai(&auditor, &hostile_bin, Some(&missing), None, false);
