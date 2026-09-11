@@ -25,6 +25,10 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
           persist-credentials: false
+      - name: Install host prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ripgrep bubblewrap
       - name: Install pinned Rust toolchain
         run: rustup show active-toolchain
       - name: Audit every enrolled scope
