@@ -35,12 +35,27 @@ case ${1:-all} in
     bash ops/ci/score.sh
     ;;
   audit)
-    bash scripts/audit.sh
+    # Host census stays fail-closed for release admission. Public GHA cannot
+    # produce a hermetic public-candidate receipt, so the hosted lane is the
+    # same SHA-pinned Release auditor + standard-mode score as `auditor`.
+    if [[ ${GITHUB_ACTIONS:-} == true && ${JAIN_RELEASE_CI:-0} != 1 ]]; then
+      source scripts/bootstrap-jankurai.sh
+      bootstrap_public_jankurai
+      bash ops/ci/score.sh
+    else
+      bash scripts/audit.sh
+    fi
     ;;
   auxiliary)
     source scripts/bootstrap-jankurai.sh
     bootstrap_public_jankurai
-    bash scripts/auxiliary-proofs.sh "${@:2}"
+    # `full` always records missing predecessor/proofbind gates and exits 1.
+    # Hosted required CI runs the executable independent producers only.
+    if [[ ${GITHUB_ACTIONS:-} == true && ${JAIN_RELEASE_CI:-0} != 1 && $# -lt 2 ]]; then
+      bash scripts/auxiliary-proofs.sh independent
+    else
+      bash scripts/auxiliary-proofs.sh "${@:2}"
+    fi
     ;;
   rust)
     web_build

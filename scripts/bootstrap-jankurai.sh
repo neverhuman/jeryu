@@ -37,6 +37,19 @@ bootstrap_public_jankurai() {
     printf 'A different candidate is held by this process or its parent; use a fresh qualification process\n' >&2
     return 1
   fi
+  # Public GitHub Actions cannot rebuild the hermetic OCI image ID. Install the
+  # same SHA-pinned 1.6.11 GitHub Release binary that require_jankurai already
+  # admits. Do not claim a public-candidate receipt or set candidate mode.
+  if [[ ${GITHUB_ACTIONS:-} == true && ${JAIN_RELEASE_CI:-0} != 1 ]]; then
+    bash "$root/ops/ci/install-jankurai-release.sh" || return 1
+    export JERYU_MONOREPO_EXPECTED_HEAD="$expected"
+    export JERYU_GOVERNED_JANKURAI_BIN=/usr/local/bin/jankurai
+    export PATH="/usr/local/bin:${PATH}"
+    export JANKURAI_NO_UPDATE_CHECK=1 GIT_TERMINAL_PROMPT=0
+    unset JERYU_MONOREPO_CANDIDATE JERYU_JANKURAI_RECEIPT JERYU_CANDIDATE_JANKURAI_DESCRIPTOR
+    printf 'Public GitHub Actions auditor uses pinned GitHub Release binary for %s\n' "$expected"
+    return
+  fi
   toolchain=$(sed -n 's/^JANKURAI_RUST_TOOLCHAIN="\([0-9][0-9.]*\)"$/\1/p' \
     "$root/components/jeryu-tool/generated/jankurai-pin.env")
   [[ $toolchain =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || return 1

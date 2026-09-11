@@ -31,6 +31,16 @@ aux_source() {
   observed_root=$(aux_git rev-parse --show-toplevel) || return 1
   observed_head=$(aux_git rev-parse HEAD) || return 1
   [[ $observed_root == "$aux_root" && $observed_head == "$JERYU_MONOREPO_EXPECTED_HEAD" ]] || return 1
+  local binary_path receipt_sha
+  if [[ ${JERYU_MONOREPO_CANDIDATE:-0} == 1 ]]; then
+    binary_path=${JERYU_CANDIDATE_JANKURAI_DESCRIPTOR:?candidate descriptor is missing}
+    receipt_sha=${JERYU_JANKURAI_RECEIPT_SHA256:?candidate receipt digest is missing}
+  else
+    binary_path=${JERYU_GOVERNED_JANKURAI_BIN:?governed auditor path is missing}
+    # Public GHA has no hermetic installation receipt. Bind the explicit
+    # GitHub-Release admission statement instead of inventing a candidate receipt.
+    receipt_sha=$(printf 'jeryu.github-release-auditor/v1\n' | sha256sum | cut -d' ' -f1)
+  fi
   jq -cen --arg commit "$JERYU_MONOREPO_EXPECTED_HEAD" \
     --arg tree "$(aux_git rev-parse 'HEAD^{tree}')" \
     --arg lock "$(sha256sum "$aux_root/Cargo.lock" | cut -d' ' -f1)" \
@@ -38,8 +48,8 @@ aux_source() {
     --arg toolchain "$(sha256sum "$aux_root/rust-toolchain.toml" | cut -d' ' -f1)" \
     --arg helper "$(aux_git rev-parse 'HEAD:scripts/auxiliary-proofs.sh')" \
     --arg validator "$(aux_git rev-parse 'HEAD:scripts/auxiliary-rust.jq')" \
-    --arg binary "$(sha256sum "$JERYU_CANDIDATE_JANKURAI_DESCRIPTOR" | cut -d' ' -f1)" \
-    --arg receipt "$JERYU_JANKURAI_RECEIPT_SHA256" \
+    --arg binary "$(sha256sum "$binary_path" | cut -d' ' -f1)" \
+    --arg receipt "$receipt_sha" \
     '{commit:$commit,tree:$tree,cargo_lock_sha256:$lock,cargo_manifest_sha256:$manifest,
       toolchain_sha256:$toolchain,implementation_blob:$helper,validator_blob:$validator,
       auditor_binary_sha256:$binary,auditor_installation_receipt_sha256:$receipt} |
@@ -208,11 +218,20 @@ aux_main() {
     return 2
   }
   aux_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P) || return 1
-  [[ ${JERYU_MONOREPO_CANDIDATE:-0} == 1 && ${JERYU_MONOREPO_EXPECTED_HEAD:-} =~ ^[0-9a-f]{40}$ &&
-     -d $aux_root/components/jeryu-tool ]] || {
-    printf 'Auxiliary producers require explicit monorepo candidate verification; the standalone export adapter is pending.\n' >&2
-    return 1
-  }
+  if [[ ${GITHUB_ACTIONS:-} == true && ${JAIN_RELEASE_CI:-0} != 1 &&
+        ${JERYU_MONOREPO_CANDIDATE:-0} != 1 ]]; then
+    [[ ${JERYU_MONOREPO_EXPECTED_HEAD:-} =~ ^[0-9a-f]{40}$ &&
+       -n ${JERYU_GOVERNED_JANKURAI_BIN:-} && -d $aux_root/components/jeryu-tool ]] || {
+      printf 'Auxiliary producers on GitHub Actions require the pinned Release auditor and exact source commit.\n' >&2
+      return 1
+    }
+  else
+    [[ ${JERYU_MONOREPO_CANDIDATE:-0} == 1 && ${JERYU_MONOREPO_EXPECTED_HEAD:-} =~ ^[0-9a-f]{40}$ &&
+       -d $aux_root/components/jeryu-tool ]] || {
+      printf 'Auxiliary producers require explicit monorepo candidate verification; the standalone export adapter is pending.\n' >&2
+      return 1
+    }
+  fi
   # shellcheck source=/dev/null
   source "$aux_root/ops/ci/lib.sh"
   aux_initial=$(aux_source) || return 1

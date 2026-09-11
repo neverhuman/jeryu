@@ -37,7 +37,7 @@ complete passing census for `679d9cff` in this checkpoint.
 | Auxiliary proofs | PENDING: authentic protected predecessor, complete changed paths/hunks, proof binding/marking, negative tests, coverage and conformance |
 | Public verification | PENDING: portable Work/Cache security admission, public tool/artifact acquisition and exact dependency receipts |
 | Complete CI | PENDING: complete local matrix, hosted matrix and resulting-main qualification at one final revision |
-| Installation | PENDING: anonymous public-origin build/install/runtime sequence at the final public candidate |
+| Installation | PROVED on published lock tag `jeryu-public-candidate-lock-72035eaf`: `./scripts/build.sh` exit 0, `./scripts/install.sh --from-source` exit 0, `jeryu serve --bind 127.0.0.1:8788` listens, `bootstrap-credentials.json` mode 0600, HTTP 200 SPA. Default data directory must be owner-only (0700); a group-writable leftover is refused. Release/cutover still PENDING. |
 | Optional runner image | PENDING: immutable public inputs and actual product-image tests, separate from native/OCI probes |
 | Mirrors | PENDING: actual standalone export builds/tests/audits and protected publication |
 | Every-commit audits | PENDING: full commit accounting, retries, reconciliation and governing-policy enforcement |
@@ -135,6 +135,16 @@ Published 2026-09-11:
 - Family-lock follow-up tag `jeryu-public-candidate-lock-72035eaf` rewrites every `family.lock.toml` pin to a GitHub `*-family-72035eaf` tag whose tree equals `72035eaf:components/<name>`
 - Standalone `jeryu-core` remains dirty/claimed; the family pin is the **monorepo nested tree**, not the dirty checkout
 - Runner family tag is the nested tree; standalone hosted-green of `48406af` is still a footnote
+
+Throwaway `git clone --no-local` of that lock tag also reconstructed a
+deleted `jeryu-cache` tree via `scripts/fetch-family.sh`; `diff -rq`
+matched the published `jeryu-cache-family-72035eaf` pin (tree
+`522b20981b97c7f2557f2be2c253e52c812dfa88`).
+
+Hosted PR 65 required lanes on `5c881aaa` were still red (source inventory,
+rustfmt, web a11y gate, runtime `/proc` EACCES, hermetic image-ID, standard
+score 60). Successor commits on `public/candidate-72035ea` repair those
+without moving the two published tags.
 
 Do not infer qualification from a green diagnostic job.
 

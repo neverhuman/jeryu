@@ -5,13 +5,13 @@ use std::collections::BTreeSet;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Version {
-    Legacy,
+    Unversioned,
     Versioned,
 }
 
 pub(crate) fn version(schema: &str) -> Result<Version> {
     match schema {
-        "jeryu.audit-repositories/v1" => Ok(Version::Legacy),
+        "jeryu.audit-repositories/v1" => Ok(Version::Unversioned),
         "jeryu.audit-repositories/v2" => Ok(Version::Versioned),
         _ => anyhow::bail!("unsupported audit inventory"),
     }

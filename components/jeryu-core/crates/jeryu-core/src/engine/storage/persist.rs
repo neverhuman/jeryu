@@ -581,4 +581,3 @@ pub(super) fn persist_state(conn: &Connection, state: &State) -> Result<()> {
 
     Ok(())
 }
-

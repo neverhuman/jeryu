@@ -32,12 +32,12 @@ use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 
 mod support;
-use support::{
-    core_error, detail_for_pr, github_merge_error, not_found, repair_error,
-    resolve_pr, self_approval_forbidden, stale_sha, state_matches, summary,
-};
 use super::repositories::{find_repo, repo_id};
 use super::{WebState, server_time};
+use support::{
+    core_error, detail_for_pr, github_merge_error, not_found, repair_error, resolve_pr,
+    self_approval_forbidden, stale_sha, state_matches, summary,
+};
 
 pub(super) const DOCS_URL: &str = "docs/errors.md";
 pub(super) const PROOF_LANE: &str = "rerun cargo test -p jeryu-api --features web --jobs 40 pulls";
@@ -107,9 +107,7 @@ struct PullRequestCheck {
 
 pub(super) mod posture;
 
-use posture::{
-    checks_for_pr, comment_input, review_state, threads_for_pr,
-};
+use posture::{checks_for_pr, comment_input, review_state, threads_for_pr};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -636,4 +634,3 @@ pub(super) async fn merge(
         Err(error) => core_error(error, "reload pull request after merge"),
     }
 }
-

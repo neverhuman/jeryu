@@ -61,7 +61,7 @@ while read -r name version member digest url extra; do
 done < "$root/ci/tools.lock.tsv"
 if [[ ${1:-} != --binary-tools-only ]]; then
   cargo_locks=("$root/ci/cargo-tools.lock.tsv")
-  if [[ ${1:-} == --legacy ]]; then cargo_locks+=("$root/ci/legacy-cargo-tools.lock.tsv"); fi
+  if [[ ${1:-} == --legacy ]]; then cargo_locks+=("$root/ci/predecessor-cargo-tools.lock.tsv"); fi
   for cargo_lock in "${cargo_locks[@]}"; do
     while read -r crate version extra; do
       [[ -n "$crate" && $crate != \#* ]] || continue

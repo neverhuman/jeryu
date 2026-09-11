@@ -1,6 +1,6 @@
-use chrono::{DateTime, Utc};
 use argon2::password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, SaltString};
 use argon2::{Algorithm, Argon2, Params, Version};
+use chrono::{DateTime, Utc};
 use rand_core::{OsRng, RngCore};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeSet;
@@ -79,7 +79,9 @@ pub(super) fn verify_password(password: &str, password_hash: &str) -> Result<()>
         .map_err(|_| ForgeError::Validation("invalid login or password".to_string()))
 }
 
-pub(super) fn validate_pat_expiry(expires_at: Option<DateTime<Utc>>) -> Result<Option<DateTime<Utc>>> {
+pub(super) fn validate_pat_expiry(
+    expires_at: Option<DateTime<Utc>>,
+) -> Result<Option<DateTime<Utc>>> {
     let now = Utc::now();
     let expires_at =
         expires_at.unwrap_or_else(|| now + chrono::Duration::days(PAT_DEFAULT_TTL_DAYS));

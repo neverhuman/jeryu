@@ -485,4 +485,3 @@ fn ci_evidence_not_found_error() -> AxumResponse {
     )
         .into_response()
 }
-

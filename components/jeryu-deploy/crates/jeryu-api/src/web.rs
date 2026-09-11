@@ -4,13 +4,13 @@
 mod test_databases;
 
 mod agent_runs;
-mod http;
 pub(crate) mod auth;
 mod ci_evidence;
 mod codegraph;
 mod control_plane;
 mod ecosystem;
 mod embedded_web;
+mod http;
 mod markdown;
 mod mcp_backend;
 mod permissions;
@@ -37,19 +37,12 @@ use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
-use axum::extract::{DefaultBodyLimit, Extension, Path as AxumPath, Request, State};
-use axum::http::{HeaderName, HeaderValue, Method as HttpMethod, StatusCode, header};
-use axum::middleware::{Next, from_fn, from_fn_with_state};
-use axum::response::{IntoResponse, Response as AxumResponse};
-use axum::routing::{any, get, post};
-use axum::{Json, Router as AxumRouter};
 use jeryu_codegraph::CodeGraphStore;
-use jeryu_core::{AccountSummary, ForgeCore, UserRole};
+use jeryu_core::ForgeCore;
 use jeryu_jira::WorkStore;
 use jeryu_readmodel::TuiReadModel;
 use jeryu_readmodel::contracts::{RepositoryRole, ServerWsMessage, WebEvent};
 use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
 use tokio::net::TcpListener;
 use tokio::sync::mpsc::UnboundedSender;
 
