@@ -1161,7 +1161,7 @@
       "kind": "proof-implementation-or-input",
       "path": "components/jeryu-ci-runner/crates/jeryu-runnerd/tests/hosted_dependency_transport.rs",
       "port_status": "pending-equivalence-proof",
-      "sha256": "01d7a2498329bc26b6c431c685369430e98e779b8150fd68965f91c0e1384f38"
+      "sha256": "b6f3b89200d54cd01db950309c0a730a4a76aa9f418b08c220930f0027189deb"
     },
     {
       "component": "jeryu-ci-runner",
@@ -1402,6 +1402,14 @@
       "path": "components/jeryu-ci-runner/ops/ci/hosted-git-env.sh",
       "port_status": "pending-equivalence-proof",
       "sha256": "f2fffbba36f55ae3dcf048eb3314db2725c0a1a3bd04d963a3852e42c8345ed2"
+    },
+    {
+      "component": "jeryu-ci-runner",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-ci-runner/ops/ci/install-jankurai-release.sh",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "528ec6c7de263f795fbc9ad6beb9598a7496ce5ce37d44e1ccddd2b2bb6dabd7"
     },
     {
       "component": "jeryu-ci-runner",
