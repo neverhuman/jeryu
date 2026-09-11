@@ -77,7 +77,7 @@ fixture_cargo() {
   fixture_call cargo "$@" || return $?
   case "$*" in
     'fmt --all -- --check'|'clippy --locked --workspace --all-targets --all-features -- -D warnings'|'clippy --locked -p jeryu-api --all-targets --no-default-features -- -D warnings'|'fetch --locked') ;;
-    'test --locked --workspace --all-features --exclude jeryu-sandbox-linux'|'test --locked -p jeryu-api --no-default-features')
+    'test --locked --workspace --all-features --exclude jeryu-sandbox-linux --no-fail-fast'|'test --locked -p jeryu-api --no-default-features --no-fail-fast')
       [[ ${fixture_auditor:-} == verified ]] || return 92
       ;;
     'run --locked -p jeryu-sandbox-linux --example required_capabilities') ;;
@@ -196,14 +196,19 @@ cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
 cargo fetch --locked
 source scripts/bootstrap-jankurai.sh
 bootstrap_public_jankurai
-cargo test --locked --workspace --all-features --exclude jeryu-sandbox-linux
-cargo test --locked -p jeryu-api --no-default-features
+cargo test --locked --workspace --all-features --exclude jeryu-sandbox-linux --no-fail-fast
+cargo test --locked -p jeryu-api --no-default-features --no-fail-fast
 cargo clippy --locked -p jeryu-api --all-targets --no-default-features -- -D warnings
 CALLS
 cmp "$fixture/expected" "$fixture/calls"
 while IFS= read -r fail_call; do
   run_coverage_case rust failure 23 "$fail_call"
-  [[ $(tail -n 1 "$fixture/calls") == "$fail_call" ]]
+  case "$fail_call" in
+    'cargo test '*|'cargo clippy --locked -p jeryu-api '*)
+      cmp "$fixture/expected" "$fixture/calls"
+      ;;
+    *) [[ $(tail -n 1 "$fixture/calls") == "$fail_call" ]] ;;
+  esac
 done <"$fixture/expected"
 
 # Hosted environment metadata cannot select a reduced required proof surface.

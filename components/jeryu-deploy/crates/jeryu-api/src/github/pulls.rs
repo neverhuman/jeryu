@@ -788,6 +788,14 @@ mod tests {
             "alice/jeryu"
         );
 
+        core.create_repository(
+            "fork-owner",
+            CreateRepositoryRequest {
+                name: "jeryu".to_string(),
+                ..Default::default()
+            },
+        )
+        .unwrap();
         let explicit_pr = core
             .create_pull_request(
                 "alice",

@@ -1,8 +1,16 @@
+use std::os::unix::fs::PermissionsExt;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 use super::*;
 use crate::RepoMaterializer;
+
+fn private_directory() -> tempfile::TempDir {
+    tempfile::Builder::new()
+        .permissions(std::fs::Permissions::from_mode(0o700))
+        .tempdir()
+        .expect("private creation fixture")
+}
 
 #[derive(Debug, Default)]
 struct Materializer {
@@ -64,7 +72,7 @@ fn creation_family_completion_cannot_change_a_replacement_repository() {
 
 #[test]
 fn failed_materialization_resumes_exact_identity_after_reopen_and_unrelated_write() {
-    let directory = tempfile::tempdir().unwrap();
+    let directory = private_directory();
     let database = directory.path().join("forge.sqlite");
     let materializer = Arc::new(Materializer::default());
     materializer.fail.store(true, Ordering::SeqCst);
@@ -154,7 +162,7 @@ fn retry_rejects_changed_request_owner_and_another_creation_id() {
 
 #[test]
 fn pending_creation_rechecks_custody_before_materialization_after_reopen() {
-    let directory = tempfile::tempdir().unwrap();
+    let directory = private_directory();
     let database = directory.path().join("forge.sqlite");
     let materializer = Arc::new(Materializer::default());
     materializer.fail.store(true, Ordering::SeqCst);
@@ -191,7 +199,7 @@ fn pending_creation_rechecks_custody_before_materialization_after_reopen() {
 
 #[test]
 fn retained_creation_cannot_resurrect_deleted_or_recreated_repository() {
-    let directory = tempfile::tempdir().unwrap();
+    let directory = private_directory();
     let database = directory.path().join("forge.sqlite");
     let core = ForgeCore::open_sqlite(&database).unwrap();
     let id = Uuid::new_v4();
@@ -217,7 +225,7 @@ fn retained_creation_cannot_resurrect_deleted_or_recreated_repository() {
 
 #[test]
 fn completion_write_failure_is_an_error_and_retains_pending_receipt() {
-    let directory = tempfile::tempdir().unwrap();
+    let directory = private_directory();
     let database = directory.path().join("forge.sqlite");
     let core = ForgeCore::open_sqlite(&database).unwrap();
     let connection = rusqlite::Connection::open(&database).unwrap();
@@ -245,7 +253,7 @@ fn completion_write_failure_is_an_error_and_retains_pending_receipt() {
 
 #[test]
 fn migration_preserves_legacy_repositories_without_inventing_retry_authority() {
-    let directory = tempfile::tempdir().unwrap();
+    let directory = private_directory();
     let database = directory.path().join("forge.sqlite");
     let core = ForgeCore::open_sqlite(&database).unwrap();
     let original = core.create_repository("alice", request()).unwrap();
@@ -274,7 +282,7 @@ fn migration_preserves_legacy_repositories_without_inventing_retry_authority() {
 
 #[test]
 fn stored_receipt_identity_mismatch_refuses_open() {
-    let directory = tempfile::tempdir().unwrap();
+    let directory = private_directory();
     let database = directory.path().join("forge.sqlite");
     let core = ForgeCore::open_sqlite(&database).unwrap();
     core.create_repository("alice", request()).unwrap();

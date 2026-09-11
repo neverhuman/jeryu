@@ -50,6 +50,30 @@ the required source, build and provenance checks remain intact.
 
 ## Current public evidence
 
+The persistence checkpoint `da29370be0f2c84297e47832d6d67cb8d8e39987`
+[run 34608941167, attempt 1](https://github.com/neverhuman/jeryu/actions/runs/34608941167)
+again passes 259 API unit tests but fails the same four live-HTTP startups.
+Using `TempDir` alone did not request private permissions: the pinned library
+defaults to 0777 masked by umask. The followup explicitly requests 0700 through
+its builder for live-HTTP and retained Core creation fixtures. The failed
+attempt is retained and production storage validation is unchanged. Complete
+Rust, including newly imported Core tests, still requires successful execution.
+
+The guarded Core checkpoint `37de6bab567129c49cb208a4257c8fa096843e51`
+has [full run 34610103105, attempt 1](https://github.com/neverhuman/jeryu/actions/runs/34610103105)
+in progress. Its API fixture review found three positive fork examples with no
+registered source repository. Those fixtures now create actual sources; a new
+negative case requires unknown-source refusal without creating a PR, then
+success after source registration. This preserves the stricter source-custody
+contract. Current fixture corrections need their own exact-head qualification.
+
+The Rust command now requests every Cargo test target after a failed target and
+still runs the supported API without Web plus its Clippy check. It preserves a
+failure result across that complete sequence. The owning dispatch regressions
+require every post-prerequisite call even after an earlier test failure;
+source/build/auditor prerequisite failures still stop dependent execution.
+This expands failure diagnostics without reducing the required test union.
+
 At `ac800340532341ddcfd6829ae9ca69b152a81b74`,
 [run 34607121494, attempt 1](https://github.com/neverhuman/jeryu/actions/runs/34607121494)
 passes source, public, web, runtime, product, security, sandbox and OCI. Rust
@@ -60,8 +84,8 @@ parent directories inherit group-write permission. The fixture correction uses
 owned private temporary directories, checks server cancellation and cleanup,
 and refuses missing Git/LFS capabilities instead of returning success. That
 correction and the complete Rust union require a new source-bound run. Audit,
-auditor and auxiliary proofs fail; splits and legacy were still running at
-this readback. No complete CI pass is implied.
+auditor, auxiliary, splits and legacy fail; required aggregate job
+`103295774966` fails. No complete CI pass is implied.
 
 At `791bd3931a7a8cc8403602a8ce8869f73ef725f8`,
 [run 34603566489, attempt 1](https://github.com/neverhuman/jeryu/actions/runs/34603566489)

@@ -55,10 +55,14 @@ case ${1:-all} in
     # on a fresh host. Absence or verification failure is a lane failure.
     source scripts/bootstrap-jankurai.sh
     bootstrap_public_jankurai
-    cargo test --locked --workspace --all-features --exclude jeryu-sandbox-linux
+    # Retain every target's diagnostics and both supported API configurations.
+    # Any failure remains a lane failure after the remaining checks finish.
+    rust_result=0
+    cargo test --locked --workspace --all-features --exclude jeryu-sandbox-linux --no-fail-fast || rust_result=$?
     # Workspace feature unification otherwise hides the supported API without Web.
-    cargo test --locked -p jeryu-api --no-default-features
-    cargo clippy --locked -p jeryu-api --all-targets --no-default-features -- -D warnings
+    cargo test --locked -p jeryu-api --no-default-features --no-fail-fast || rust_result=$?
+    cargo clippy --locked -p jeryu-api --all-targets --no-default-features -- -D warnings || rust_result=$?
+    exit "$rust_result"
     ;;
   runner-governed)
     # Separately mandatory installed-authority handover proof. No candidate
