@@ -10,6 +10,11 @@ This register reconciles the public candidate at
 from GitHub on 2026-09-11. Subsequent executions must record their actual source,
 workflow run and attempt; results for either predecessor are historical.
 
+The corrective source is in [draft PR 66](https://github.com/neverhuman/jeryu/pull/66).
+PR 65's later `a350a5e8` Runner family reference is also retained; its public
+commit and tree were read back against the named immutable tag. This historical
+reference does not qualify the Runner mirror or change tracked build inputs.
+
 ## Current public evidence
 
 [PR 65](https://github.com/neverhuman/jeryu/pull/65) remains open without an
@@ -89,15 +94,15 @@ claim. Missing maintained commands remain explicit gaps.
 
 | ID | Requirement / owner | Maintained command or owning source | Current result / correction | PR |
 | --- | --- | --- | --- | --- |
-| R01 | Reviewed integrated candidate / monorepo | `scripts/ci.sh source` | Public ancestry retained; pending slice integrated. Inventory, generated consumers, manifest paths, monorepo check and 128 CI dispatch scenarios pass; complete hosted source lane pending. | 65 followup |
-| R02 | Exact complete CI inventory / Deploy | `jeryu-split ci-required-check`; `scripts/check-required-ci.sh` | Five validator tests pass, covering exact repository/source/workflow/run/attempt and missing, duplicate, substituted or unsuccessful jobs. Hosted final-head execution pending. | 65 followup |
-| R03 | Required audit work survives later pushes / CI | `.github/workflows/ci.yml`, `jankurai-score.yml` | Unique run/attempt concurrency groups and cancellation disabled. Service reconciliation remains separate. | 65 followup |
+| R01 | Reviewed integrated candidate / monorepo | `scripts/ci.sh source` | Public ancestry retained; pending slice integrated. Inventory, generated consumers, manifest paths, monorepo check and 128 CI dispatch scenarios pass; complete hosted source lane pending. | [66](https://github.com/neverhuman/jeryu/pull/66) |
+| R02 | Exact complete CI inventory / Deploy | `jeryu-split ci-required-check`; `scripts/check-required-ci.sh` | Five validator tests pass, covering exact repository/source/workflow/run/attempt and missing, duplicate, substituted or unsuccessful jobs. Hosted final-head execution pending. | [66](https://github.com/neverhuman/jeryu/pull/66) |
+| R03 | Required audit work survives later pushes / CI | `.github/workflows/ci.yml`, `jankurai-score.yml` | Unique run/attempt concurrency groups and cancellation disabled. Service reconciliation remains separate. | [66](https://github.com/neverhuman/jeryu/pull/66) |
 | R04 | Full Rust product matrix / components | `scripts/ci.sh rust` | Public refactors failed formatting. Formatting corrected; complete test and Clippy union remains required. | 65 |
 | R05 | Browser journey, accessibility, performance / Web | `scripts/ci.sh web` | Public consolidation lost the effective keyboard-scroll lint setting. Restored original behavior; lint and full rendered matrix required. | 65; Web 1 |
 | R06 | Bootstrap, credentials, Git, issues, Work, PRs, checks, merge, restart / Core+Deploy+Work | `scripts/ci.sh runtime`, `scripts/ci.sh product` | Bootstrap now prepares and syncs the one-time receipt before creating an account and resumes from that receipt after interruption. New restart/custody regressions and final-source complete journey remain pending. | 65 |
 | R07 | Interrupted repository/Core-Work repair / Core+Deploy+Work | API repository/Work modules and owning tests | Atomic linked Work creation exists. Complete durable recovery, visible pending repairs and idempotent retries remain unqualified. | 65 |
 | R08 | Backup/restore, upgrade/rollback, permissions, TLS / Deploy | `scripts/test-source-install.sh`; `docs/recovery.md` | Public runtime failed fixture cleanup on inaccessible same-user process state. Retain failed custody; qualify isolated unprivileged execution and cross-version/TLS drills. | 65 |
-| R09 | Anonymous source installation / Deploy | `scripts/build.sh`; `scripts/install.sh --from-source` | Build no longer reconstructs component source or adds a Python prerequisite for that operation. Final anonymous empty-cache source journey pending. | 65 followup |
+| R09 | Anonymous source installation / Deploy | `scripts/build.sh`; `scripts/install.sh --from-source` | Build no longer reconstructs component source or adds a Python prerequisite for that operation. Final anonymous empty-cache source journey pending. | [66](https://github.com/neverhuman/jeryu/pull/66) |
 | R10 | Full dependency closure / Deploy | `jeryu-split dependency-inputs` | Version-aware inventory implemented. Exact revision/hash/license/capability closure and public acquisition evidence remain required. | 65 |
 | R11 | Public Cache scanners, advisories and API baseline / Cache | Cache `ops/ci/security.sh`, `ops/ci/api-compat.sh` | Source guards integrated. Full public scanner producer, pinned advisory DB and immutable API baseline remain unqualified. | 65; Cache 1 |
 | R12 | Runner image ownership and immutable inputs / Runner | Runner `images/agent-sandbox`, `scripts/test-oci.sh` | Product image and duplicate Deploy route need complete reconciliation. Native and OCI-probe successes do not qualify the product image. | 65 |
@@ -107,9 +112,9 @@ claim. Missing maintained commands remain explicit gaps.
 | R16 | Complete root/component/export/dependency census / Deploy | `scripts/ci.sh audit` | Every scope is recorded; producer, governing policy and execution admission still prevent a qualified aggregate. | 65 |
 | R17 | Authentic predecessors and auxiliary proofs / Tool+Release Ops | `scripts/ci.sh auxiliary`; Tool `ops/ci/tool-adoption.sh` | Candidate-derived baseline is insufficient. Protected predecessor, complete changed paths/hunks, proofbind/proofmark/configuration/conformance remain open. | 65; Tool 1 |
 | R18 | Coverage, mutation and stricter floors / components | Existing owning quantitative gates in `CI-COVERAGE.md` | Preserve all floors, zero hard findings/caps, soft limits, coverage/mutation/size/performance requirements. No waiver or lowered policy is admitted. | 65 |
-| R19 | Authenticated durable webhook intake / Deploy | `jeryu-split audit-intake` | Raw-byte HMAC and durable local intake integrated. HTTP deployment and service authority are not implemented by this CLI. | 65 followup |
+| R19 | Authenticated durable webhook intake / Deploy | `jeryu-split audit-intake` | Raw-byte HMAC and durable local intake integrated. HTTP deployment and service authority are not implemented by this CLI. | [66](https://github.com/neverhuman/jeryu/pull/66) |
 | R20 | Persistent queue, ancestry, retries and reconciliation / service | `audit-plan`, `audit-ledger`, intake store | Local accounting exists. Maintainer receiver/dispatcher, backfill, restart/outage/missed-delivery drills and enrollment remain open. | New service work |
-| R21 | Authenticated executor results and publication / service | `jeryu-split audit-package` | Private immutable preparation exists and cannot grant verified PASS. Workflow/run/attempt/source/policy/exit/hash authentication and publication credentials remain separate open boundaries. | 65 followup |
+| R21 | Authenticated executor results and publication / service | `jeryu-split audit-package` | Private immutable preparation exists and cannot grant verified PASS. Workflow/run/attempt/source/policy/exit/hash authentication and publication credentials remain separate open boundaries. | [66](https://github.com/neverhuman/jeryu/pull/66) |
 | R22 | Immutable JSON/Markdown/SVG/provenance and Pages / service | `docs/migration/AUDIT-PUBLICATION.md` | Trusted sanitized publisher, first-party renderer, Pages artifact workflow and public reachability unqualified. | New service work |
 | R23 | Race-safe live cards and README enrollment / service | `jeryu-split audit-readme` | Marker validator exists; pending publication, monotonic head pointers and separate maintained/pinned cards need service integration. | 65 |
 | R24 | Deterministic exports and mirror divergence / Deploy | `scripts/ci.sh splits`; `prepare-mirror-update` | Repeated export preparation exists; actual exported source must independently build/test/audit before protected forward publication. | Component followups |
