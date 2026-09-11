@@ -128,14 +128,15 @@ gap remains documented in the historical record.
 GitHub `main` may lag this source candidate. Until `main` fast-forwards,
 clone by tag:
 
-`git clone --branch jeryu-public-candidate-20260911t021229z https://github.com/neverhuman/jeryu.git`
+`git clone --branch jeryu-public-candidate-lock-72035eaf https://github.com/neverhuman/jeryu.git`
 
-The published tag SHA, tree, and first-hour clone/build/install/serve
-evidence will be recorded here after the candidate is pushed. Do not infer
-qualification from a green diagnostic job. Family `jeryu-core-v5.0.0-split.5`
-and `jeryu-deploy-v5.0.0-split.3` tags are not on GitHub; reconstruct those
-components only after a `*-family-<mono>` tag exists, or treat them as
-pending. Runner hosted-green and dirty core remain footnotes, not pins.
+Published 2026-09-11:
+- Close-out commit `72035eaf281f0b2cf459ac8d271b162c046a6d29` (tree `dcd977b23ee5a223eb5635a2b068a6a25e4fc965`), tag `jeryu-public-candidate-20260911t021229z`
+- Family-lock follow-up tag `jeryu-public-candidate-lock-72035eaf` rewrites every `family.lock.toml` pin to a GitHub `*-family-72035eaf` tag whose tree equals `72035eaf:components/<name>`
+- Standalone `jeryu-core` remains dirty/claimed; the family pin is the **monorepo nested tree**, not the dirty checkout
+- Runner family tag is the nested tree; standalone hosted-green of `48406af` is still a footnote
+
+Do not infer qualification from a green diagnostic job.
 
 Private vulnerability reporting is enabled on `neverhuman/jeryu` and the
 satellite product repositories as of 2026-09-11.

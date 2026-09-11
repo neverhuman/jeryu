@@ -18,7 +18,7 @@ Install the prerequisites below, then use the source installation contract.
 GitHub `main` may lag the candidate. Clone the published candidate tag:
 
 ```bash
-git clone --branch jeryu-public-candidate-20260911t021229z https://github.com/neverhuman/jeryu.git
+git clone --branch jeryu-public-candidate-lock-72035eaf https://github.com/neverhuman/jeryu.git
 cd jeryu
 ./scripts/build.sh
 ./scripts/install.sh --from-source
