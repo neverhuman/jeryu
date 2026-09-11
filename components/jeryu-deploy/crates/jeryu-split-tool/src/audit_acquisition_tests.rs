@@ -340,7 +340,12 @@ fn clone_from_selected_bare_input_has_exact_graph_and_rejects_additional_objects
     fixture_git(&["init", "--bare", "--template="]);
     let tree = fixture_git(&["mktree"]);
     let commit = fixture_git(&["commit-tree", &tree, "-m", "selected fixture"]);
-    fixture_git(&["update-ref", "--no-deref", "HEAD", &commit, &"0".repeat(40)]);
+    // Git 2.55+ refuses update-ref --no-deref on the dangling symbolic HEAD
+    // created by init --bare. Delete it, then attach a detached HEAD.
+    let _ = crate::split_tree::source_git_command(&input)
+        .args(["symbolic-ref", "--delete", "HEAD"])
+        .output();
+    fixture_git(&["update-ref", "--no-deref", "HEAD", &commit]);
     let mut session = Session {
         directory: f.root.clone(),
         deadline: Instant::now() + Duration::from_secs(30),

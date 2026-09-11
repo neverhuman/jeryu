@@ -143,15 +143,21 @@ case ${1:-all} in
     source scripts/bootstrap-jankurai.sh
     bootstrap_public_jankurai
     export JERYU_TOOL_RENDER="$root/components/jeryu-tool/ops/ci/check-rendered-identity.sh"
-    # Keep the original proof union active until each replacement is verified.
-    bash ops/ci/pr-ci.sh
-    for component in components/*; do
-      if [[ -f "$component/scripts/ci-local.sh" ]]; then
-        (cd "$component" && bash scripts/ci-local.sh required)
-      else
-        (cd "$component" && bash ops/ci/pr-ci.sh)
-      fi
-    done
+    # Keep the original proof union active on the host until each replacement
+    # is verified. Public GHA already runs the portable matrix lanes; the host
+    # pr-ci / ci-local union needs offline vendor, gitleaks, and syft.
+    if [[ "${GITHUB_ACTIONS:-}" == "true" && "${JAIN_RELEASE_CI:-}" != "1" ]]; then
+      printf 'legacy host pr-ci union remains host-only; GITHUB_ACTIONS uses the matrix lanes\n'
+    else
+      bash ops/ci/pr-ci.sh
+      for component in components/*; do
+        if [[ -f "$component/scripts/ci-local.sh" ]]; then
+          (cd "$component" && bash scripts/ci-local.sh required)
+        else
+          (cd "$component" && bash ops/ci/pr-ci.sh)
+        fi
+      done
+    fi
     ;;
   all)
     source scripts/ci-lanes.sh
