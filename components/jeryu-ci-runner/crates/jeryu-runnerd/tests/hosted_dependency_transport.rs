@@ -31,11 +31,17 @@ impl Auditor {
     fn selected() -> Self {
         match std::env::var("JERYU_MONOREPO_CANDIDATE").as_deref() {
             Err(std::env::VarError::NotPresent) | Ok("0") => Self {
-                // Host default is the governed receipt path. Public GHA exports
-                // the same SHA-pinned Release binary via JERYU_GOVERNED_JANKURAI_BIN.
+                // Host default is the governed receipt path. Public GHA uses
+                // the SHA-pinned Release binary at /usr/local/bin/jankurai.
                 binary: std::env::var_os("JERYU_GOVERNED_JANKURAI_BIN")
                     .map(PathBuf::from)
-                    .unwrap_or_else(|| PathBuf::from(GOVERNED_JANKURAI)),
+                    .unwrap_or_else(|| {
+                        if std::env::var("GITHUB_ACTIONS").as_deref() == Ok("true") {
+                            PathBuf::from("/usr/local/bin/jankurai")
+                        } else {
+                            PathBuf::from(GOVERNED_JANKURAI)
+                        }
+                    }),
                 candidate: None,
             },
             Ok("1") => {
