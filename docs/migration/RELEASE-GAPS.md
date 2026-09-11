@@ -15,9 +15,9 @@ export build/test sequences finish; Runner still selects an unavailable installe
 auditor path and Deploy still lacks successful protected merge. These are
 predecessor results, not qualification of later source.
 
-Local browser preparation at `0c067afd` still needs its 14 genuine Rust-generated
-Core/Web contracts and current-source verification. While its generator awaits
-shared execution capacity, Deploy inclusion restores required Git availability,
+Browser preparation at `0c067afd` now has its 14 genuine Rust-generated
+Core/Web contracts from the exact `0bf84ae5` CI preparation described below.
+Current-source verification remains required. Deploy inclusion restores Git availability,
 separate real-Git legacy refusal and distinct fork identities, and adds complete
 active-manifest path confinement plus rejection of non-Jeryu local dependencies.
 Five path/metadata regression groups and four refusal regressions are source-only
@@ -71,6 +71,25 @@ download-only installer and its new family tag are not adopted as authority;
 the required source, build and provenance checks remain intact.
 
 ## Current public evidence
+
+At `0bf84ae52ef5a9c65efa04f5d2203c17ad3ed304`,
+[run 34624973507, attempt 1](https://github.com/neverhuman/jeryu/actions/runs/34624973507)
+produced the fourteen missing contract files through the maintained
+`bash scripts/contracts.sh --write` command and actual Rust owners. Web job
+103347766915 retained its original drift failure. Artifact 10273537135 has
+SHA-256 `08463ace7c46666ec725579037894d0fe244424c6d8ece30311bfe77e5ad9bd3`.
+Its exact source/tree/run/attempt, 212-member inventory and all 210 file hashes
+were checked: all 196 existing Core/Work/Web files are byte-identical, and only
+the intended seven Core plus seven matching Web types are new. Those generated
+bytes are now incorporated. Actual generation does not qualify the browser or
+the complete candidate; all current-source checks still apply. No required job
+was skipped, canceled or changed to accept the preparation failure.
+
+That preparation's source job compiled the new maintenance binary, then caught
+the CLI passing relative `.` to the new physical manifest-root guard. The
+command now supplies its actual absolute working directory. A CLI regression
+must still reach and reject an external dependency before Cargo resolution;
+all physical-path controls remain required. Its execution is pending.
 
 The next maintenance-service slice connects an exact retained authenticated
 reception to complete local Git planning and the existing durable queue. Plans,

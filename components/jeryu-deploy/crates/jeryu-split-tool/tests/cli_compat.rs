@@ -188,6 +188,56 @@ fn manifest_command_requires_portal_membership_for_both_schemas() {
 }
 
 #[test]
+fn monorepo_command_uses_current_directory_and_rejects_external_manifest_paths() {
+    use std::os::unix::fs::PermissionsExt;
+    let directory = tempfile::Builder::new()
+        .permissions(std::fs::Permissions::from_mode(0o700))
+        .tempdir()
+        .unwrap();
+    let root = directory.path();
+    let manifest = &portal_manifest_fixtures()[1].1;
+    let toolchain = "[toolchain]\nchannel='1.97.1'\n";
+    std::fs::create_dir(root.join(".cargo")).unwrap();
+    std::fs::write(root.join(".cargo/config.toml"), "[build]\njobs=2\n").unwrap();
+    std::fs::write(root.join("rust-toolchain.toml"), toolchain).unwrap();
+    std::fs::write(
+        root.join("repos.manifest.toml"),
+        toml::to_string(manifest).unwrap(),
+    )
+    .unwrap();
+    for repo in manifest["repo"].as_array().unwrap() {
+        if repo["name"].as_str() == Some("jeryu") {
+            continue;
+        }
+        let component = root.join(repo["path"].as_str().unwrap());
+        std::fs::create_dir_all(&component).unwrap();
+        std::fs::write(component.join("rust-toolchain.toml"), toolchain).unwrap();
+    }
+    std::fs::write(
+        root.join("Cargo.toml"),
+        "[workspace]\nmembers=[]\n[workspace.dependencies]\nexternal={path='../external'}\n",
+    )
+    .unwrap();
+    let output = Command::new(env!("CARGO_BIN_EXE_jeryu-split"))
+        .current_dir(root)
+        .arg("monorepo-check")
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(1));
+    let error = String::from_utf8(output.stderr).unwrap();
+    assert!(
+        error.contains("dependency path leaves this repository"),
+        "{error}"
+    );
+    assert!(
+        String::from_utf8(output.stdout)
+            .unwrap()
+            .contains("0 refreshed")
+    );
+    assert!(!root.join("Cargo.lock").exists());
+}
+
+#[test]
 fn local_export_arguments_refuse_incomplete_or_duplicate_preparation() {
     let revision = "a".repeat(40);
     for extra in [

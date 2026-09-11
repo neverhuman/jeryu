@@ -367,7 +367,7 @@ fn run(cli: Cli) -> Result<()> {
             policy,
             report,
         } => audit_score::run(owner, &policy, &report),
-        Command::MonorepoCheck => monorepo::check(Path::new(".")),
+        Command::MonorepoCheck => monorepo::check(&std::env::current_dir()?),
         Command::BuildConfig { write } => build_config::run(Path::new("."), write),
         Command::PublicPreflight => monorepo::public_preflight(Path::new(".")),
         Command::DependencyInputs => dependency_inputs::run(Path::new(".")),
