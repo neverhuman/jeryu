@@ -224,7 +224,7 @@ fn legacy_rustup_and_cargo_names_cannot_override_the_root_files() {
                 run(root, true)
                     .unwrap_err()
                     .to_string()
-                    .contains("legacy build configuration")
+                    .contains("predecessor build configuration")
             );
             assert_eq!(
                 fs::read_to_string(root.join("components/jeryu-cache/rust-toolchain.toml"))
