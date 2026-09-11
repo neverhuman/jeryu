@@ -88,11 +88,9 @@ export interface PullRequestListResponse {
   total: number;
 }
 
-/** Body for `POST /pulls/{number}/approve`. */
-export interface PullApproveRequest {
-  expected_head_sha: string;
-  body_markdown?: string | null;
-}
+export type { PullApproveRequest } from '../../../../../contracts/generated/PullApproveRequest';
+export type { PreparePullReviewRequest } from '../../../../../contracts/generated/PreparePullReviewRequest';
+export type { PullReviewChallenge } from '../../../../../contracts/generated/PullReviewChallenge';
 
 /** Body for `POST /pulls/{number}/merge`. */
 export interface MergePullRequest {

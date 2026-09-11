@@ -50,6 +50,25 @@ the required source, build and provenance checks remain intact.
 
 ## Current public evidence
 
+The browser approval correction prepares the server's current credential-bound
+review challenge before submission. A Rust-owned read-model projection describes
+the observed source/base, reviewer and nonce; actual API fixture responses and
+approval bodies use that contract. Browser controls display the prepared source,
+refuse malformed/expired/foreign preparations and reuse the identical challenge
+and body after an uncertain response. Nonces remain in mutation memory, with no
+storage or report logging. The five added rendered refusal/cancel/retry scenarios,
+existing success/drift journeys, screenshot/accessibility checks and four unit
+cases are prepared. Owning Rust generation and actual browser/API execution are
+pending; generated contracts must never be hand-edited.
+
+At `1665fc35545c0afb6bc67f4873a649dd5862dc19`, full Rust job 103319204295
+passes all 14 required-attempt persistence and 11 publisher-controller controls.
+Immutable replay, transaction rollback, receiving-byte validation, revocation,
+rotation and newer-attempt precedence execute successfully. Full Rust remains
+failed on four API/merge/CLI targets; these component results do not qualify the
+later custody, restoration or browser changes.
+
+
 At `294d73ece4e9f553fa14d2311d81c67af447bdac`,
 [run 34613853145, attempt 1](https://github.com/neverhuman/jeryu/actions/runs/34613853145)
 passes all three actual audit-executor confinement, nonzero-exit and descendant

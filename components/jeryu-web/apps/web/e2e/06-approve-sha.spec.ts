@@ -18,11 +18,13 @@
 // real driver of the exact-SHA body the backend gates on.
 
 import { expect, test } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
 
 import {
   forceDriftSha,
   mockBootstrap,
   mockPullRequestDetail,
+  mockPullReviewChallenge,
   mockRepoList,
 } from './fixtures/mocks';
 
@@ -45,7 +47,7 @@ function approveButton(page: import('@playwright/test').Page) {
 test.describe('Approve at exact SHA (W-T-14)', () => {
   test('clicking Approve on the cockpit succeeds and shows no recovery banner @action:pr.approve_success @action:pr.request_changes_visible', async ({
     page,
-  }) => {
+  }, testInfo) => {
     await mockBootstrap(page);
     // The list mock lets `useResolveRepo` map the URL to the backend repo id.
     await mockRepoList(page, [{ id: REPO, default_branch: 'main' }]);
@@ -56,6 +58,11 @@ test.describe('Approve at exact SHA (W-T-14)', () => {
       head_sha: OLD_SHA,
       passport: 'blocked',
     });
+
+    const challenge = await mockPullReviewChallenge(page, {
+      repoId: REPO_ID, number: PR_NUMBER, head_sha: OLD_SHA,
+    });
+    let approvalRequests = 0;
 
     // Approve endpoint accepts the exact head SHA and returns the (now
     // approved) detail. We echo back a 1-approval posture so the success
@@ -69,7 +76,12 @@ test.describe('Approve at exact SHA (W-T-14)', () => {
         }
         const body = JSON.parse(req.postData() ?? '{}') as {
           expected_head_sha?: string;
+          challenge_id?: string;
+          nonce?: string;
         };
+        approvalRequests += 1;
+        expect(body.challenge_id).toBe(challenge.id);
+        expect(body.nonce).toBe(challenge.nonce);
         // The body must carry the exact SHA the reviewer saw.
         expect(body.expected_head_sha).toBe(OLD_SHA);
         await route.fulfill({
@@ -157,6 +169,14 @@ test.describe('Approve at exact SHA (W-T-14)', () => {
     ).toBeDisabled();
 
     await approve.click();
+    const prepared = page.getByRole('region', { name: 'Prepared review' });
+    await expect(prepared).toBeVisible();
+    await expect(prepared).toContainText(OLD_SHA);
+    expect(approvalRequests).toBe(0);
+    await page.screenshot({ path: testInfo.outputPath('prepared-review.png'), fullPage: true });
+    const accessibility = await new AxeBuilder({ page }).include('[aria-label="Prepared review"]').analyze();
+    expect(accessibility.violations).toEqual([]);
+    await prepared.getByRole('button', { name: 'Submit approval' }).click();
 
     // Success: the sidebar reflects the new approval posture and NO recovery
     // banner appears (the banner only renders on a 409 drift).
@@ -179,6 +199,7 @@ test.describe('Approve at exact SHA (W-T-14)', () => {
       head_sha: OLD_SHA,
       passport: 'blocked',
     });
+    await mockPullReviewChallenge(page, { repoId: REPO_ID, number: PR_NUMBER, head_sha: OLD_SHA });
     // The approve POST returns 409 merge_sha_stale with expected/current SHA.
     await forceDriftSha(page, OLD_SHA, NEW_SHA);
 
@@ -188,6 +209,8 @@ test.describe('Approve at exact SHA (W-T-14)', () => {
     ).toBeVisible({ timeout: 15_000 });
 
     await approveButton(page).click();
+    await page.getByRole('region', { name: 'Prepared review' })
+      .getByRole('button', { name: 'Submit approval' }).click();
 
     // The cockpit recovery banner appears (role="alert"), names the SHA
     // drift, and renders both the old + new short SHAs with a Refresh CTA.
@@ -253,5 +276,81 @@ test.describe('Approve at exact SHA (W-T-14)', () => {
     await expect
       .poll(() => mergeMethods.join(','), { timeout: 10_000 })
       .toBe('merge,squash,rebase');
+  });
+});
+
+
+test.describe('Prepared approval controls', () => {
+  test.beforeEach(async ({ page }) => {
+    await mockBootstrap(page);
+    await mockRepoList(page, [{ id: REPO, default_branch: 'main' }]);
+    await mockPullRequestDetail(page, { repoId: REPO_ID, number: PR_NUMBER, head_sha: OLD_SHA, passport: 'blocked' });
+  });
+
+  for (const mode of ['missing nonce', 'expired', 'foreign repository'] as const) {
+    test(`refuses ${mode} preparation without submitting approval @action:pr.approve_success`, async ({ page }) => {
+      const input = { repoId: REPO_ID, number: PR_NUMBER, head_sha: OLD_SHA };
+      const valid = await mockPullReviewChallenge(page, input);
+      await mockPullReviewChallenge(page, input, mode === 'missing nonce'
+        ? { nonce: '' }
+        : mode === 'expired' ? { expires_at: '2000-01-01T00:00:00Z' }
+        : { snapshot: { ...valid.snapshot, repository_id: 'another-repository' } });
+      const requests: string[] = [];
+      page.on('request', (request) => { if (request.url().endsWith('/approve')) requests.push(request.url()); });
+      await page.goto(PR_URL);
+      await approveButton(page).click();
+      await expect(page.getByText('Could not prepare review', { exact: true })).toBeVisible();
+      await expect(page.getByRole('region', { name: 'Prepared review' })).toHaveCount(0);
+      expect(requests).toEqual([]);
+    });
+  }
+
+  test('cancels a prepared review and shows a preparation outage without approval @action:pr.approve_success', async ({ page }, testInfo) => {
+    await mockPullReviewChallenge(page, { repoId: REPO_ID, number: PR_NUMBER, head_sha: OLD_SHA });
+    const requests: string[] = [];
+    page.on('request', (request) => { if (request.url().endsWith('/approve')) requests.push(request.url()); });
+    await page.goto(PR_URL);
+    await approveButton(page).click();
+    await page.getByRole('button', { name: 'Cancel review' }).click();
+    await expect(page.getByRole('region', { name: 'Prepared review' })).toHaveCount(0);
+    expect(requests).toEqual([]);
+    await page.route(/\/review-challenges$/, (route) => route.fulfill({
+      status: 503, contentType: 'application/json',
+      body: JSON.stringify({ error: { code: 'writer_unavailable', message: 'Review storage is temporarily unavailable.' } }),
+    }));
+    await approveButton(page).click();
+    await expect(page.getByText('Could not prepare review', { exact: true })).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath('review-preparation-outage.png'), fullPage: true });
+    expect(requests).toEqual([]);
+  });
+
+  test('retries uncertain submission with identical nonce and request @action:pr.approve_success', async ({ page }) => {
+    const detail = await mockPullRequestDetail(page, { repoId: REPO_ID, number: PR_NUMBER, head_sha: OLD_SHA, passport: 'blocked', approvals: 1 });
+    const challenge = await mockPullReviewChallenge(page, { repoId: REPO_ID, number: PR_NUMBER, head_sha: OLD_SHA });
+    const submitted: string[] = [];
+    let preparations = 0;
+    page.on('request', (request) => { if (request.url().endsWith('/review-challenges')) preparations += 1; });
+    await page.route(/\/approve$/, async (route, request) => {
+      submitted.push(request.postData() ?? '');
+      const body = request.postDataJSON() as { challenge_id: string; nonce: string; expected_head_sha: string };
+      expect(body).toEqual({ challenge_id: challenge.id, nonce: challenge.nonce, expected_head_sha: OLD_SHA });
+      await route.fulfill({
+        status: submitted.length === 1 ? 503 : 200,
+        contentType: 'application/json',
+        body: JSON.stringify(submitted.length === 1
+          ? { error: { code: 'uncertain_response', message: 'Read the review or retry the same request.' } }
+          : detail),
+      });
+    });
+    await page.goto(PR_URL);
+    await approveButton(page).click();
+    const submit = page.getByRole('button', { name: 'Submit approval', exact: true });
+    await submit.click();
+    await expect(page.getByText('Could not submit approval', { exact: true })).toBeVisible();
+    await submit.click();
+    await expect(page.getByRole('region', { name: 'Prepared review' })).toHaveCount(0);
+    expect(submitted).toHaveLength(2);
+    expect(submitted[0]).toBe(submitted[1]);
+    expect(preparations).toBe(1);
   });
 });

@@ -265,6 +265,14 @@ impl Fixture {
             )
             .await;
         assert_eq!(status, StatusCode::CREATED, "{body}");
+        let projected: jeryu_readmodel::contracts::PullReviewChallenge =
+            serde_json::from_value(body.clone())
+                .expect("actual Core response matches browser contract");
+        assert_eq!(projected.snapshot.git.source.commit_sha, self.head);
+        assert_eq!(projected.snapshot.git.destination.commit_sha, self.base);
+        assert_eq!(projected.snapshot.pull_number, 1);
+        assert_eq!(projected.id, body["id"].as_str().unwrap());
+        assert_eq!(projected.nonce, body["nonce"].as_str().unwrap());
         body
     }
 
@@ -277,11 +285,13 @@ impl Fixture {
             Method::POST,
             "/approve",
             Some(bearer),
-            json!({
-                "expected_head_sha": self.head,
-                "challenge_id": challenge["id"], "nonce": challenge["nonce"],
-                "body_markdown": "Reviewed the observed source and evidence"
-            }),
+            serde_json::to_value(jeryu_readmodel::contracts::PullApproveRequest {
+                expected_head_sha: self.head.clone(),
+                challenge_id: challenge["id"].as_str().unwrap().to_owned(),
+                nonce: challenge["nonce"].as_str().unwrap().to_owned(),
+                body_markdown: Some("Reviewed the observed source and evidence".into()),
+            })
+            .unwrap(),
         )
         .await
     }

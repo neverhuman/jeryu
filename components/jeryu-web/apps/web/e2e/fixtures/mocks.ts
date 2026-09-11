@@ -21,7 +21,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import type { Page, Route } from '@playwright/test';
-import type { RunnerFabricResponse } from '../../src/api/types';
+import type { RunnerFabricResponse, PullReviewChallenge } from '../../src/api/types';
 
 // Playwright 1.60's bundled TS compilation treats fixture files as ESM, so
 // `__dirname` is unavailable. Resolve the JSON fixture relative to the
@@ -1306,4 +1306,40 @@ export async function mockCompanionShell(
       }),
     });
   });
+}
+
+/** Rust-generated browser projection of an isolated review preparation fixture. */
+export async function mockPullReviewChallenge(
+  page: Page,
+  pr: { repoId: string; number: string; head_sha: string },
+  overrides: Partial<PullReviewChallenge> = {}
+): Promise<PullReviewChallenge> {
+  const challenge: PullReviewChallenge = {
+    id: 'a59382b0-e8d1-4e18-a5a6-90f04f38ff4c',
+    nonce: 'isolated-review-fixture-nonce',
+    expires_at: new Date(Date.now() + 600_000).toISOString(),
+    snapshot_sha256: 'b'.repeat(64),
+    merge_qualified: false,
+    blockers: ['Required merge authority is unavailable'],
+    snapshot: {
+      repository_id: pr.repoId,
+      pull_number: Number(pr.number),
+      policy_revision: 'c'.repeat(64),
+      reviewer: { login: 'reviewer' },
+      git: {
+        source: { reference: 'refs/heads/feature/x', commit_sha: pr.head_sha, tree_sha: 'd'.repeat(40) },
+        destination: { reference: 'refs/heads/main', commit_sha: 'e'.repeat(40), tree_sha: 'f'.repeat(40) },
+      },
+    },
+    ...overrides,
+  };
+  await page.route(/\/api\/v1\/repos\/[^/]+\/pulls\/[^/]+\/review-challenges$/, async (route, request) => {
+    if (request.method() !== 'POST') return route.continue();
+    const body = request.postDataJSON() as { expected_head_sha?: string };
+    if (body.expected_head_sha !== pr.head_sha) {
+      return route.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({ error: { code: 'review_head_changed', message: 'Refresh the review source.' } }) });
+    }
+    return route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify(challenge) });
+  });
+  return challenge;
 }

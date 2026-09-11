@@ -28,6 +28,8 @@ import {
   PermissionDeniedState,
 } from '../components/state';
 import { useApprovePr } from '../hooks/useApprovePr';
+import { preparationProblem, usePreparePrReview } from '../hooks/usePreparePrReview';
+import { PreparedReview } from '../components/merge/PreparedReview';
 import { useMergePr } from '../hooks/useMergePr';
 import { usePullRequest } from '../hooks/usePullRequest';
 import { usePrChecks } from '../hooks/usePrChecks';
@@ -85,6 +87,8 @@ export function PullRequestPage(props: PullRequestPageProps = {}): JSX.Element {
   const threads = usePrThreads(repoId, prNumber);
 
   const approve = useApprovePr(repoId, prNumber);
+  const prepare = usePreparePrReview(repoId, prNumber);
+  const [preparationError, setPreparationError] = useState<ApiError | null>(null);
   const mergeMutation = useMergePr(repoId, prNumber);
 
   // Diff viewer state.
@@ -117,10 +121,34 @@ export function PullRequestPage(props: PullRequestPageProps = {}): JSX.Element {
   const handleApprove = useCallback(
     async (expectedHeadSha: string) => {
       approve.reset();
-      await approve.mutateAsync({ expected_head_sha: expectedHeadSha });
+      prepare.reset();
+      setPreparationError(null);
+      try {
+        await prepare.mutateAsync({ expected_head_sha: expectedHeadSha });
+      } catch {
+        // The mutation error is rendered below; no approval follows a failure.
+      }
     },
-    [approve]
+    [approve, prepare]
   );
+
+  const handleSubmitApproval = (): void => {
+    const challenge = prepare.data;
+    if (!challenge) return;
+    const problem = preparationProblem(
+      challenge, repoId, prNumber, detail.data?.summary.head_sha
+    );
+    if (problem) {
+      setPreparationError(problem);
+      return;
+    }
+    setPreparationError(null);
+    approve.mutate({
+      expected_head_sha: challenge.snapshot.git.source.commit_sha,
+      challenge_id: challenge.id,
+      nonce: challenge.nonce,
+    }, { onSuccess: () => prepare.reset() });
+  };
 
   const handleMerge = useCallback(
     async (input: {
@@ -140,7 +168,7 @@ export function PullRequestPage(props: PullRequestPageProps = {}): JSX.Element {
 
   // Aggregate the head-drift signal from either mutation.
   const headDrift = useMemo<HeadDriftInfo | undefined>(() => {
-    const approveErr = approve.error;
+    const approveErr = approve.error ?? prepare.error;
     const mergeErr = mergeMutation.error;
     if (approveErr instanceof ApiError) {
       const info = extractDrift(approveErr);
@@ -151,16 +179,18 @@ export function PullRequestPage(props: PullRequestPageProps = {}): JSX.Element {
       if (info) return info;
     }
     return;
-  }, [approve.error, mergeMutation.error]);
+  }, [approve.error, prepare.error, mergeMutation.error]);
 
   const handleRefresh = useCallback(() => {
     approve.reset();
+    prepare.reset();
+    setPreparationError(null);
     mergeMutation.reset();
     void detail.refetch();
     void diff.refetch();
     void checks.refetch();
     void threads.refetch();
-  }, [approve, mergeMutation, detail, diff, checks, threads]);
+  }, [approve, prepare, mergeMutation, detail, diff, checks, threads]);
 
   // ── Loading + error guards. ────────────────────────────────────────
   if (resolved.isPending) {
@@ -284,6 +314,27 @@ export function PullRequestPage(props: PullRequestPageProps = {}): JSX.Element {
         </div>
       ) : null}
 
+      {prepare.isPending ? (
+        <LoadingState title="Preparing current review…" variant="message" />
+      ) : null}
+      {prepare.error || approve.error || preparationError ? (
+        <ErrorState
+          title={prepare.error ? 'Could not prepare review' : 'Could not submit approval'}
+          error={prepare.error ?? approve.error ?? preparationError}
+        />
+      ) : null}
+      {prepare.data ? (
+        <PreparedReview
+          challenge={prepare.data}
+          busy={approve.isPending}
+          problem={preparationError?.message ?? preparationProblem(
+            prepare.data, repoId, prNumber, summary.head_sha
+          )?.message}
+          onSubmit={handleSubmitApproval}
+          onCancel={() => { prepare.reset(); approve.reset(); setPreparationError(null); }}
+        />
+      ) : null}
+
       <PullRequestCockpit
         data={data}
         diff={diff}
@@ -293,7 +344,7 @@ export function PullRequestPage(props: PullRequestPageProps = {}): JSX.Element {
         activeFile={activeFile}
         viewedPaths={viewedPaths}
         diffMode={diffMode}
-        isBusy={approve.isPending || mergeMutation.isPending}
+        isBusy={prepare.isPending || !!prepare.data || approve.isPending || mergeMutation.isPending}
         onSelectFile={setActiveFilePath}
         onToggleViewed={handleToggleViewed}
         onDiffModeChange={(m: DiffViewerMode) => setDiffMode(m)}

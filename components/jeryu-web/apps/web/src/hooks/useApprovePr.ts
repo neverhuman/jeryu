@@ -1,10 +1,7 @@
 // useApprovePr.ts — `POST /pulls/{number}/approve` mutation (W-FE-11).
 //
-// Generates a per-attempt `Idempotency-Key` (§35.1.3) so retries collapse
-// server-side. On success we invalidate the PR detail + threads so the
-// approval count and timeline refresh. On 409 with `merge_sha_stale` the
-// component shows a recovery banner using the error envelope's `details`
-// (head_sha snapshot) per §35.1.11.
+// Core binds retries to the same challenge, credential and exact request bytes.
+// Keep that challenge on an uncertain response; never mint a new review on retry.
 
 import {
   useMutation,
@@ -22,20 +19,14 @@ import type {
 import { pullRequestQueryKey } from './usePullRequest';
 import { prThreadsQueryKey } from './usePrThreads';
 
-function newIdempotencyKey(): string {
-  // crypto.randomUUID() is available in evergreen browsers + jsdom 22+.
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID();
-  }
-  return `pull-approve-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-}
-
 export function useApprovePr(
   repoId: string | null,
   prNumber: string | null
 ): UseMutationResult<PullRequestDetail, ApiError, PullApproveRequest> {
   const queryClient = useQueryClient();
   return useMutation({
+    gcTime: 0,
+    retry: false,
     mutationFn: async (body: PullApproveRequest) => {
       if (!repoId || !prNumber) {
         throw new ApiError(0, {
@@ -45,8 +36,7 @@ export function useApprovePr(
       }
       return apiSend<PullRequestDetail>(
         endpoints.pullApprove(repoId, prNumber),
-        body,
-        { idempotencyKey: newIdempotencyKey() }
+        body
       );
     },
     onSuccess: (data) => {
