@@ -5,7 +5,7 @@ success, or published historical tag does not qualify protected `main`.
 Stable version assignment and release-tag publication follow qualification.
 
 This register reconciles the public candidate at
-`73b60a03f932659a847910da9b86182770cd2711` with the local pending work based on
+`da8868da9d7f4547321738d2a97bc4e1d98661d2` with the local pending work based on
 `752f8ce680f549794d70a57d52d7f3c5791b5d35`. Public observations below were read
 from GitHub on 2026-09-11. Subsequent executions must record their actual source,
 workflow run and attempt; results for either predecessor are historical.
@@ -22,8 +22,11 @@ working source or resulting `main`.
 
 The main branch protection readback retained one independent approval,
 latest-push approval, stale-review dismissal, enforced administrators, strict
-checks and linear history. Required contexts still need explicit auditor/audit
-enrollment alongside the aggregate. No protection reduction is permitted.
+checks and linear history. The audit and auditor jobs are now explicitly
+required alongside the aggregate and the other 12 lanes, all bound to the
+observed GitHub Actions application (ID 15368). Readback verified all 15 checks
+and retained review/administrator/history settings. No protection reduction
+is permitted.
 
 PR 65 subsequently advanced through seven commits to `73b60a03`. That history
 is retained. Its API helper/fixture corrections and tool-lock naming changes
@@ -32,6 +35,11 @@ lane, receipt substitution and permission-error cleanup exceptions are
 replaced with the preceding complete admission requirements. Hosted environment
 variables do not authenticate provenance or prove absent live consumers.
 
+Four further public commits through `da8868da` update historical family tags
+and the Runner's hosted shortcut. Their ancestry and tag references are
+retained; Runner's hostile-PATH regression still exercises the complete
+receipt guard. Builds use tracked source rather than replacing it from tags.
+
 Local checks before that integration passed all 20 Runner OCI unit tests,
 all four bootstrap interruption/custody tests, web lint (existing warnings
 remain), and all-feature/all-target warning-denied Clippy for API, split-tool
@@ -39,9 +47,13 @@ and Runner. After integration, the serial isolated split-tool run passed 144
 of 147 tests; three sandbox executor tests failed namespace setup. All 10 Tool
 builder tests and all six public-candidate verifier tests passed, including
 the hosted matching-binary/provenance regression. Selected Clippy also passed
-for Tool. The CI dispatch fixture needs a disposable clone readable by its
-isolated UID; the private canonical workflow path was unreadable. These
-results qualify only their recorded input bytes; complete final-head CI is open.
+for Tool. All 128 CI matrix/dispatch scenarios then passed in an exact-commit
+disposable clone at `30da6fda`, under its isolated unprivileged owner. Clean
+source readback and guarded clone removal passed. Reconciliation onto
+`da8868da` changed only historical family references relative to that tested
+tree; renderer, inventory, manifest, monorepo and public-preflight checks
+passed again. These results are targeted evidence; complete final-head CI,
+anonymous source installation and release qualification remain open.
 
 ## Source reconciliation
 
@@ -77,7 +89,7 @@ claim. Missing maintained commands remain explicit gaps.
 
 | ID | Requirement / owner | Maintained command or owning source | Current result / correction | PR |
 | --- | --- | --- | --- | --- |
-| R01 | Reviewed integrated candidate / monorepo | `scripts/ci.sh source` | Public ancestry retained; local pending slice integrated. Proof inventory must be regenerated after final source changes. | 65 |
+| R01 | Reviewed integrated candidate / monorepo | `scripts/ci.sh source` | Public ancestry retained; pending slice integrated. Inventory, generated consumers, manifest paths, monorepo check and 128 CI dispatch scenarios pass; complete hosted source lane pending. | 65 followup |
 | R02 | Exact complete CI inventory / Deploy | `jeryu-split ci-required-check`; `scripts/check-required-ci.sh` | Five validator tests pass, covering exact repository/source/workflow/run/attempt and missing, duplicate, substituted or unsuccessful jobs. Hosted final-head execution pending. | 65 followup |
 | R03 | Required audit work survives later pushes / CI | `.github/workflows/ci.yml`, `jankurai-score.yml` | Unique run/attempt concurrency groups and cancellation disabled. Service reconciliation remains separate. | 65 followup |
 | R04 | Full Rust product matrix / components | `scripts/ci.sh rust` | Public refactors failed formatting. Formatting corrected; complete test and Clippy union remains required. | 65 |

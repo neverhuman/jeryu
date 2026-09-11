@@ -9,7 +9,7 @@ installed service have not been cut over. The published GitHub identity is
 The current closeout is tracked in the [release gap register](RELEASE-GAPS.md),
 including the exact public PR/job readback, accepted-change dispositions and
 the remaining service, producer, mirror and artifact obligations. The public
-commits through `73b60a03` are integrated with the preserved local pending
+commits through `da8868da` are integrated with the preserved local pending
 slice. Corrective source and targeted checks do not establish release-ready main.
 
 The historical source readback below is bound to
