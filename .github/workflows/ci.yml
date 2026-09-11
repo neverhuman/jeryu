@@ -47,6 +47,10 @@ jobs:
         run: |
           sudo -n useradd --uid 45165 --user-group --no-create-home --home-dir /home/jeryu-runtime --shell /bin/bash jeryu-runtime
           sudo -n mkdir --mode=0700 /home/jeryu-runtime
+          # Hosted parent directories can carry default ACLs, which override
+          # umask for new descendants such as the private auditor installation.
+          sudo -n setfacl --remove-all --remove-default /home/jeryu-runtime
+          sudo -n chmod 0700 /home/jeryu-runtime
           sudo -n mv "$HOME/.cargo" "$HOME/.rustup" /home/jeryu-runtime/
           sudo -n chown -R jeryu-runtime:jeryu-runtime "$GITHUB_WORKSPACE" /home/jeryu-runtime
           # The checkout is owned by the test account, but its runner-owned

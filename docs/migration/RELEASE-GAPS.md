@@ -26,6 +26,12 @@ The canonical PR gate and compatibility catalog entrypoint invoke the complete
 auxiliary-proof gate, which remains required in the hosted matrix and fails
 while authentic predecessor/proof admission is unavailable.
 
+At `7ca21a00`, the dedicated-account runtime lane passes. Rust stops before
+tests because the newly created auditor installation is group-writable. The
+fresh dedicated home now clears inherited/default hosted ACLs and reasserts
+0700, so descendant privacy follows the installer's existing umask and checks.
+Full Rust qualification remains required at the corrected committed head.
+
 ## Current public evidence
 
 At `c929d6ed`, [PR run 34567779982](https://github.com/neverhuman/jeryu/actions/runs/34567779982)

@@ -18,7 +18,7 @@
       "kind": "workflow",
       "path": ".github/workflows/ci.yml",
       "port_status": "pending-equivalence-proof",
-      "sha256": "c6a173875c6cdf08b8070a86c51510ca239589c5e517cbf028599e8c926ef236"
+      "sha256": "b3667439c263a958fa307d5531dae33b9bec10b86bcdde06a36638c0479f32af"
     },
     {
       "component": "jeryu",
