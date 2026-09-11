@@ -28,28 +28,6 @@ pub(super) fn resolve_pr(
     Some((repo, pr))
 }
 
-pub(super) fn self_approval_forbidden(pr: &PullRequest, reviewer: &str) -> Option<AxumResponse> {
-    if pr.author != reviewer {
-        return None;
-    }
-    Some(repair_error(
-        StatusCode::FORBIDDEN,
-        "pull_self_approval_forbidden",
-        "approve pull request",
-        "pull request authors cannot approve their own changes",
-        &[
-            "request approval from an authenticated reviewer distinct from the pull request author",
-            "retry with the same expected head after the independent reviewer signs in",
-        ],
-        PROOF_LANE,
-        Some(json!({
-            "pull_number": pr.number,
-            "author": pr.author,
-            "reviewer": reviewer,
-        })),
-    ))
-}
-
 pub(super) fn state_matches(pr: &PullRequest, filter: Option<&str>) -> bool {
     match filter.unwrap_or("all") {
         "open" => {
@@ -92,7 +70,7 @@ fn detail_for_pr_with_required_contexts(
     authenticated_login: Option<&str>,
 ) -> PullRequestDetail {
     let mut summary = summary_with_required_contexts(state, pr, required_contexts);
-    let merge_passport = passport(&summary, pr, required_contexts);
+    let merge_passport = passport(state, &summary, pr, required_contexts);
     let reviews = reviews_for_pr(state, pr);
     summary.review.user_review_state = authenticated_login.and_then(|login| {
         reviews
@@ -160,12 +138,14 @@ fn summary_with_required_contexts(
     } else {
         None
     };
+    let blockers = passport_blockers(state, required_contexts, &review, pr);
+    let mergeable = mergeable && blockers.is_empty();
+    let reason = reason.or_else(|| blockers.first().map(|blocker| blocker.message.clone()));
     let status = if mergeable {
         MergePassportStatus::Pass
     } else {
         MergePassportStatus::Blocked
     };
-    let blockers = passport_blockers(required_contexts, &review, pr);
     let passport_hash = passport_hash(
         state,
         pr,

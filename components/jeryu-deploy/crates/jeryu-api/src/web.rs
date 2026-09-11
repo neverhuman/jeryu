@@ -446,11 +446,14 @@ pub async fn serve(config: WebServerConfig) -> Result<(), Box<dyn std::error::Er
     // Share one RepoManager between the create-repo materializer (so a created
     // repo gets a bare repo on disk) and the smart-HTTP transport (so it can be
     // cloned/pushed) — both rooted at the same git storage root.
-    let repo_manager = Arc::new(RepoManager::new(GitdConfig::new(
-        config.git_storage_root.clone(),
-    )));
+    let mut git_config = GitdConfig::new(config.git_storage_root.clone());
+    git_config.git_bin =
+        std::env::var("GITD_GIT_BIN").unwrap_or_else(|_| "/usr/bin/git".to_string());
+    let repo_manager = Arc::new(RepoManager::new(git_config));
     let core = ForgeCore::open_managed(&db_path, &config.git_storage_root)?
         .with_repo_materializer(Arc::new(GitMaterializer::new(repo_manager.clone())));
+    let observer = jeryu_gitd::ManagedReviewGitObserver::new(repo_manager.as_ref().clone())?;
+    let core = core.with_review_git_observer(Arc::new(observer))?;
     let split_catalog = SplitCatalog::load(&config.split_manifests);
     let tool_registry_path = resolve_tool_registry_path(&config.split_manifests);
     // Merge-to-GitHub mirroring: targets come from the same manifest; with no

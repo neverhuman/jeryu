@@ -12,39 +12,43 @@ use std::sync::Arc;
 use axum::Json;
 use axum::body::Bytes;
 use axum::extract::{Extension, Path as AxumPath, Query, State};
-use axum::http::StatusCode;
+use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response as AxumResponse};
 use jeryu_core::{
     AccountSummary, CheckConclusion, CheckRun, CheckRunStatus, CommitStatusState,
     CreateReviewRequest, ForgeError, MergeBlocker,
     MergePullRequestRequest as CoreMergePullRequestRequest, PullRequest, ReviewCommentInput,
-    ReviewState, check_conclusion_wire_value, effective_reviews_for_pull_request,
+    ReviewState, check_conclusion_wire_value,
 };
 use jeryu_readmodel::contracts::{
-    AgentPosture, AvailableAction, CheckPosture, CreateReviewCommentRequest,
-    DismissPullReviewRequest, EntityHandle, MergePassport, MergePassportBlocker,
-    MergePassportStatus, Mergeability, PullRequestDetail, PullRequestReview,
-    PullRequestState as WebPullRequestState, PullRequestSummary, ReviewComment as WebReviewComment,
-    ReviewPosture, ReviewThread, ReviewVerdict, SubmitReviewRequest,
+    AgentPosture, AvailableAction, CheckPosture, CreateReviewCommentRequest, EntityHandle,
+    MergePassport, MergePassportBlocker, MergePassportStatus, Mergeability, PullRequestDetail,
+    PullRequestReview, PullRequestState as WebPullRequestState, PullRequestSummary,
+    ReviewComment as WebReviewComment, ReviewEvidence, ReviewPosture, ReviewThread, ReviewVerdict,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
+use uuid::Uuid;
 
+pub(super) mod authenticated_reviews;
+pub(super) mod posture;
 mod support;
-use super::repositories::{find_repo, repo_id};
-use super::{WebState, server_time};
 #[cfg(test)]
 pub(super) use posture::audit_merge_enforced_value;
+use posture::{checks_for_pr, comment_input, review_state, threads_for_pr};
 #[cfg(test)]
 pub(super) use support::detail_for_pr_with_audit_enforcement;
 use support::{
-    core_error, detail_for_pr, github_merge_error, not_found, repair_error, resolve_pr,
-    self_approval_forbidden, stale_sha, state_matches, summary,
+    core_error, detail_for_pr, github_merge_error, not_found, repair_error, resolve_pr, stale_sha,
+    state_matches, summary,
 };
 
-pub(super) const DOCS_URL: &str = "docs/errors.md";
-pub(super) const PROOF_LANE: &str = "rerun cargo test -p jeryu-api --features web --jobs 40 pulls";
+use super::repositories::{find_repo, repo_id};
+use super::{WebState, server_time};
+
+const DOCS_URL: &str = "docs/errors.md";
+const PROOF_LANE: &str = "rerun cargo test -p jeryu-api --features web --jobs 40 pulls";
 
 #[derive(Debug, Clone, Deserialize)]
 pub(super) struct PullListQuery {
@@ -109,13 +113,9 @@ struct PullRequestCheck {
     completed_at: Option<String>,
 }
 
-pub(super) mod posture;
-
-use posture::{checks_for_pr, comment_input, review_state, threads_for_pr};
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
-pub(super) enum RequiredContextState {
+enum RequiredContextState {
     Missing,
     Failing,
     Pending,
@@ -123,7 +123,7 @@ pub(super) enum RequiredContextState {
 }
 
 impl RequiredContextState {
-    pub(super) fn wire_name(self) -> &'static str {
+    fn wire_name(self) -> &'static str {
         match self {
             Self::Missing => "missing",
             Self::Failing => "failing",
@@ -134,10 +134,10 @@ impl RequiredContextState {
 }
 
 #[derive(Debug, Clone, Serialize)]
-pub(super) struct RequiredContextPosture {
-    pub(super) name: String,
-    pub(super) state: RequiredContextState,
-    pub(super) details: Option<String>,
+struct RequiredContextPosture {
+    name: String,
+    state: RequiredContextState,
+    details: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -147,9 +147,25 @@ struct PullRequestThreadList {
 
 #[derive(Debug, Clone, Deserialize)]
 struct PullApproveRequest {
-    expected_head_sha: String,
+    expected_head_sha: Option<String>,
+    challenge_id: Option<Uuid>,
+    nonce: Option<String>,
     #[serde(default)]
     body_markdown: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct BoundReviewSubmission {
+    expected_head_sha: Option<String>,
+    challenge_id: Option<Uuid>,
+    nonce: Option<String>,
+    verdict: ReviewVerdict,
+    body_markdown: Option<String>,
+    thread_comments: Vec<CreateReviewCommentRequest>,
+    // The legacy transport field is not authoritative evidence. Core obtains
+    // the qualification snapshot independently when it creates the challenge.
+    #[serde(rename = "evidence")]
+    _evidence: Option<ReviewEvidence>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -174,6 +190,13 @@ pub(super) async fn list(
     AxumPath(id): AxumPath<String>,
     Query(query): Query<PullListQuery>,
 ) -> AxumResponse {
+    authenticated_reviews::blocking_response("load repository pull requests", move || {
+        list_blocking(state, id, query)
+    })
+    .await
+}
+
+fn list_blocking(state: Arc<WebState>, id: String, query: PullListQuery) -> AxumResponse {
     let Some(repo) = find_repo(&state, &id) else {
         return not_found("load repository pull requests", "repository not found");
     };
@@ -202,6 +225,18 @@ pub(super) async fn detail(
     State(state): State<Arc<WebState>>,
     Extension(account): Extension<AccountSummary>,
     AxumPath((id, number)): AxumPath<(String, u64)>,
+) -> AxumResponse {
+    authenticated_reviews::blocking_response("load pull request detail", move || {
+        detail_blocking(state, account, id, number)
+    })
+    .await
+}
+
+fn detail_blocking(
+    state: Arc<WebState>,
+    account: AccountSummary,
+    id: String,
+    number: u64,
 ) -> AxumResponse {
     let Some((_, pr)) = resolve_pr(&state, &id, number) else {
         return not_found("load pull request detail", "pull request not found");
@@ -262,100 +297,32 @@ pub(super) async fn threads(
     .into_response()
 }
 
-/// Authenticated audit history uses the same projection as pull-request detail.
-pub(super) async fn review_history(
-    State(state): State<Arc<WebState>>,
-    Extension(_account): Extension<AccountSummary>,
-    AxumPath((id, number)): AxumPath<(String, u64)>,
-) -> AxumResponse {
-    let Some((repo, pr)) = resolve_pr(&state, &id, number) else {
-        return not_found("load pull request review history", "pull request not found");
-    };
-    match state
-        .github
-        .core()
-        .list_reviews(&repo.owner, &repo.name, pr.number)
-    {
-        Ok(reviews) => Json(posture::project_reviews(&pr, reviews)).into_response(),
-        Err(error) => core_error(error, "load pull request review history"),
-    }
-}
-
-pub(super) async fn dismiss_review(
-    State(state): State<Arc<WebState>>,
-    Extension(account): Extension<AccountSummary>,
-    AxumPath((id, number, review_id)): AxumPath<(String, u64, String)>,
-    body: Bytes,
-) -> AxumResponse {
-    let request: DismissPullReviewRequest = match serde_json::from_slice(&body) {
-        Ok(request) => request,
-        Err(error) => {
-            return repair_error(
-                StatusCode::UNPROCESSABLE_ENTITY,
-                "pull_dismissal_invalid_request",
-                "dismiss pull request review",
-                &format!("dismissal body failed validation: {error}"),
-                &[
-                    "send DismissPullReviewRequest JSON with expected_head_sha and reason",
-                    "refresh the review history before withdrawing your current verdict",
-                ],
-                PROOF_LANE,
-                None,
-            );
-        }
-    };
-    let review_id = match uuid::Uuid::parse_str(&review_id) {
-        Ok(review_id) => review_id,
-        Err(_) => {
-            return repair_error(
-                StatusCode::UNPROCESSABLE_ENTITY,
-                "pull_dismissal_invalid_target",
-                "dismiss pull request review",
-                "review target must be a UUID from the pull request review history",
-                &["use the id of your current explicit review verdict"],
-                PROOF_LANE,
-                None,
-            );
-        }
-    };
-    let Some((repo, pr)) = resolve_pr(&state, &id, number) else {
-        return not_found("dismiss pull request review", "pull request not found");
-    };
-    // The auth gate has enforced repository write access. Core validates the
-    // exact head and current target under its write lock, without an admin
-    // override. Neither the actor nor the target comes from the request body.
-    match state.github.core().dismiss_review(
-        &repo.owner,
-        &repo.name,
-        pr.number,
-        &account.login,
-        jeryu_core::DismissReviewRequest {
-            review_id,
-            expected_head_sha: request.expected_head_sha,
-            reason: request.reason,
-        },
-    ) {
-        Ok(_) => match state
-            .github
-            .core()
-            .get_pull_request(&repo.owner, &repo.name, pr.number)
-        {
-            Ok(updated) => {
-                Json(detail_for_pr(&state, &updated, Some(&account.login))).into_response()
-            }
-            Err(error) => core_error(error, "reload pull request after review dismissal"),
-        },
-        Err(error) => core_error(error, "dismiss pull request review"),
-    }
-}
-
 pub(super) async fn review(
     State(state): State<Arc<WebState>>,
     Extension(account): Extension<AccountSummary>,
     AxumPath((id, number)): AxumPath<(String, u64)>,
+    headers: HeaderMap,
     body: Bytes,
 ) -> AxumResponse {
-    let request: SubmitReviewRequest = match serde_json::from_slice(&body) {
+    authenticated_reviews::blocking_response("submit pull request review", move || {
+        review_blocking(state, account, id, number, headers, body)
+    })
+    .await
+}
+
+fn review_blocking(
+    state: Arc<WebState>,
+    account: AccountSummary,
+    id: String,
+    number: u64,
+    headers: HeaderMap,
+    body: Bytes,
+) -> AxumResponse {
+    let actor = match super::auth::authenticated_actor(&state, &headers) {
+        Ok(actor) => actor,
+        Err(error) => return core_error(error, "authenticate review holder"),
+    };
+    let submission: BoundReviewSubmission = match serde_json::from_slice(&body) {
         Ok(request) => request,
         Err(error) => {
             return repair_error(
@@ -372,36 +339,37 @@ pub(super) async fn review(
             );
         }
     };
+    let (Some(challenge_id), Some(nonce)) = (submission.challenge_id, submission.nonce) else {
+        return authenticated_reviews::missing_challenge("submit pull request review");
+    };
+    let Some(expected_head_sha) = submission.expected_head_sha else {
+        return authenticated_reviews::missing_head("submit pull request review");
+    };
     let Some((repo, pr)) = resolve_pr(&state, &id, number) else {
         return not_found("submit pull request review", "pull request not found");
     };
-    if request.expected_head_sha != pr.head.sha {
-        return stale_sha(&request.expected_head_sha, &pr.head.sha);
+    if expected_head_sha != pr.head.sha {
+        return stale_sha(&expected_head_sha, &pr.head.sha);
     }
-    let comments = request
+    let comments = submission
         .thread_comments
         .into_iter()
         .filter_map(comment_input)
         .collect();
-    let event = review_state(request.verdict);
-    if event == ReviewState::Approved
-        && let Some(response) = self_approval_forbidden(&pr, &account.login)
-    {
-        return response;
-    }
-    let review = CreateReviewRequest {
-        body: request.body_markdown,
+    let event = review_state(submission.verdict);
+    let review = jeryu_core::SubmitBoundReviewRequest {
+        challenge_id,
+        nonce,
+        expected_head_sha,
+        body: submission.body_markdown,
         event,
         comments,
-        expected_head_sha: Some(request.expected_head_sha),
     };
-    match state.github.core().create_review(
-        &repo.owner,
-        &repo.name,
-        pr.number,
-        &account.login,
-        review,
-    ) {
+    match state
+        .github
+        .core()
+        .submit_bound_review(&actor, repo.id, pr.number, review)
+    {
         Ok(_) => match state
             .github
             .core()
@@ -420,6 +388,19 @@ pub(super) async fn comment(
     State(state): State<Arc<WebState>>,
     Extension(account): Extension<AccountSummary>,
     AxumPath((id, number)): AxumPath<(String, u64)>,
+    body: Bytes,
+) -> AxumResponse {
+    authenticated_reviews::blocking_response("submit pull request comment", move || {
+        comment_blocking(state, account, id, number, body)
+    })
+    .await
+}
+
+fn comment_blocking(
+    state: Arc<WebState>,
+    account: AccountSummary,
+    id: String,
+    number: u64,
     body: Bytes,
 ) -> AxumResponse {
     let request: CreateReviewCommentRequest = match serde_json::from_slice(&body) {
@@ -481,8 +462,27 @@ pub(super) async fn approve(
     State(state): State<Arc<WebState>>,
     Extension(account): Extension<AccountSummary>,
     AxumPath((id, number)): AxumPath<(String, u64)>,
+    headers: HeaderMap,
     body: Bytes,
 ) -> AxumResponse {
+    authenticated_reviews::blocking_response("approve pull request", move || {
+        approve_blocking(state, account, id, number, headers, body)
+    })
+    .await
+}
+
+fn approve_blocking(
+    state: Arc<WebState>,
+    account: AccountSummary,
+    id: String,
+    number: u64,
+    headers: HeaderMap,
+    body: Bytes,
+) -> AxumResponse {
+    let actor = match super::auth::authenticated_actor(&state, &headers) {
+        Ok(actor) => actor,
+        Err(error) => return core_error(error, "authenticate review holder"),
+    };
     let request: PullApproveRequest = match serde_json::from_slice(&body) {
         Ok(request) => request,
         Err(error) => {
@@ -500,25 +500,29 @@ pub(super) async fn approve(
             );
         }
     };
+    let (Some(challenge_id), Some(nonce)) = (request.challenge_id, request.nonce) else {
+        return authenticated_reviews::missing_challenge("approve pull request");
+    };
+    let Some(expected_head_sha) = request.expected_head_sha else {
+        return authenticated_reviews::missing_head("approve pull request");
+    };
     let Some((repo, pr)) = resolve_pr(&state, &id, number) else {
         return not_found("approve pull request", "pull request not found");
     };
-    if request.expected_head_sha != pr.head.sha {
-        return stale_sha(&request.expected_head_sha, &pr.head.sha);
+    if expected_head_sha != pr.head.sha {
+        return stale_sha(&expected_head_sha, &pr.head.sha);
     }
-    if let Some(response) = self_approval_forbidden(&pr, &account.login) {
-        return response;
-    }
-    match state.github.core().create_review(
-        &repo.owner,
-        &repo.name,
+    match state.github.core().submit_bound_review(
+        &actor,
+        repo.id,
         pr.number,
-        &account.login,
-        CreateReviewRequest {
+        jeryu_core::SubmitBoundReviewRequest {
+            challenge_id,
+            nonce,
+            expected_head_sha,
             body: request.body_markdown,
             event: ReviewState::Approved,
             comments: Vec::new(),
-            expected_head_sha: Some(request.expected_head_sha),
         },
     ) {
         Ok(_) => match state
@@ -540,6 +544,13 @@ pub(super) async fn merge(
     AxumPath((id, number)): AxumPath<(String, u64)>,
     body: Bytes,
 ) -> AxumResponse {
+    authenticated_reviews::blocking_response("merge pull request", move || {
+        merge_blocking(state, id, number, body)
+    })
+    .await
+}
+
+fn merge_blocking(state: Arc<WebState>, id: String, number: u64, body: Bytes) -> AxumResponse {
     let request: MergeRequest = match serde_json::from_slice(&body) {
         Ok(request) => request,
         Err(error) => {

@@ -79,17 +79,38 @@ both 0013 migrations and UUID creation custody are retained. The owning Cargo
 resolver adds only Gitd's four existing package edges; no package version moves.
 The inspected credential adapter from preserved Deploy `ef60ce5f` supplies
 live proof and keeps blocking credential operations off async workers. The
-read-only actor helper awaits its review transport consumer; no unused helper
-is installed. Public test callers now create actual session-backed actors.
+read-only actor helper now serves the authenticated review-history route.
+Public test callers create actual session-backed actors.
 Migration 0015 has retained rollback guidance and no invented review backfill.
 
-This slice is unqualified source. Historical caller-name reviews and check
+At `8f6696463410d75e337830ef805fec951be6f0a1`,
+[run 34613098733, attempt 1](https://github.com/neverhuman/jeryu/actions/runs/34613098733)
+passes all 16 authenticated Core review controls, all six real-Git observer
+controls and the three process-custody controls. The full Rust lane fails
+legacy API/merge-bridge and real CLI merge journeys, plus the three audit
+executor controls before the scoped hosted capability correction. These
+passing subsets do not qualify the complete source.
+
+The next Deploy slice preserves public PR 1's exact `c8f43ede` authenticated
+review transport. Challenges, submissions, approvals, complete persisted history
+and targeted dismissals use live credentials and Core-held source observations.
+Blocking operations run off async workers. Read models count only bound verdicts
+and retain mandatory merge-authority blockers. The previous withdrawal URL
+returns challenge migration guidance. Current modular HTTP/support, private
+test stores, credential isolation, Work authorization and evidence visibility
+controls remain. Malformed, stale, foreign, replayed and storage-failure route
+regressions now use real private SQLite and Git fixtures. Logout propagates a
+failed durable revocation before expiring the browser cookie. This new transport
+and credential slice still requires owning runtime and full qualification.
+
+Historical caller-name reviews and check
 rows are advisory; pure policy-algorithm tests remain distinct from the new
 authentication tests. The unsafe readiness/finalization/synthetic merge path
 refuses before dispatch. Required-attempt publication, the Core-owned Git
 executor, delivery reconciliation and the complete actual merge journey remain
-open release requirements. API review transport intake and original later Core
-attempt/publisher/commissioning contributions still need integration and tests.
+open release requirements. Original later Core attempt/publisher/commissioning
+contributions still need integration and tests; the final real CLI protected
+merge journey remains a required failing gate until the executor is available.
 
 The persistence checkpoint `da29370be0f2c84297e47832d6d67cb8d8e39987`
 [run 34608941167, attempt 1](https://github.com/neverhuman/jeryu/actions/runs/34608941167)
@@ -490,7 +511,7 @@ and merged replacements across all eleven repositories.
 | [jeryu 65](https://github.com/neverhuman/jeryu/pull/65) | `b50dc1f1f447d602b5fc98fe6dc4fdc70914a19b` | History preserved; Git compatibility and bounded SQLite lease-wait fixes retained; API serialization already maintained; full gates required in successor |
 | [jeryu 66](https://github.com/neverhuman/jeryu/pull/66) | `791bd3931a7a8cc8403602a8ce8869f73ef725f8` | Closed again with unique changes unmerged; explicit successor reconciliation pending; complete matrix remains failed |
 | [Cache 1](https://github.com/neverhuman/jeryu-cache/pull/1) | `a1571865b27ebce9b74154aedd265610df2eaae4` | Product/security/contract changes retained; root dependency graph and stronger source/score checks preserved; public tooling and merged replacement pending |
-| [Deploy 1](https://github.com/neverhuman/jeryu-deploy/pull/1) | `c8f43edead0b8d276e9e13ed517823a223f6807a` | Authenticated review APIs require original Core interfaces/migrations/barriers still absent from embedded Core; source reconciliation and standalone qualification pending |
+| [Deploy 1](https://github.com/neverhuman/jeryu-deploy/pull/1) | `c8f43edead0b8d276e9e13ed517823a223f6807a` | Exact c8f43ede preserved in a verified bundle; authenticated review APIs compose with integrated d0952ff9 Core interfaces/migration. Owning transport execution, remaining contributions and standalone qualification pending |
 | [Work 1](https://github.com/neverhuman/jeryu-jira/pull/1) | `9ad978a9fbd73c830e3ad0884eb74981d5e89460` | Changed files reconciled; product changes retained, complete proof/security/source admission preserved, lower-floor unbound badge not admitted; merged replacement pending |
 | [Intelligence 1](https://github.com/neverhuman/jeryu-intelligence/pull/1) | `ca6ae2934600c95e2471ea038877733472928681` | Storage and corrected generated contract integrated; dispositions recorded; protected replacement pending |
 | [Tool 1](https://github.com/neverhuman/jeryu-tool/pull/1) | `d904e09cb1f49b3dc0feb47da2cde6b97b5f4391` | Open; require full provenance and authentic predecessor |

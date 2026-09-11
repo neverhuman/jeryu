@@ -21,9 +21,9 @@ use jeryu_codegraph::{
 };
 use jeryu_core::CheckConclusion;
 use jeryu_core::{
-    AccountStatus, AccountSummary, CommitStatusState, CreateCheckRunRequest,
-    CreateCommitStatusRequest, CreatePullRequestRequest, CreateRepositoryRequest,
-    CreateReviewRequest, RepoAccessLevel, ReviewState, SetBranchProtectionRequest, UserRole,
+    AccountStatus, AccountSummary, CreateCheckRunRequest, CreatePullRequestRequest,
+    CreateRepositoryRequest, CreateReviewRequest, RepoAccessLevel, ReviewState,
+    SetBranchProtectionRequest, UserRole,
 };
 use jeryu_readmodel::contracts::{RepositoryRole, ServerWsMessage};
 use jeryu_readmodel::{HealthLevel, sample_read_model};
@@ -53,6 +53,60 @@ fn write_file(root: &Path, relative: &str, contents: &str) {
         std::fs::create_dir_all(parent).expect("create fixture parent");
     }
     std::fs::write(path, contents).expect("write fixture file");
+}
+
+fn credential_for_test(core: &ForgeCore, login: &str, password: &str) -> String {
+    let session = core
+        .create_session(login, password)
+        .expect("password session");
+    let actor = core
+        .authenticate_actor(jeryu_core::ActorCredential::Session {
+            token: &session.token,
+            csrf_token: &session.session.csrf_token,
+        })
+        .expect("authenticated fixture actor");
+    core.create_personal_access_token(&actor, "test", None)
+        .expect("current-holder token")
+        .secret
+}
+
+#[tokio::test]
+async fn core_credential_errors_keep_public_status_and_repair_contract() {
+    use jeryu_core::ForgeError;
+    for (error, status, code) in [
+        (
+            ForgeError::Unauthenticated("credential revoked".into()),
+            StatusCode::UNAUTHORIZED,
+            "unauthorized",
+        ),
+        (
+            ForgeError::Forbidden("holder lacks access".into()),
+            StatusCode::FORBIDDEN,
+            "forbidden",
+        ),
+        (
+            ForgeError::PreconditionRequired("head required".into()),
+            StatusCode::PRECONDITION_REQUIRED,
+            "precondition_required",
+        ),
+        (
+            ForgeError::WriterUnavailable("reconciliation required".into()),
+            StatusCode::SERVICE_UNAVAILABLE,
+            "writer_unavailable",
+        ),
+    ] {
+        let response = super::auth::authenticated_actor_error(error);
+        assert_eq!(response.status(), status);
+        let body = response_json(response).await;
+        assert_eq!(body["code"], code);
+        assert!(body["jeryu_repair_hint"]["docs_url"].is_string());
+        assert!(
+            !body["jeryu_repair_hint"]["common_fixes"]
+                .as_array()
+                .unwrap()
+                .is_empty()
+        );
+    }
 }
 
 fn authenticated_account(login: &str) -> Extension<AccountSummary> {
@@ -674,7 +728,7 @@ async fn pulls_routes_return_live_pr_detail_diff_checks_and_threads() {
         detail["reviews"][0]["dismissed_review_id"],
         serde_json::Value::Null
     );
-    assert_eq!(detail["reviews"][0]["stale"], false);
+    assert_eq!(detail["reviews"][0]["stale"], true);
     assert_eq!(
         detail["summary"]["review"]["user_review_state"],
         serde_json::Value::Null
@@ -729,142 +783,20 @@ async fn pulls_routes_return_live_pr_detail_diff_checks_and_threads() {
 
 #[tokio::test]
 async fn pull_detail_marks_review_history_stale_and_uses_latest_current_head_verdict() {
-    let core = ForgeCore::new();
-    let repo = core
-        .create_repository(
-            "alice",
-            CreateRepositoryRequest {
-                name: "review-heads".to_string(),
-                private: false,
-                description: None,
-                default_branch: Some("main".to_string()),
-            },
-        )
-        .unwrap();
-    core.set_branch_protection(
-        "alice",
-        "review-heads",
-        "main",
-        SetBranchProtectionRequest {
-            required_approving_review_count: 1,
-            ..SetBranchProtectionRequest::default()
-        },
-    )
-    .unwrap();
-    let head_a = "a".repeat(40);
-    let head_b = "b".repeat(40);
-    let pr = core
-        .create_pull_request(
-            "alice",
-            "review-heads",
-            "alice",
-            CreatePullRequestRequest {
-                title: "head-bound review readback".to_string(),
-                head: "feature".to_string(),
-                base: "main".to_string(),
-                head_sha: Some(head_a.clone()),
-                base_sha: Some("c".repeat(40)),
-                ..CreatePullRequestRequest::default()
-            },
-        )
-        .unwrap();
-    core.create_review(
-        "alice",
-        "review-heads",
-        pr.number,
-        "bob",
-        CreateReviewRequest {
-            body: Some("approved old head".to_string()),
-            event: ReviewState::Approved,
-            comments: Vec::new(),
-            expected_head_sha: Some(head_a.clone()),
-        },
-    )
-    .unwrap();
-    core.refresh_pull_request_heads_for_ref("alice", "review-heads", "feature", &head_b)
-        .unwrap();
-    let state = Arc::new(WebState::new(core.clone()));
-    let path = || AxumPath((repo.id.to_string(), pr.number));
-
-    let moved = response_json(
-        super::pulls::detail(State(state.clone()), authenticated_account("bob"), path()).await,
-    )
-    .await;
-    assert_eq!(moved["summary"]["review"]["approvals"], 0);
-    assert_eq!(
-        moved["summary"]["review"]["user_review_state"],
-        serde_json::Value::Null
-    );
-    assert_eq!(moved["reviews"][0]["head_sha"], head_a);
-    assert_eq!(moved["reviews"][0]["effective"], false);
-    assert_eq!(moved["reviews"][0]["stale"], true);
-
-    core.create_review(
-        "alice",
-        "review-heads",
-        pr.number,
-        "bob",
-        CreateReviewRequest {
-            body: Some("fix the current head".to_string()),
-            event: ReviewState::ChangesRequested,
-            comments: Vec::new(),
-            expected_head_sha: Some(head_b.clone()),
-        },
-    )
-    .unwrap();
-    let requested = response_json(
-        super::pulls::detail(State(state.clone()), authenticated_account("bob"), path()).await,
-    )
-    .await;
-    assert_eq!(requested["summary"]["review"]["changes_requested"], 1);
-    assert_eq!(
-        requested["summary"]["review"]["user_review_state"],
-        "CHANGES_REQUESTED"
-    );
-    assert!(
-        requested["merge_passport"]["blockers"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|blocker| blocker["code"] == "passport_blocked_changes_requested")
-    );
-
-    core.create_review(
-        "alice",
-        "review-heads",
-        pr.number,
-        "bob",
-        CreateReviewRequest {
-            body: Some("current head repaired".to_string()),
-            event: ReviewState::Approved,
-            comments: Vec::new(),
-            expected_head_sha: Some(head_b.clone()),
-        },
-    )
-    .unwrap();
-    let approved = response_json(
-        super::pulls::detail(State(state), authenticated_account("bob"), path()).await,
-    )
-    .await;
-    assert_eq!(approved["summary"]["review"]["approvals"], 1);
-    assert_eq!(approved["summary"]["review"]["changes_requested"], 0);
-    assert_eq!(
-        approved["summary"]["review"]["user_review_state"],
-        "APPROVED"
-    );
-    assert_eq!(approved["reviews"].as_array().unwrap().len(), 3);
-    assert_eq!(approved["reviews"][1]["state"], "CHANGES_REQUESTED");
-    assert_eq!(approved["reviews"][1]["effective"], false);
-    assert_eq!(approved["reviews"][1]["stale"], false);
-    assert_eq!(approved["reviews"][2]["state"], "APPROVED");
-    assert_eq!(approved["reviews"][2]["effective"], true);
-    assert_eq!(approved["reviews"][2]["stale"], false);
-    assert_eq!(approved["merge_passport"]["status"], "pass");
+    super::pulls::authenticated_reviews::tests::review_history_tracks_current_head_and_explicit_verdicts().await;
 }
 
 #[tokio::test]
 async fn pulls_mutations_return_typed_repair_errors() {
     let core = ForgeCore::new();
+    core.create_account("bob", "review-error-password-2026", UserRole::User)
+        .unwrap();
+    let token = credential_for_test(&core, "bob", "review-error-password-2026");
+    let mut headers = axum::http::HeaderMap::new();
+    headers.insert(
+        axum::http::header::AUTHORIZATION,
+        format!("Bearer {token}").parse().unwrap(),
+    );
     let repo = core
         .create_repository(
             "alice",
@@ -935,6 +867,7 @@ async fn pulls_mutations_return_typed_repair_errors() {
         State(state.clone()),
         authenticated_account("bob"),
         AxumPath((repo.id.to_string(), pr.number)),
+        headers.clone(),
         axum::body::Bytes::from("{"),
     )
     .await;
@@ -948,7 +881,15 @@ async fn pulls_mutations_return_typed_repair_errors() {
         State(state.clone()),
         authenticated_account("bob"),
         AxumPath((repo.id.to_string(), pr.number)),
-        axum::body::Bytes::from(r#"{"expected_head_sha":"old"}"#),
+        headers,
+        axum::body::Bytes::from(
+            serde_json::json!({
+                "expected_head_sha": "old",
+                "challenge_id": uuid::Uuid::new_v4(),
+                "nonce": "unissued-challenge-never-reaches-submission"
+            })
+            .to_string(),
+        ),
     )
     .await;
     assert_eq!(stale.status(), StatusCode::CONFLICT);
@@ -1219,359 +1160,36 @@ async fn pulls_intrinsic_proof_reports_failing_context() {
 }
 
 #[tokio::test]
-async fn pulls_intrinsic_proof_accepts_passing_context() {
+async fn pulls_intrinsic_proof_displays_passing_advisory_without_qualifying_merge() {
     let detail = passport_for_intrinsic_proof(
         Some(jeryu_core::CheckRunStatus::Completed),
         Some(CheckConclusion::Success),
     )
     .await;
-    assert_eq!(detail["merge_passport"]["status"], "pass");
-    assert_eq!(detail["merge_passport"]["blockers"], serde_json::json!([]));
+    assert_eq!(detail["summary"]["checks"]["passing"], 1);
+    assert_eq!(detail["merge_passport"]["status"], "blocked");
+    assert!(
+        detail["merge_passport"]["blockers"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|blocker| blocker["code"] == "passport_blocked_authority")
+    );
 }
 
 #[tokio::test]
 async fn pulls_mutations_submit_review_and_comment() {
-    let core = ForgeCore::new();
-    let repo = core
-        .create_repository(
-            "alice",
-            CreateRepositoryRequest {
-                name: "jeryu".to_string(),
-                private: false,
-                description: None,
-                default_branch: Some("main".to_string()),
-            },
-        )
-        .unwrap();
-    let pr = core
-        .create_pull_request(
-            "alice",
-            "jeryu",
-            "alice",
-            CreatePullRequestRequest {
-                title: "ready".to_string(),
-                head: "feature".to_string(),
-                base: "main".to_string(),
-                head_sha: Some("head-ready".to_string()),
-                base_sha: Some("base-ready".to_string()),
-                changed_files: vec!["src/lib.rs".to_string()],
-                ..CreatePullRequestRequest::default()
-            },
-        )
-        .unwrap();
-    core.create_check_run(
-        "alice",
-        "jeryu",
-        CreateCheckRunRequest {
-            name: "ci/fast".to_string(),
-            head_sha: "head-ready".to_string(),
-            status: Some(jeryu_core::CheckRunStatus::Completed),
-            conclusion: Some(CheckConclusion::Success),
-            ..CreateCheckRunRequest::default()
-        },
-    )
-    .unwrap();
-    let state = Arc::new(WebState::new(core));
-    let path = || AxumPath((repo.id.to_string(), pr.number));
-
-    let review = response_json(
-        super::pulls::review(
-            State(state.clone()),
-            authenticated_account("bob"),
-            path(),
-            axum::body::Bytes::from(
-                serde_json::json!({
-                    "verdict": "comment",
-                    "expected_head_sha": "head-ready",
-                    "body_markdown": "reviewed",
-                    "thread_comments": [{
-                        "thread_id": null,
-                        "body_markdown": "nit",
-                        "file_path": "src/lib.rs",
-                        "line": 7,
-                        "anchor_sha": "head-ready"
-                    }],
-                    "evidence": null
-                })
-                .to_string(),
-            ),
-        )
-        .await,
-    )
-    .await;
-    assert_eq!(review["summary"]["review"]["unresolved_threads"], 1);
-
-    let comment = response_json(
-        super::pulls::comment(
-            State(state.clone()),
-            authenticated_account("carol"),
-            path(),
-            axum::body::Bytes::from(
-                serde_json::json!({
-                    "thread_id": null,
-                    "body_markdown": "follow-up",
-                    "file_path": "src/lib.rs",
-                    "line": 8,
-                    "anchor_sha": "head-ready"
-                })
-                .to_string(),
-            ),
-        )
-        .await,
-    )
-    .await;
-    assert!(
-        comment["threads"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|thread| thread["comments"][0]["body_markdown"] == "follow-up")
-    );
-    let reviews = state
-        .github
-        .core()
-        .list_reviews("alice", "jeryu", pr.number)
-        .unwrap();
-    assert!(
-        reviews
-            .iter()
-            .any(|review| review.author == "bob" && review.state == ReviewState::Commented)
-    );
-    assert!(
-        reviews
-            .iter()
-            .any(|review| review.author == "carol" && review.state == ReviewState::Commented)
-    );
-
-    let self_review = super::pulls::review(
-        State(state.clone()),
-        authenticated_account("alice"),
-        path(),
-        axum::body::Bytes::from(
-            serde_json::json!({
-                "verdict": "approve",
-                "expected_head_sha": "head-ready",
-                "body_markdown": "self approval",
-                "thread_comments": [],
-                "evidence": null
-            })
-            .to_string(),
-        ),
-    )
-    .await;
-    assert_eq!(self_review.status(), StatusCode::FORBIDDEN);
-    assert_eq!(
-        response_json(self_review).await["code"],
-        "pull_self_approval_forbidden"
-    );
-
-    let self_approve = super::pulls::approve(
-        State(state.clone()),
-        authenticated_account("alice"),
-        path(),
-        axum::body::Bytes::from(r#"{"expected_head_sha":"head-ready"}"#),
-    )
-    .await;
-    assert_eq!(self_approve.status(), StatusCode::FORBIDDEN);
-    assert_eq!(
-        response_json(self_approve).await["code"],
-        "pull_self_approval_forbidden"
-    );
-    assert_eq!(
-        state
-            .github
-            .core()
-            .list_reviews("alice", "jeryu", pr.number)
-            .unwrap()
-            .iter()
-            .filter(|review| review.state == ReviewState::Approved)
-            .count(),
-        0
-    );
+    super::pulls::authenticated_reviews::tests::review_comments_and_self_approval().await;
 }
 
 #[tokio::test]
 async fn pulls_mutations_allow_record_only_autonomy_advisory() {
-    let core = ForgeCore::new();
-    let repo = core
-        .create_repository(
-            "alice",
-            CreateRepositoryRequest {
-                name: "jeryu".to_string(),
-                private: false,
-                description: None,
-                default_branch: Some("main".to_string()),
-            },
-        )
-        .unwrap();
-    let storage = tempfile::tempdir().expect("git storage dir");
-    let (base_sha, head_sha) = build_bare_repo_with_main_and_feature(
-        storage.path(),
-        "alice",
-        "jeryu",
-        "src/merge.rs",
-        "pub fn merge_ready() -> bool { true }\n",
-    );
-    let pr = core
-        .create_pull_request(
-            "alice",
-            "jeryu",
-            "alice",
-            CreatePullRequestRequest {
-                title: "merge-ready".to_string(),
-                head: "feature".to_string(),
-                base: "main".to_string(),
-                head_sha: Some(head_sha.clone()),
-                base_sha: Some(base_sha),
-                changed_files: vec!["src/merge.rs".to_string()],
-                ..CreatePullRequestRequest::default()
-            },
-        )
-        .unwrap();
-    core.set_branch_protection(
-        "alice",
-        "jeryu",
-        "main",
-        SetBranchProtectionRequest {
-            required_status_checks: vec!["ci/fast".to_string()],
-            required_approving_review_count: 1,
-            ..SetBranchProtectionRequest::default()
-        },
-    )
-    .unwrap();
-    core.create_check_run(
-        "alice",
-        "jeryu",
-        CreateCheckRunRequest {
-            name: "ci/fast".to_string(),
-            head_sha: head_sha.clone(),
-            status: Some(jeryu_core::CheckRunStatus::Completed),
-            conclusion: Some(CheckConclusion::Success),
-            ..CreateCheckRunRequest::default()
-        },
-    )
-    .unwrap();
-    core.create_check_run(
-        "alice",
-        "jeryu",
-        CreateCheckRunRequest {
-            name: "jeryu/autonomy".to_string(),
-            head_sha: head_sha.clone(),
-            status: Some(jeryu_core::CheckRunStatus::Completed),
-            conclusion: Some(CheckConclusion::ActionRequired),
-            details_url: Some("https://forge.invalid/advisory".to_string()),
-            ..CreateCheckRunRequest::default()
-        },
-    )
-    .unwrap();
-    let state = Arc::new(WebState::new_with_git_storage(
-        core,
-        storage.path().to_path_buf(),
-    ));
-    let path = || AxumPath((repo.id.to_string(), pr.number));
-
-    let approved = response_json(
-        super::pulls::approve(
-            State(state.clone()),
-            authenticated_account("bob"),
-            path(),
-            axum::body::Bytes::from(
-                serde_json::json!({
-                    "expected_head_sha": head_sha.clone(),
-                    "body_markdown": "ship it"
-                })
-                .to_string(),
-            ),
-        )
-        .await,
-    )
-    .await;
-    assert_eq!(approved["summary"]["review"]["approvals"], 1);
-    let reviews = state
-        .github
-        .core()
-        .list_reviews("alice", "jeryu", pr.number)
-        .unwrap();
-    assert_eq!(reviews.len(), 1);
-    assert_eq!(reviews[0].author, "bob");
-
-    let detail = response_json(
-        super::pulls::detail(State(state.clone()), authenticated_account("bob"), path()).await,
-    )
-    .await;
-    assert_eq!(detail["summary"]["checks"]["total"], 2);
-    assert_eq!(detail["summary"]["checks"]["failing"], 1);
-    assert_eq!(detail["merge_passport"]["status"], "pass");
-    assert_eq!(detail["merge_passport"]["blockers"], serde_json::json!([]));
-    let head_tree = detail["head_tree_sha"]
-        .as_str()
-        .expect("real head commit must expose its tree");
-    let base_tree = detail["base_tree_sha"]
-        .as_str()
-        .expect("real base commit must expose its tree");
-    assert_eq!(head_tree.len(), 40);
-    assert_eq!(base_tree.len(), 40);
-    assert_ne!(head_tree, base_tree);
-    let passport_hash = detail["passport_hash"].as_str().unwrap();
-
-    state
-        .github
-        .core()
-        .create_check_run(
-            "alice",
-            "jeryu",
-            CreateCheckRunRequest {
-                name: "jeryu/autonomy".to_string(),
-                head_sha: head_sha.clone(),
-                status: Some(jeryu_core::CheckRunStatus::Completed),
-                conclusion: Some(CheckConclusion::Neutral),
-                details_url: Some("https://forge.invalid/advisory/newer".to_string()),
-                ..CreateCheckRunRequest::default()
-            },
-        )
-        .unwrap();
-    let advisory_refresh = response_json(
-        super::pulls::detail(State(state.clone()), authenticated_account("bob"), path()).await,
-    )
-    .await;
-    assert_eq!(advisory_refresh["merge_passport"]["status"], "pass");
-    assert_eq!(advisory_refresh["passport_hash"], passport_hash);
-
-    state
-        .github
-        .core()
-        .create_commit_status(
-            "alice",
-            "jeryu",
-            &head_sha,
-            "ci",
-            CreateCommitStatusRequest {
-                state: CommitStatusState::Failure,
-                context: "ci/fast".to_string(),
-                description: Some("required lane regressed".to_string()),
-                target_url: None,
-            },
-        )
-        .unwrap();
-    let merge = super::pulls::merge(
-        State(state),
-        path(),
-        axum::body::Bytes::from(
-            serde_json::json!({
-                "expected_head_sha": head_sha,
-                "expected_passport_hash": passport_hash,
-                "merge_method": "merge"
-            })
-            .to_string(),
-        ),
-    )
-    .await;
-    assert_eq!(merge.status(), StatusCode::CONFLICT);
-    assert_eq!(response_json(merge).await["code"], "merge_passport_stale");
+    super::pulls::authenticated_reviews::tests::advisory_refresh_preserves_qualification_blockers()
+        .await;
 }
 
 #[tokio::test]
-async fn web_pull_merge_advances_real_bare_main_ref() {
+async fn web_pull_merge_refuses_unqualified_history_before_advancing_real_bare_main() {
     let core = ForgeCore::new();
     let repo = core
         .create_repository(
@@ -1642,11 +1260,12 @@ async fn web_pull_merge_advances_real_bare_main_ref() {
         super::pulls::detail(State(state.clone()), authenticated_account("bob"), path()).await,
     )
     .await;
-    assert_eq!(detail["merge_passport"]["status"], "pass");
+    assert_eq!(detail["merge_passport"]["status"], "blocked");
+    assert_eq!(detail["summary"]["review"]["approvals"], 0);
     let passport_hash = detail["passport_hash"].as_str().unwrap();
 
     let response = super::pulls::merge(
-        State(state),
+        State(state.clone()),
         path(),
         axum::body::Bytes::from(
             serde_json::json!({
@@ -1658,14 +1277,19 @@ async fn web_pull_merge_advances_real_bare_main_ref() {
         ),
     )
     .await;
-    assert_eq!(response.status(), StatusCode::OK);
-    let merged = response_json(response).await;
-
-    assert_eq!(merged["summary"]["state"], "merged");
+    assert_eq!(response.status(), StatusCode::CONFLICT);
+    assert_eq!(response_json(response).await["code"], "merge_blocked");
+    assert!(
+        !state
+            .core
+            .get_pull_request("alice", "jeryu", pr.number)
+            .unwrap()
+            .merged
+    );
     assert_eq!(
         bare_ref(storage.path(), "alice", "jeryu", "refs/heads/main"),
-        head_sha,
-        "web merge route must move the real bare main ref"
+        base_sha,
+        "unqualified history cannot dispatch a real Git mutation"
     );
 }
 
@@ -1813,7 +1437,8 @@ async fn web_pull_passport_uses_latest_run_per_check_name_within_current_head() 
     assert_eq!(detail["summary"]["checks"]["total"], 1);
     assert_eq!(detail["summary"]["checks"]["passing"], 1);
     assert_eq!(detail["summary"]["checks"]["failing"], 0);
-    assert_eq!(detail["merge_passport"]["status"], "pass");
+    assert_eq!(detail["merge_passport"]["status"], "blocked");
+    assert_eq!(detail["summary"]["review"]["approvals"], 0);
 }
 
 #[tokio::test]

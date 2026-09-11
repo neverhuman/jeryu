@@ -132,11 +132,19 @@ pub(super) fn app(state: WebState, spa_dir: &Path) -> AxumRouter {
         )
         .route(
             "/api/v1/repos/:id/pulls/:number/reviews",
-            get(pulls::review_history).post(pulls::review),
+            get(pulls::authenticated_reviews::history).post(pulls::review),
         )
         .route(
             "/api/v1/repos/:id/pulls/:number/reviews/:review_id/dismiss",
-            post(pulls::dismiss_review),
+            post(pulls::authenticated_reviews::legacy_dismissal),
+        )
+        .route(
+            "/api/v1/repos/:id/pulls/:number/review-challenges",
+            post(pulls::authenticated_reviews::challenge),
+        )
+        .route(
+            "/api/v1/repos/:id/pulls/:number/reviews/dismiss",
+            post(pulls::authenticated_reviews::dismiss),
         )
         .route(
             "/api/v1/repos/:id/pulls/:number/comments",

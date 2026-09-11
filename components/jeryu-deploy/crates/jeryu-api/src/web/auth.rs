@@ -238,8 +238,10 @@ pub(super) async fn login(
 
 pub(super) async fn logout(State(state): State<Arc<WebState>>, headers: HeaderMap) -> AxumResponse {
     blocking_auth_response(move || {
-        if let Some(token) = session_token_from_headers(&headers) {
-            let _ = state.core.revoke_session(&token);
+        if let Some(token) = session_token_from_headers(&headers)
+            && let Err(error) = state.core.revoke_session(&token)
+        {
+            return authenticated_actor_error(error);
         }
         let mut response = Json(json!({ "ok": true })).into_response();
         if let Ok(value) = expired_cookie_header(&state) {
@@ -383,6 +385,20 @@ pub(super) fn authenticated_actor(
         token: &token,
         csrf_token,
     })
+}
+
+pub(super) fn authenticated_read_actor(
+    state: &WebState,
+    headers: &HeaderMap,
+) -> jeryu_core::Result<AuthenticatedActor> {
+    if headers.contains_key(header::AUTHORIZATION) {
+        return authenticated_actor(state, headers);
+    }
+    let token = session_token_from_headers(headers)
+        .ok_or_else(|| ForgeError::Unauthenticated("authenticated credential required".into()))?;
+    state
+        .core
+        .authenticate_actor(ActorCredential::SessionReadOnly(&token))
 }
 
 pub(super) fn authenticated_actor_error(error: ForgeError) -> AxumResponse {
