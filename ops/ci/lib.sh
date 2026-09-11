@@ -57,7 +57,8 @@ require_jankurai() {
     if [[ ! -x /usr/local/bin/jankurai ]]; then
       bash "${here}/install-jankurai-release.sh"
     fi
-    resolved="$(type -P -- jankurai 2>/dev/null || true)"
+    # Never take the first PATH hit: hosted tests prepend a hostile binary.
+    resolved="${JERYU_GOVERNED_JANKURAI_BIN:-/usr/local/bin/jankurai}"
     actual="$("${resolved:-:}" --version 2>/dev/null || true)"
     actual_sha="$(sha256sum "${resolved:-/dev/null}" 2>/dev/null | awk '{print $1}')"
     if [[ "$resolved" == /* && -f "$resolved" && ! -L "$resolved" && -x "$resolved" &&
