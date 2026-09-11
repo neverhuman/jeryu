@@ -1,4 +1,5 @@
 //! Axum HTTP/WebSocket edge for the local live Jeryu API.
+#![allow(unused_imports)] // child modules (`http`, bootstrap, tests) import these through `use super::*`.
 
 #[cfg(test)]
 mod test_databases;
@@ -37,13 +38,19 @@ use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
-use axum::middleware::Next;
+use axum::extract::{DefaultBodyLimit, Extension, Path as AxumPath, Request, State};
+use axum::http::{HeaderName, HeaderValue, Method as HttpMethod, StatusCode, header};
+use axum::middleware::{Next, from_fn, from_fn_with_state};
+use axum::response::{IntoResponse, Response as AxumResponse};
+use axum::routing::{any, get, post};
+use axum::{Json, Router as AxumRouter};
 use jeryu_codegraph::CodeGraphStore;
-use jeryu_core::{ForgeCore, UserRole};
+use jeryu_core::{AccountSummary, ForgeCore, UserRole};
 use jeryu_jira::WorkStore;
 use jeryu_readmodel::TuiReadModel;
 use jeryu_readmodel::contracts::{RepositoryRole, ServerWsMessage, WebEvent};
 use serde::{Deserialize, Serialize};
+use serde_json::{Value, json};
 use tokio::net::TcpListener;
 use tokio::sync::mpsc::UnboundedSender;
 
