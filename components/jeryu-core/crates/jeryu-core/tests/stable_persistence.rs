@@ -483,8 +483,17 @@ fn failure_after_parent_update_rolls_back_the_entire_transfer_and_shared_state()
 #[test]
 fn refused_credential_deletion_rolls_back_then_authorized_revocation_persists() {
     let (_directory, database, core, _parents) = fixture();
+    let session = core
+        .create_session("owner", "correct horse battery")
+        .unwrap();
+    let actor = core
+        .authenticate_actor(ActorCredential::Session {
+            token: &session.token,
+            csrf_token: &session.session.csrf_token,
+        })
+        .unwrap();
     let token = core
-        .create_personal_access_token("owner", "retained", None)
+        .create_personal_access_token(&actor, "retained", None)
         .unwrap();
     let connection = Connection::open(&database).unwrap();
     connection

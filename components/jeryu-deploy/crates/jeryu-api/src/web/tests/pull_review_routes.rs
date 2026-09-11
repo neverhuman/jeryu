@@ -52,9 +52,13 @@ impl Fixture {
             .unwrap();
             tokens.insert(
                 login.to_string(),
-                core.create_personal_access_token(login, "route fixture", None)
-                    .unwrap()
-                    .secret,
+                core.create_personal_access_token(
+                    &super::credential_actor(&core, login, "review-route-fixture-password"),
+                    "route fixture",
+                    None,
+                )
+                .unwrap()
+                .secret,
             );
         }
         for (login, access) in [
@@ -539,7 +543,10 @@ async fn pulls_self_dismissal_rejects_malformed_json_and_requires_cookie_csrf() 
         assert_eq!(body["code"], "pull_dismissal_invalid_request");
         assert_eq!(f.snapshot(), before);
     }
-    let session = f.core.create_session("bob").unwrap();
+    let session = f
+        .core
+        .create_session("bob", "review-route-fixture-password")
+        .unwrap();
     for csrf in [None, Some("incorrect-token")] {
         let mut request = Request::builder()
             .method(HttpMethod::POST)

@@ -20,12 +20,17 @@ mod webhooks;
 pub use crate::branch_protection::{
     BranchProtectionEvaluation, EvaluationContext, MergeBlocker, RefOperation, RefOperationBlocker,
     RefOperationEvaluation, effective_reviews_for_head, effective_reviews_for_pull_request,
+    evaluate_branch_protection_with,
 };
 pub use crate::core::{
-    AuditEntry, DurableRefOperation, DurableRefOperationKind, DurableRefOperationState, ForgeCore,
-    MergeReadiness, MutationCoordinator, ObservedRef, RefChangeIntent, RefOperationEvent,
-    RefOperationIntent, RefOperationObservation, RefOperationOutcome, RefValue, RepoMaterializer,
-    RepositoryCreation, RepositoryDeletion,
+    ActorCredential, AuditEntry, AuthenticatedActor, BoundReviewEvent, BoundReviewHistory,
+    DismissBoundReviewRequest, DurableRefOperation, DurableRefOperationKind,
+    DurableRefOperationState, ForgeCore, ManagedGitIdentity, MergeReadiness, MutationCoordinator,
+    ObservedRef, ObservedReviewRef, RefChangeIntent, RefOperationEvent, RefOperationIntent,
+    RefOperationObservation, RefOperationOutcome, RefValue, RepoMaterializer, RepositoryCreation,
+    RepositoryDeletion, ReviewActorBinding, ReviewChallenge, ReviewCredentialKind,
+    ReviewGitObservation, ReviewGitObserver, ReviewGitRepository, ReviewGitTarget,
+    ReviewQualification, ReviewSnapshot, SubmitBoundReviewRequest,
 };
 pub use crate::error::{AgentRepairHint, JeryuError, JeryuResult};
 pub use crate::errors::{ForgeError, Result};

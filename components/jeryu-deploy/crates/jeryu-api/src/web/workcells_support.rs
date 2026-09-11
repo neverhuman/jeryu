@@ -118,6 +118,18 @@ pub(super) fn forge_error(err: ForgeError) -> AxumResponse {
             ][..],
             "route merges through the review flow, then retry the export if needed",
         ),
+        ForgeError::Unauthenticated(_) => (
+            StatusCode::UNAUTHORIZED,
+            "forge_unauthenticated",
+            &["authenticate with a current credential before retrying"][..],
+            "establish current credential custody and retry",
+        ),
+        ForgeError::PreconditionRequired(_) => (
+            StatusCode::PRECONDITION_REQUIRED,
+            "forge_precondition_required",
+            &["refresh the source and supply the required bound precondition"][..],
+            "satisfy the reported precondition before retrying",
+        ),
         ForgeError::Forbidden(_) => (
             StatusCode::FORBIDDEN,
             "forge_forbidden",

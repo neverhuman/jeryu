@@ -11,6 +11,9 @@ use crate::model::*;
 use crate::webhooks::event_payload;
 
 impl ForgeCore {
+    /// Compatibility advisory history from a trusted-name caller. Even a row
+    /// carrying a head SHA is not an authenticated source-review event. Use
+    /// the credential/challenge API for qualified review submissions.
     pub fn create_review(
         &self,
         owner: &str,
@@ -28,7 +31,7 @@ impl ForgeCore {
     }
 
     /// The caller supplies an actor login; this method does not authenticate a
-    /// credential. Transport and internal callers must establish actor custody.
+    /// credential. The result is advisory and cannot dismiss a bound verdict.
     pub fn dismiss_review(
         &self,
         owner: &str,

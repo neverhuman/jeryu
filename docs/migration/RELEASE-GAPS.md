@@ -50,6 +50,37 @@ the required source, build and provenance checks remain intact.
 
 ## Current public evidence
 
+At `324a4faffe386dc5c5afb02fcc7328e0b04a45df`,
+[run 34610898798, attempt 1](https://github.com/neverhuman/jeryu/actions/runs/34610898798)
+passes all 259 API unit tests and the live-HTTP suite. The complete Rust
+workspace execution now continues after failed targets and runs both API
+feature configurations. Creation recovery, mutation custody, stable persistence
+and SQLite controls pass. The Rust lane still fails three real audit-executor
+confinement controls: no report was produced, and their private execution logs
+remain required to distinguish the missing capability from producer failure.
+No skipped or failed control is counted as qualification.
+
+The next source intake preserves original Core
+`d0952ff90bbbc25be56afb2ec50235b4ff2a8b65`: opaque live credential actors,
+password-bound session issuance, actor-bound PAT issuance, single-use review
+challenges and immutable authenticated verdicts, with all 16 Core controls,
+six real-Git observer controls and three process controls. Modular auth/storage,
+both 0013 migrations and UUID creation custody are retained. The owning Cargo
+resolver adds only Gitd's four existing package edges; no package version moves.
+The inspected credential adapter from preserved Deploy `ef60ce5f` supplies
+live proof and keeps blocking credential operations off async workers. The
+read-only actor helper awaits its review transport consumer; no unused helper
+is installed. Public test callers now create actual session-backed actors.
+Migration 0015 has retained rollback guidance and no invented review backfill.
+
+This slice is unqualified source. Historical caller-name reviews and check
+rows are advisory; pure policy-algorithm tests remain distinct from the new
+authentication tests. The unsafe readiness/finalization/synthetic merge path
+refuses before dispatch. Required-attempt publication, the Core-owned Git
+executor, delivery reconciliation and the complete actual merge journey remain
+open release requirements. API review transport intake and original later Core
+attempt/publisher/commissioning contributions still need integration and tests.
+
 The persistence checkpoint `da29370be0f2c84297e47832d6d67cb8d8e39987`
 [run 34608941167, attempt 1](https://github.com/neverhuman/jeryu/actions/runs/34608941167)
 again passes 259 API unit tests but fails the same four live-HTTP startups.

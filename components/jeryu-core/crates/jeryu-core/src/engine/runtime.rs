@@ -1,7 +1,7 @@
 //! One process-local snapshot and lease for each admitted backing-store identity.
 
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, OnceLock, Weak};
 
@@ -18,6 +18,8 @@ pub(super) struct SharedRuntime {
     pub(super) state: RwLock<State>,
     pub(super) storage: Option<SqliteStore>,
     pub(super) coordinator: MutationCoordinator,
+    pub(super) storage_root: Option<PathBuf>,
+    pub(super) review_git_observer: RwLock<Option<Arc<dyn super::ReviewGitObserver>>>,
 }
 
 type Registry = HashMap<BackingIdentity, Weak<SharedRuntime>>;
@@ -83,6 +85,8 @@ pub(super) fn open(database: &Path, storage_root: Option<&Path>) -> Result<Arc<S
         state: RwLock::new(state),
         storage: Some(storage),
         coordinator: MutationCoordinator::default(),
+        storage_root: identity.storage_root.clone(),
+        review_git_observer: RwLock::new(None),
     });
     registry.insert(identity, Arc::downgrade(&runtime));
     Ok(runtime)

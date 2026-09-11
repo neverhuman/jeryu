@@ -7,7 +7,7 @@ use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
 
 use chrono::Duration;
 use jeryu_core::{
-    CheckConclusion, CheckRunStatus, CommitStatusState, CreateCheckRunRequest,
+    ActorCredential, CheckConclusion, CheckRunStatus, CommitStatusState, CreateCheckRunRequest,
     CreateCommentRequest, CreateCommitStatusRequest, CreateIssueRequest, CreateLabelRequest,
     CreateOrganizationRequest, CreatePullRequestRequest, CreateRepositoryRequest,
     CreateReviewRequest, CreateTeamRequest, CreateUserRequest, CreateWebhookRequest, ForgeCore,
@@ -52,14 +52,22 @@ fn auth_accounts_sessions_tokens_and_grants_round_trip_sqlite() {
             core.authenticate_password("jordanh", "correct horse battery")
                 .is_ok()
         );
-        let session = core.create_session("jordanh").unwrap();
+        let session = core
+            .create_session("jordanh", "correct horse battery")
+            .unwrap();
         assert!(
             core.session_csrf_matches(&session.token, &session.session.csrf_token),
             "session carries a per-session CSRF token"
         );
+        let actor = core
+            .authenticate_actor(ActorCredential::Session {
+                token: &session.token,
+                csrf_token: &session.session.csrf_token,
+            })
+            .unwrap();
         session_token = session.token;
         let pat = core
-            .create_personal_access_token("jordanh", "cli", None)
+            .create_personal_access_token(&actor, "cli", None)
             .unwrap();
         assert!(pat.token.expires_at.is_some(), "PATs default to an expiry");
         pat_secret = pat.secret;
@@ -99,14 +107,16 @@ fn session_ttls_use_defaults_custom_values_and_reject_invalid_values() {
     core.create_account("jordanh", "correct horse battery", UserRole::User)
         .unwrap();
 
-    let default_session = core.create_session("jordanh").unwrap();
+    let default_session = core
+        .create_session("jordanh", "correct horse battery")
+        .unwrap();
     assert_eq!(
         default_session.session.expires_at - default_session.session.created_at,
         Duration::days(14)
     );
 
     let remembered_session = core
-        .create_session_with_ttl("jordanh", Duration::days(30))
+        .create_session_with_ttl("jordanh", "correct horse battery", Duration::days(30))
         .unwrap();
     assert_eq!(
         remembered_session.session.expires_at - remembered_session.session.created_at,
@@ -114,11 +124,11 @@ fn session_ttls_use_defaults_custom_values_and_reject_invalid_values() {
     );
 
     assert!(matches!(
-        core.create_session_with_ttl("jordanh", Duration::zero()),
+        core.create_session_with_ttl("jordanh", "correct horse battery", Duration::zero()),
         Err(ForgeError::Validation(_))
     ));
     assert!(matches!(
-        core.create_session_with_ttl("jordanh", Duration::seconds(-1)),
+        core.create_session_with_ttl("jordanh", "correct horse battery", Duration::seconds(-1)),
         Err(ForgeError::Validation(_))
     ));
 }
@@ -156,9 +166,18 @@ fn reset_password_forces_change_and_revokes_sessions_and_pats() {
     let core = ForgeCore::new();
     core.create_account("jordanh", "correct horse battery", UserRole::User)
         .unwrap();
-    let session = core.create_session("jordanh").unwrap().token;
+    let receipt = core
+        .create_session("jordanh", "correct horse battery")
+        .unwrap();
+    let actor = core
+        .authenticate_actor(ActorCredential::Session {
+            token: &receipt.token,
+            csrf_token: &receipt.session.csrf_token,
+        })
+        .unwrap();
+    let session = receipt.token;
     let pat = core
-        .create_personal_access_token("jordanh", "cli", None)
+        .create_personal_access_token(&actor, "cli", None)
         .unwrap()
         .secret;
     let reset = core
@@ -668,7 +687,7 @@ fn review_head_and_latest_reviewer_state_survive_sqlite_reopen() {
     assert_eq!(effective.len(), 1);
     assert_eq!(effective[0].state, ReviewState::Approved);
     assert!(
-        reopened
+        !reopened
             .get_pull_request("alice", "demo", number)
             .unwrap()
             .mergeable

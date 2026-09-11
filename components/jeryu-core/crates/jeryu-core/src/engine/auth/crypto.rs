@@ -98,13 +98,13 @@ pub(super) fn validate_pat_expiry(
     Ok(Some(expires_at))
 }
 
-pub(super) fn token_hash(token: &str) -> String {
+pub(in crate::core) fn token_hash(token: &str) -> String {
     let mut hasher = Sha256::new();
     hasher.update(token.as_bytes());
     hex::encode(hasher.finalize())
 }
 
-pub(super) fn constant_time_eq(left: &[u8], right: &[u8]) -> bool {
+pub(in crate::core) fn constant_time_eq(left: &[u8], right: &[u8]) -> bool {
     if left.len() != right.len() {
         return false;
     }

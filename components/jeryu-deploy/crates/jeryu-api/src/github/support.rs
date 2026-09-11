@@ -299,6 +299,16 @@ pub(super) fn json_response_with_headers(
 
 pub(super) fn error_response(err: ForgeError) -> Response {
     let (status, mcp_tool, hint) = match err {
+        ForgeError::Unauthenticated(_) => (
+            401,
+            "jeryu.get_system_snapshot",
+            "authenticate with a current credential before retrying",
+        ),
+        ForgeError::PreconditionRequired(_) => (
+            428,
+            "jeryu.explain_blockers",
+            "refresh the source and supply the required bound precondition",
+        ),
         ForgeError::NotFound(_) => (
             404,
             "jeryu.get_system_snapshot",

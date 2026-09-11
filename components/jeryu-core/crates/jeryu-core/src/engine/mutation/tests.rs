@@ -184,8 +184,17 @@ fn credential_revocation_waits_for_an_active_repository_operation() {
     let repo = repository(&core, "alice");
     core.create_account("alice", "correct horse battery", UserRole::Admin)
         .unwrap();
+    let session = core
+        .create_session("alice", "correct horse battery")
+        .unwrap();
+    let actor = core
+        .authenticate_actor(ActorCredential::Session {
+            token: &session.token,
+            csrf_token: &session.session.csrf_token,
+        })
+        .unwrap();
     let pat = core
-        .create_personal_access_token("alice", "test", None)
+        .create_personal_access_token(&actor, "test", None)
         .unwrap();
     let (sender, receiver) = mpsc::channel();
     let worker = core.clone();

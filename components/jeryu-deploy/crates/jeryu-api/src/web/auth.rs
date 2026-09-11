@@ -10,8 +10,8 @@ use axum::middleware::Next;
 use axum::response::{IntoResponse, Response as AxumResponse};
 use chrono::{DateTime, Duration, Utc};
 use jeryu_core::{
-    AccountStatus, AccountSummary, ForgeError, PersonalAccessTokenSummary, RepoAccessGrant,
-    RepoAccessLevel, UserRole,
+    AccountStatus, AccountSummary, ActorCredential, AuthenticatedActor, ForgeError,
+    PersonalAccessTokenSummary, RepoAccessGrant, RepoAccessLevel, UserRole,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -147,48 +147,46 @@ pub(super) async fn signup(
     headers: HeaderMap,
     Json(request): Json<SignupRequest>,
 ) -> AxumResponse {
-    if auth_rate_limit_exceeded(&state, peer.as_ref(), &headers, "signup", &request.login) {
-        return rate_limited();
-    }
-    let account = match state
-        .core
-        .create_account(&request.login, &request.password, UserRole::User)
-    {
-        Ok(account) => account,
-        Err(ForgeError::Conflict(_)) => {
-            return api_error(
-                StatusCode::CONFLICT,
-                "conflict",
-                "an account with that login already exists",
-            );
+    blocking_auth_response(move || {
+        if auth_rate_limit_exceeded(&state, peer.as_ref(), &headers, "signup", &request.login) {
+            return rate_limited();
         }
-        Err(ForgeError::Validation(reason)) => {
-            return api_error(StatusCode::UNPROCESSABLE_ENTITY, "invalid_input", &reason);
+        let account =
+            match state
+                .core
+                .create_account(&request.login, &request.password, UserRole::User)
+            {
+                Ok(account) => account,
+                Err(ForgeError::Conflict(_)) => {
+                    return api_error(
+                        StatusCode::CONFLICT,
+                        "conflict",
+                        "an account with that login already exists",
+                    );
+                }
+                Err(ForgeError::Validation(reason)) => {
+                    return api_error(StatusCode::UNPROCESSABLE_ENTITY, "invalid_input", &reason);
+                }
+                Err(error) => {
+                    return api_error(
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        "storage_failed",
+                        &format!("could not create account: {error}"),
+                    );
+                }
+            };
+        let session = match state.core.create_session(&account.login, &request.password) {
+            Ok(session) => session,
+            Err(error) => return authenticated_actor_error(error),
+        };
+        let csrf_token = session.session.csrf_token.clone();
+        let mut response = Json(AuthUserResponse::new(account, Some(csrf_token))).into_response();
+        if let Ok(value) = cookie_header(&state, &session.token, None) {
+            response.headers_mut().append(header::SET_COOKIE, value);
         }
-        Err(error) => {
-            return api_error(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "storage_failed",
-                &format!("could not create account: {error}"),
-            );
-        }
-    };
-    let session = match state.core.create_session(&account.login) {
-        Ok(session) => session,
-        Err(error) => {
-            return api_error(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "storage_failed",
-                &format!("could not create session: {error}"),
-            );
-        }
-    };
-    let csrf_token = session.session.csrf_token.clone();
-    let mut response = Json(AuthUserResponse::new(account, Some(csrf_token))).into_response();
-    if let Ok(value) = cookie_header(&state, &session.token, None) {
-        response.headers_mut().append(header::SET_COOKIE, value);
-    }
-    response
+        response
+    })
+    .await
 }
 
 pub(super) async fn login(
@@ -197,56 +195,59 @@ pub(super) async fn login(
     headers: HeaderMap,
     Json(request): Json<LoginRequest>,
 ) -> AxumResponse {
-    if auth_rate_limit_exceeded(&state, peer.as_ref(), &headers, "login", &request.login) {
-        return rate_limited();
-    }
-    let account = match state
-        .core
-        .authenticate_password(&request.login, &request.password)
-    {
-        Ok(account) => account,
-        Err(_) => {
+    blocking_auth_response(move || {
+        if auth_rate_limit_exceeded(&state, peer.as_ref(), &headers, "login", &request.login) {
+            return rate_limited();
+        }
+        let session = match if request.remember_me {
+            state.core.create_session_with_ttl(
+                &request.login,
+                &request.password,
+                Duration::seconds(REMEMBER_ME_MAX_AGE_SECS),
+            )
+        } else {
+            state.core.create_session(&request.login, &request.password)
+        } {
+            Ok(session) => session,
+            Err(ForgeError::Unauthenticated(_) | ForgeError::Validation(_)) => {
+                return api_error(
+                    StatusCode::UNAUTHORIZED,
+                    "unauthorized",
+                    "invalid login or password",
+                );
+            }
+            Err(error) => return authenticated_actor_error(error),
+        };
+        let Some(account) = state.core.authenticate_session(&session.token) else {
             return api_error(
                 StatusCode::UNAUTHORIZED,
-                "unauthorized",
-                "invalid login or password",
+                "session_revoked",
+                "the account or session changed during sign in; sign in again",
             );
+        };
+        let csrf_token = session.session.csrf_token.clone();
+        let mut response = Json(AuthUserResponse::new(account, Some(csrf_token))).into_response();
+        let max_age = request.remember_me.then_some(REMEMBER_ME_MAX_AGE_SECS);
+        if let Ok(value) = cookie_header(&state, &session.token, max_age) {
+            response.headers_mut().append(header::SET_COOKIE, value);
         }
-    };
-    let session = match if request.remember_me {
-        state
-            .core
-            .create_session_with_ttl(&account.login, Duration::seconds(REMEMBER_ME_MAX_AGE_SECS))
-    } else {
-        state.core.create_session(&account.login)
-    } {
-        Ok(session) => session,
-        Err(error) => {
-            return api_error(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "storage_failed",
-                &format!("could not create session: {error}"),
-            );
-        }
-    };
-    let csrf_token = session.session.csrf_token.clone();
-    let mut response = Json(AuthUserResponse::new(account, Some(csrf_token))).into_response();
-    let max_age = request.remember_me.then_some(REMEMBER_ME_MAX_AGE_SECS);
-    if let Ok(value) = cookie_header(&state, &session.token, max_age) {
-        response.headers_mut().append(header::SET_COOKIE, value);
-    }
-    response
+        response
+    })
+    .await
 }
 
 pub(super) async fn logout(State(state): State<Arc<WebState>>, headers: HeaderMap) -> AxumResponse {
-    if let Some(token) = session_token_from_headers(&headers) {
-        let _ = state.core.revoke_session(&token);
-    }
-    let mut response = Json(json!({ "ok": true })).into_response();
-    if let Ok(value) = expired_cookie_header(&state) {
-        response.headers_mut().append(header::SET_COOKIE, value);
-    }
-    response
+    blocking_auth_response(move || {
+        if let Some(token) = session_token_from_headers(&headers) {
+            let _ = state.core.revoke_session(&token);
+        }
+        let mut response = Json(json!({ "ok": true })).into_response();
+        if let Ok(value) = expired_cookie_header(&state) {
+            response.headers_mut().append(header::SET_COOKIE, value);
+        }
+        response
+    })
+    .await
 }
 
 pub(super) async fn me(
@@ -268,73 +269,152 @@ pub(super) async fn change_password(
     Extension(account): Extension<AccountSummary>,
     Json(request): Json<PasswordChangeRequest>,
 ) -> AxumResponse {
-    match state.core.change_account_password(
-        &account.login,
-        &request.current_password,
-        &request.new_password,
-    ) {
-        Ok(updated) => match state.core.create_session(&updated.login) {
-            Ok(session) => {
-                let csrf_token = session.session.csrf_token.clone();
-                let mut response =
-                    Json(AuthUserResponse::new(updated, Some(csrf_token))).into_response();
-                match cookie_header(&state, &session.token, None) {
-                    Ok(value) => {
-                        response.headers_mut().append(header::SET_COOKIE, value);
-                        response
+    blocking_auth_response(move || {
+        match state.core.change_account_password(
+            &account.login,
+            &request.current_password,
+            &request.new_password,
+        ) {
+            Ok(updated) => match state
+                .core
+                .create_session(&updated.login, &request.new_password)
+            {
+                Ok(session) => {
+                    let csrf_token = session.session.csrf_token.clone();
+                    let mut response =
+                        Json(AuthUserResponse::new(updated, Some(csrf_token))).into_response();
+                    match cookie_header(&state, &session.token, None) {
+                        Ok(value) => {
+                            response.headers_mut().append(header::SET_COOKIE, value);
+                            response
+                        }
+                        Err(error) => api_error(
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            "session_rotation_failed",
+                            &format!("could not publish the rotated session: {error}"),
+                        ),
                     }
-                    Err(error) => api_error(
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        "session_rotation_failed",
-                        &format!("could not publish the rotated session: {error}"),
-                    ),
                 }
-            }
+                Err(error) => authenticated_actor_error(error),
+            },
+            Err(ForgeError::Validation(_)) => api_error(
+                StatusCode::UNAUTHORIZED,
+                "unauthorized",
+                "invalid current password",
+            ),
             Err(error) => api_error(
                 StatusCode::INTERNAL_SERVER_ERROR,
-                "session_rotation_failed",
-                &format!("could not create the rotated session: {error}"),
+                "storage_failed",
+                &format!("could not change password: {error}"),
             ),
-        },
-        Err(ForgeError::Validation(_)) => api_error(
-            StatusCode::UNAUTHORIZED,
-            "unauthorized",
-            "invalid current password",
-        ),
-        Err(error) => api_error(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "storage_failed",
-            &format!("could not change password: {error}"),
-        ),
-    }
+        }
+    })
+    .await
 }
 
 pub(super) async fn create_token(
     State(state): State<Arc<WebState>>,
-    Extension(account): Extension<AccountSummary>,
+    headers: HeaderMap,
     Json(request): Json<CreateTokenRequest>,
 ) -> AxumResponse {
-    let name = request.name.unwrap_or_else(|| "web token".to_string());
-    match state
-        .core
-        .create_personal_access_token(&account.login, &name, request.expires_at)
-    {
-        Ok(receipt) => Json(TokenResponse {
-            id: receipt.token.id.to_string(),
-            token: receipt.secret,
-            name: receipt.token.name,
-            expires_at: receipt.token.expires_at,
-        })
-        .into_response(),
-        Err(ForgeError::Validation(reason)) => {
-            api_error(StatusCode::UNPROCESSABLE_ENTITY, "invalid_input", &reason)
+    blocking_auth_response(move || {
+        let actor = match authenticated_actor(&state, &headers) {
+            Ok(actor) => actor,
+            Err(error) => return authenticated_actor_error(error),
+        };
+        let name = request.name.unwrap_or_else(|| "web token".to_string());
+        match state
+            .core
+            .create_personal_access_token(&actor, &name, request.expires_at)
+        {
+            Ok(receipt) => Json(TokenResponse {
+                id: receipt.token.id.to_string(),
+                token: receipt.secret,
+                name: receipt.token.name,
+                expires_at: receipt.token.expires_at,
+            })
+            .into_response(),
+            Err(ForgeError::Validation(reason)) => {
+                api_error(StatusCode::UNPROCESSABLE_ENTITY, "invalid_input", &reason)
+            }
+            Err(error) => authenticated_actor_error(error),
         }
-        Err(error) => api_error(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "storage_failed",
-            &format!("could not create token: {error}"),
-        ),
+    })
+    .await
+}
+
+/// Credential changes can wait for a review's authority guard or perform
+/// password hashing. Keep those complete operations off the async workers.
+async fn blocking_auth_response(
+    operation: impl FnOnce() -> AxumResponse + Send + 'static,
+) -> AxumResponse {
+    match tokio::task::spawn_blocking(operation).await {
+        Ok(response) => response,
+        Err(_) => authenticated_actor_error(ForgeError::WriterUnavailable(
+            "credential operation worker is unavailable; refresh account state before retrying"
+                .into(),
+        )),
     }
+}
+
+/// Privileged mutations require actual credential custody, including in local
+/// development. Middleware account summaries are display data, not credentials.
+pub(super) fn authenticated_actor(
+    state: &WebState,
+    headers: &HeaderMap,
+) -> jeryu_core::Result<AuthenticatedActor> {
+    if let Some(authorization) = headers.get(header::AUTHORIZATION) {
+        let token = authorization
+            .to_str()
+            .ok()
+            .and_then(jeryu_gitd::auth::extract_bearer_or_basic)
+            .ok_or_else(|| ForgeError::Unauthenticated("invalid authorization header".into()))?;
+        return state
+            .core
+            .authenticate_actor(ActorCredential::PersonalAccessToken(&token));
+    }
+    let token = session_token_from_headers(headers)
+        .ok_or_else(|| ForgeError::Unauthenticated("authenticated credential required".into()))?;
+    let csrf_token = headers
+        .get(CSRF_HEADER)
+        .and_then(|value| value.to_str().ok())
+        .ok_or_else(|| ForgeError::Forbidden("session mutation requires a CSRF token".into()))?;
+    state.core.authenticate_actor(ActorCredential::Session {
+        token: &token,
+        csrf_token,
+    })
+}
+
+pub(super) fn authenticated_actor_error(error: ForgeError) -> AxumResponse {
+    let (status, code) = match &error {
+        ForgeError::Unauthenticated(_) => (StatusCode::UNAUTHORIZED, "unauthorized"),
+        ForgeError::Forbidden(_) => (StatusCode::FORBIDDEN, "forbidden"),
+        ForgeError::WriterUnavailable(_) => (StatusCode::SERVICE_UNAVAILABLE, "writer_unavailable"),
+        ForgeError::PreconditionRequired(_) => {
+            (StatusCode::PRECONDITION_REQUIRED, "precondition_required")
+        }
+        ForgeError::Conflict(_) => (StatusCode::CONFLICT, "conflict"),
+        ForgeError::Validation(_) => (StatusCode::UNPROCESSABLE_ENTITY, "invalid_input"),
+        ForgeError::NotFound(_) => (StatusCode::NOT_FOUND, "not_found"),
+        ForgeError::BranchProtection(_) => (StatusCode::FORBIDDEN, "branch_protection"),
+        ForgeError::Storage(_) => (StatusCode::INTERNAL_SERVER_ERROR, "storage_failed"),
+    };
+    super::repositories::api_error_with_hint(
+        status,
+        code,
+        &error.to_string(),
+        super::repositories::ApiErrorHint {
+            purpose: "complete authenticated Core operation",
+            reason: code,
+            common_fixes: &[
+                "use a current credential with access to this repository",
+                "refresh the requested state and satisfy the reported precondition",
+                "if the writer is unavailable, read durable history before retrying",
+            ],
+            docs_url: "docs/boundaries.md#authenticated-review-boundary",
+            repair_hint: "resolve the reported authentication, precondition or writer error before retrying",
+        },
+    )
 }
 
 pub(super) async fn list_tokens(
@@ -362,25 +442,28 @@ pub(super) async fn delete_token(
     Extension(account): Extension<AccountSummary>,
     AxumPath(id): AxumPath<String>,
 ) -> AxumResponse {
-    let id = match Uuid::parse_str(&id) {
-        Ok(id) => id,
-        Err(_) => {
-            return api_error(
-                StatusCode::UNPROCESSABLE_ENTITY,
-                "invalid_input",
-                "invalid token id",
-            );
+    blocking_auth_response(move || {
+        let id = match Uuid::parse_str(&id) {
+            Ok(id) => id,
+            Err(_) => {
+                return api_error(
+                    StatusCode::UNPROCESSABLE_ENTITY,
+                    "invalid_input",
+                    "invalid token id",
+                );
+            }
+        };
+        match state.core.revoke_personal_access_token(&account.login, id) {
+            Ok(true) => (StatusCode::NO_CONTENT, "").into_response(),
+            Ok(false) => api_error(StatusCode::NOT_FOUND, "not_found", "token not found"),
+            Err(error) => api_error(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "storage_failed",
+                &format!("could not delete token: {error}"),
+            ),
         }
-    };
-    match state.core.revoke_personal_access_token(&account.login, id) {
-        Ok(true) => (StatusCode::NO_CONTENT, "").into_response(),
-        Ok(false) => api_error(StatusCode::NOT_FOUND, "not_found", "token not found"),
-        Err(error) => api_error(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "storage_failed",
-            &format!("could not delete token: {error}"),
-        ),
-    }
+    })
+    .await
 }
 
 pub(super) async fn admin_users(
@@ -400,33 +483,36 @@ pub(super) async fn admin_reset_password(
     headers: HeaderMap,
     AxumPath(login): AxumPath<String>,
 ) -> AxumResponse {
-    if account.role != UserRole::Admin {
-        return forbidden("admin role required");
-    }
-    if auth_rate_limit_exceeded(&state, peer.as_ref(), &headers, "reset", &login) {
-        return rate_limited();
-    }
-    let password = match state.core.generate_one_time_password() {
-        Ok(password) => password,
-        Err(error) => {
-            return api_error(
+    blocking_auth_response(move || {
+        if account.role != UserRole::Admin {
+            return forbidden("admin role required");
+        }
+        if auth_rate_limit_exceeded(&state, peer.as_ref(), &headers, "reset", &login) {
+            return rate_limited();
+        }
+        let password = match state.core.generate_one_time_password() {
+            Ok(password) => password,
+            Err(error) => {
+                return api_error(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "storage_failed",
+                    &format!("could not generate password: {error}"),
+                );
+            }
+        };
+        match state.core.reset_account_password(&login, &password) {
+            Ok(_) => Json(PasswordResetResponse { login, password }).into_response(),
+            Err(ForgeError::NotFound(_)) => {
+                api_error(StatusCode::NOT_FOUND, "not_found", "user not found")
+            }
+            Err(error) => api_error(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "storage_failed",
-                &format!("could not generate password: {error}"),
-            );
+                &format!("could not reset password: {error}"),
+            ),
         }
-    };
-    match state.core.reset_account_password(&login, &password) {
-        Ok(_) => Json(PasswordResetResponse { login, password }).into_response(),
-        Err(ForgeError::NotFound(_)) => {
-            api_error(StatusCode::NOT_FOUND, "not_found", "user not found")
-        }
-        Err(error) => api_error(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "storage_failed",
-            &format!("could not reset password: {error}"),
-        ),
-    }
+    })
+    .await
 }
 
 pub(super) async fn admin_repo_grants(
@@ -457,26 +543,29 @@ pub(super) async fn admin_grant_repo(
     AxumPath((owner, repo, login)): AxumPath<(String, String, String)>,
     Json(request): Json<GrantRequest>,
 ) -> AxumResponse {
-    match state.core.grant_repo_access_checked(
-        &account.login,
-        &login,
-        &owner,
-        &repo,
-        request.access,
-    ) {
-        Ok(grant) => Json(grant).into_response(),
-        Err(ForgeError::BranchProtection(_)) => forbidden("repo admin access required"),
-        Err(ForgeError::NotFound(_)) => api_error(
-            StatusCode::NOT_FOUND,
-            "not_found",
-            "user or repository not found",
-        ),
-        Err(error) => api_error(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "storage_failed",
-            &format!("could not grant access: {error}"),
-        ),
-    }
+    blocking_auth_response(move || {
+        match state.core.grant_repo_access_checked(
+            &account.login,
+            &login,
+            &owner,
+            &repo,
+            request.access,
+        ) {
+            Ok(grant) => Json(grant).into_response(),
+            Err(ForgeError::BranchProtection(_)) => forbidden("repo admin access required"),
+            Err(ForgeError::NotFound(_)) => api_error(
+                StatusCode::NOT_FOUND,
+                "not_found",
+                "user or repository not found",
+            ),
+            Err(error) => api_error(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "storage_failed",
+                &format!("could not grant access: {error}"),
+            ),
+        }
+    })
+    .await
 }
 
 pub(super) async fn admin_revoke_repo(
@@ -484,18 +573,21 @@ pub(super) async fn admin_revoke_repo(
     Extension(account): Extension<AccountSummary>,
     AxumPath((owner, repo, login)): AxumPath<(String, String, String)>,
 ) -> AxumResponse {
-    match state
-        .core
-        .revoke_repo_access_checked(&account.login, &login, &owner, &repo)
-    {
-        Ok(_) => Json(json!({ "ok": true })).into_response(),
-        Err(ForgeError::BranchProtection(_)) => forbidden("repo admin access required"),
-        Err(error) => api_error(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "storage_failed",
-            &format!("could not revoke access: {error}"),
-        ),
-    }
+    blocking_auth_response(move || {
+        match state
+            .core
+            .revoke_repo_access_checked(&account.login, &login, &owner, &repo)
+        {
+            Ok(_) => Json(json!({ "ok": true })).into_response(),
+            Err(ForgeError::BranchProtection(_)) => forbidden("repo admin access required"),
+            Err(error) => api_error(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "storage_failed",
+                &format!("could not revoke access: {error}"),
+            ),
+        }
+    })
+    .await
 }
 
 pub(super) async fn gate(

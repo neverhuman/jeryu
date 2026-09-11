@@ -1713,9 +1713,13 @@ version = "5.0.0"
 name = "jeryu-gitd"
 version = "5.0.0"
 dependencies = [
+ "jeryu-core",
+ "rustix",
  "serde",
  "serde_json",
  "sha2",
+ "tempfile",
+ "uuid",
 ]
 
 [[package]]

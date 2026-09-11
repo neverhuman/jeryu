@@ -8,6 +8,12 @@ Complete CI, anonymous public-origin installation and the central release
 are still unqualified. Read [current status](docs/migration/STATUS.md) and
 the [dependency and audit dashboard](docs/dependencies.md).
 
+Protected merge execution is currently unavailable while the authenticated
+review, required-check and durable Git executor are integrated and qualified.
+Legacy name-only reviews and check submissions remain advisory. The old split
+merge path refuses execution; completing the real protected-merge journey
+remains a release requirement.
+
 ## Quick start
 
 Install the prerequisites below, then use the source installation contract:

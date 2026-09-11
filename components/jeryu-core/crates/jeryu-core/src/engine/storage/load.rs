@@ -28,6 +28,7 @@ pub(super) fn load_state(conn: &Connection) -> Result<State> {
     load_issue_comments(conn, &mut state)?;
     load_pull_requests(conn, &mut state)?;
     load_reviews(conn, &mut state)?;
+    state.bound_reviews = super::bound_reviews::load_bound_reviews(conn)?;
     load_review_comments(conn, &mut state)?;
     load_branch_protection(conn, &mut state)?;
     load_codeowners(conn, &mut state)?;

@@ -32,6 +32,21 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 use tempfile::tempdir;
 
+fn credential_actor(
+    core: &ForgeCore,
+    login: &str,
+    password: &str,
+) -> jeryu_core::AuthenticatedActor {
+    let receipt = core
+        .create_session(login, password)
+        .expect("fixture password proof");
+    core.authenticate_actor(jeryu_core::ActorCredential::Session {
+        token: &receipt.token,
+        csrf_token: &receipt.session.csrf_token,
+    })
+    .expect("fixture actor proof")
+}
+
 fn write_file(root: &Path, relative: &str, contents: &str) {
     let path = root.join(relative);
     if let Some(parent) = path.parent() {
@@ -3605,7 +3620,9 @@ async fn forced_password_change_blocks_other_authenticated_routes_until_changed(
     let temporary_password = ["temporary", "pass", "123"].join("-");
     core.create_temporary_account("resetuser", &temporary_password, UserRole::User)
         .expect("create temporary account");
-    let session = core.create_session("resetuser").expect("create session");
+    let session = core
+        .create_session("resetuser", &temporary_password)
+        .expect("create session");
     let cookie = format!("jeryu-session={}", session.token);
     let csrf = session.session.csrf_token.clone();
     let app = app(
@@ -3951,7 +3968,11 @@ async fn github_rest_repo_edge_requires_auth_and_filters_grants() {
     )
     .unwrap();
     let token = core
-        .create_personal_access_token("jordanh", "test", None)
+        .create_personal_access_token(
+            &credential_actor(&core, "jordanh", "jordanh-password"),
+            "test",
+            None,
+        )
         .unwrap()
         .secret;
 
@@ -4042,7 +4063,11 @@ async fn github_rest_binds_mutation_actor_to_authenticated_principal() {
     core.create_account("alice", "alice-password", UserRole::Admin)
         .unwrap();
     let token = core
-        .create_personal_access_token("alice", "test", None)
+        .create_personal_access_token(
+            &credential_actor(&core, "alice", "alice-password"),
+            "test",
+            None,
+        )
         .unwrap()
         .secret;
 
@@ -4113,15 +4138,27 @@ async fn github_rest_reserves_ci_evidence_and_protection_controls() {
     )
     .unwrap();
     let writer_token = core
-        .create_personal_access_token("writer", "test", None)
+        .create_personal_access_token(
+            &credential_actor(&core, "writer", "writer-password"),
+            "test",
+            None,
+        )
         .unwrap()
         .secret;
     let admin_token = core
-        .create_personal_access_token("jeryu-admin", "test", None)
+        .create_personal_access_token(
+            &credential_actor(&core, "jeryu-admin", "admin-password"),
+            "test",
+            None,
+        )
         .unwrap()
         .secret;
     let repo_admin_token = core
-        .create_personal_access_token("repo-admin", "test", None)
+        .create_personal_access_token(
+            &credential_actor(&core, "repo-admin", "repo-admin-password"),
+            "test",
+            None,
+        )
         .unwrap()
         .secret;
     let app = app(
@@ -5220,7 +5257,11 @@ async fn mcp_endpoint_requires_configured_authentication() {
     core.create_account("alice", "alice-password", UserRole::Admin)
         .unwrap();
     let token = core
-        .create_personal_access_token("alice", "test", None)
+        .create_personal_access_token(
+            &credential_actor(&core, "alice", "alice-password"),
+            "test",
+            None,
+        )
         .unwrap()
         .secret;
     let app = app(
@@ -5401,9 +5442,13 @@ async fn ci_run_evidence_enforces_repo_grants_and_revocation() {
     .map(|(login, role)| {
         core.create_account(login, "ci-evidence-test-password", role)
             .unwrap();
-        core.create_personal_access_token(login, "ci evidence route test", None)
-            .unwrap()
-            .secret
+        core.create_personal_access_token(
+            &credential_actor(&core, login, "ci-evidence-test-password"),
+            "ci evidence route test",
+            None,
+        )
+        .unwrap()
+        .secret
     });
     let runs = ["private-a", "private-b"].map(|repo| {
         core.create_repository(

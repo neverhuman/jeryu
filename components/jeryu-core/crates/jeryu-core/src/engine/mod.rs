@@ -21,8 +21,10 @@ use crate::model::*;
 use crate::webhooks::{should_deliver, sign_webhook_payload};
 
 mod accounts;
+mod actors;
 mod audit;
 mod auth;
+mod bound_reviews;
 mod branch_protection;
 mod check_runs;
 mod commit_status;
@@ -46,7 +48,9 @@ mod writer;
 #[cfg(test)]
 mod tests;
 
+pub use actors::{ActorCredential, AuthenticatedActor};
 pub use audit::AuditEntry;
+pub use bound_reviews::*;
 pub use coordinator::MutationCoordinator;
 pub use pull_requests::MergeReadiness;
 pub use ref_operations::{
@@ -82,6 +86,8 @@ struct State {
     issue_comments: HashMap<(String, String, u64), Vec<IssueComment>>,
     pulls: HashMap<(String, String, u64), PullRequest>,
     reviews: HashMap<(String, String, u64), Vec<Review>>,
+    // Read cache only: these immutable rows have independent persistence ownership.
+    bound_reviews: Vec<BoundReviewEvent>,
     review_comments: HashMap<(String, String, u64), Vec<ReviewComment>>,
     branch_protections: HashMap<(String, String, String), BranchProtectionRule>,
     codeowners: HashMap<(String, String), String>,
@@ -297,29 +303,10 @@ fn evaluate_locked(
         pr.repo.clone(),
         pr.base.ref_name.clone(),
     ));
-    let reviews = match state
-        .reviews
-        .get(&(pr.owner.clone(), pr.repo.clone(), pr.number))
-    {
-        Some(reviews) => reviews.clone(),
-        None => Vec::new(),
-    };
-    let statuses =
-        match state
-            .statuses
-            .get(&(pr.owner.clone(), pr.repo.clone(), pr.head.sha.clone()))
-        {
-            Some(statuses) => statuses.clone(),
-            None => Vec::new(),
-        };
-    let check_runs = match state.check_runs.get(&(pr.owner.clone(), pr.repo.clone())) {
-        Some(check_runs) => check_runs
-            .iter()
-            .filter(|check| check.head_sha == pr.head.sha)
-            .cloned()
-            .collect::<Vec<_>>(),
-        None => Vec::new(),
-    };
+    // A supplied reviewer login or legacy publisher row is advisory evidence.
+    let reviews = bound_reviews::bound_reviews_for_evaluation(state, pr);
+    let statuses = Vec::new();
+    let check_runs = Vec::new();
     let codeowners = state.codeowners.get(&(pr.owner.clone(), pr.repo.clone()));
     let context = EvaluationContext {
         codeowners: codeowners.map(String::as_str),

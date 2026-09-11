@@ -65,7 +65,7 @@ fn lifecycle_issue_and_comment() {
 }
 
 #[test]
-fn branch_protection_blocks_merge_until_review_and_status_pass() {
+fn legacy_review_and_status_success_cannot_enable_merge_dispatch() {
     let core = core_with_repo();
     core.set_branch_protection(
         "alice",
@@ -138,19 +138,24 @@ fn branch_protection_blocks_merge_until_review_and_status_pass() {
         },
     )
     .unwrap();
-    let merge = core
+    let before = core.get_pull_request("alice", "jeryu", pr.number).unwrap();
+    let error = core
         .merge_pull_request(
             "alice",
             "jeryu",
             pr.number,
             MergePullRequestRequest::default(),
         )
-        .unwrap();
-    assert!(merge.merged);
+        .unwrap_err();
+    assert!(matches!(error, ForgeError::WriterUnavailable(_)));
+    assert_eq!(
+        core.get_pull_request("alice", "jeryu", pr.number).unwrap(),
+        before
+    );
 }
 
 #[test]
-fn check_run_satisfies_required_context() {
+fn unbound_check_run_does_not_satisfy_required_context() {
     let core = core_with_repo();
     core.set_branch_protection(
         "alice",
@@ -202,7 +207,7 @@ fn check_run_satisfies_required_context() {
     )
     .unwrap();
     let pr = core.get_pull_request("alice", "jeryu", pr.number).unwrap();
-    assert!(pr.mergeable);
+    assert!(!pr.mergeable);
 }
 
 #[test]

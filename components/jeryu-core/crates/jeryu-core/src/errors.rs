@@ -4,6 +4,10 @@ pub type Result<T> = std::result::Result<T, ForgeError>;
 
 #[derive(Debug, Error, Clone, PartialEq, Eq)]
 pub enum ForgeError {
+    #[error("authentication required: {0}")]
+    Unauthenticated(String),
+    #[error("precondition required: {0}")]
+    PreconditionRequired(String),
     #[error("not found: {0}")]
     NotFound(String),
     #[error("already exists: {0}")]

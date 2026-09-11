@@ -79,3 +79,26 @@ Migration 0014 operation journal notes:
   authenticated qualification, ordinary-writer recovery admission or outbox
   dispatcher is activated. Reconciliation-required outcomes cannot be cleared
   by ordinary retries; their separate authority procedure remains pending.
+
+Migration 0015 authenticated-review notes:
+- `forge_review_challenges` and `forge_bound_review_events` have independent
+  persistence ownership, with no catalog FK. `State.bound_reviews` is only a
+  loaded read cache; never add these rows to snapshot staging or reconciliation.
+- Bind the full independently observed source/base refs, commits/trees, physical
+  storage/executable identity, policy, evidence and actual credential identity.
+  Consume a nonce once and append its immutable event, compatibility review,
+  inline comments and audit in the same transaction. Publish State only after
+  commit. Preserve exact event IDs on lost-return retries and preserve failures.
+- No historical review receives an authentication backfill, including rows that
+  already carry a head SHA. Ordinary statuses/check runs remain advisory. The
+  pure policy calculator does not authenticate its inputs or authorize merges.
+- Keep incompatible writers stopped and retain a consistent restore-tested
+  full-state package before installed migration. Roll forward after accepted
+  effects; do not drop retained event/challenge rows or run the old split merge
+  dispatcher against the new authority. The old readiness/finalization/synthetic
+  entrypoints now refuse before Git dispatch; the new executor and authoritative
+  attempt stream are still required before merge activation.
+- In an allocated two-job window, run the authenticated Core review cases and
+  Gitd real observer/timeout cases, full affected Core/Gitd targets, the migration
+  backfill test and the migration analysis lane above. Recipe/test success is
+  separate from an authenticated hosted approval or installed qualification.

@@ -9,6 +9,7 @@ use super::audit::AuditEntry;
 use super::writer::WriterLease;
 use crate::errors::{ForgeError, Result};
 
+mod bound_reviews;
 mod codec;
 mod load;
 mod migrations;

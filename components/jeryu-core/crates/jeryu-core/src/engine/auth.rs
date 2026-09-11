@@ -19,6 +19,7 @@ const ACTIVATION_ERROR: &str = "activation could not be completed";
 
 mod crypto;
 use self::crypto::*;
+pub(super) use self::crypto::{constant_time_eq, random_secret, token_hash};
 
 impl ForgeCore {
     pub fn generate_one_time_password(&self) -> Result<String> {
@@ -237,16 +238,23 @@ impl ForgeCore {
         Ok(updated.into())
     }
 
-    pub fn create_session(&self, login: &str) -> Result<SessionReceipt> {
-        self.create_session_with_ttl(login, chrono::Duration::seconds(SESSION_TTL_SECS))
+    pub fn create_session(&self, login: &str, password: &str) -> Result<SessionReceipt> {
+        self.create_session_with_ttl(login, password, chrono::Duration::seconds(SESSION_TTL_SECS))
     }
 
     pub fn create_session_with_ttl(
         &self,
         login: &str,
+        password: &str,
         ttl: chrono::Duration,
     ) -> Result<SessionReceipt> {
-        self.with_global_mutation(|| self.create_session_with_ttl_admitted(login, ttl))
+        self.with_global_mutation(|| {
+            // Verification and issuance share the authority guard with password
+            // reset/revocation. A stale public AccountSummary cannot mint a session.
+            self.authenticate_password(login, password)
+                .map_err(|_| ForgeError::Unauthenticated("invalid login or password".into()))?;
+            self.create_session_with_ttl_admitted(login, ttl)
+        })
     }
 
     pub(super) fn create_session_with_ttl_admitted(
@@ -321,11 +329,13 @@ impl ForgeCore {
 
     pub fn create_personal_access_token(
         &self,
-        login: &str,
+        actor: &super::AuthenticatedActor,
         name: &str,
         expires_at: Option<DateTime<Utc>>,
     ) -> Result<PersonalAccessTokenReceipt> {
         self.with_global_mutation(|| {
+            let binding = self.validate_actor_locked(&self.runtime.state.read(), actor, true)?;
+            let login = binding.login.as_str();
             let account = self.require_active_account(login)?;
             require_name("token name", name)?;
             let expires_at = validate_pat_expiry(expires_at)?;

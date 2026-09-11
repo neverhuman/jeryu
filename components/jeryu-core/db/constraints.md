@@ -392,3 +392,42 @@ binary to undo migration. Preserve accepted Git advances and recover forward.
 Resolving reconciliation_required requires a separately designed and reviewed
 authority path; this migration supplies none. Source transaction/regression tests
 are distinct from installed migration and crash-recovery qualification.
+
+## Authenticated review challenges and events (0015)
+
+Challenges and events are independently persisted. A challenge UUID retains its
+full canonical snapshot, digest, nonce and expiry. The snapshot binds guarded
+catalog repository UUIDs and PR identity to direct source/base refs, full SHA1
+commits and trees, actual physical repository and Git executable identities,
+current policy revision/content, account/credential/epoch and grant records,
+and the exact advisory and bound evidence visible at creation. No caller JSON
+supplies a trusted observation. Review mutation requires a Core-minted actor
+whose actual credential still exists and whose account, epoch and permissions
+remain eligible under the same authority/repository guards.
+
+An accepted event has one UUID (also its compatibility review ID), a monotonic
+sequence per repository/PR UUID, one consumed challenge and immutable content.
+Nonce consumption, independent event, compatibility review/inline comments and
+audit commit together with the proposed State. Failed persistence publishes no
+State change; identical accepted retry returns its original event, while changed
+input conflicts. Caller expected_head_sha participates in the request digest and
+must equal the immutable challenge head under guards. Expired pending challenges
+cannot create a new event; expiration never rewrites an accepted event.
+
+No catalog FK can erase challenge, event or outcome audit history. The tables
+are outside State-save ownership; the loaded event cache is read-only outside
+the composed event transaction. Append-only triggers prevent event replacement
+and challenge rebinding/deletion. Review comments never change a verdict. Only
+a fresh authenticated decision supersedes it; a targeted dismissal may clear
+the authenticated actor's own current verdict and never recovers an older one.
+Authorization or policy changes can remove positive qualification without
+erasing an existing rejection or any historical event.
+
+Migration is additive and idempotent with no invented historical bindings. Every
+legacy review (even one with a full head) and every legacy status/check row stays
+advisory. The three old split merge methods refuse before any dispatch or State
+mutation. A successful source review is not merge qualification: authoritative
+check attempts, continuous Git mutation exclusion, the Core-owned executor and
+installed recovery qualification remain subsequent work. Retain a consistent
+full-state backup and restoration receipt before installation; do not run an
+incompatible older writer or discard accepted history to undo migration.

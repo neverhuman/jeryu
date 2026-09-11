@@ -1,5 +1,6 @@
-//! Admission shared by every Core writer. Caller login strings remain trusted
-//! input; authenticated principal issuance belongs to the subsequent API slice.
+//! Admission shared by every Core writer. Existing administrative login inputs
+//! remain trusted service capabilities. Credential-sensitive review and token
+//! methods revalidate opaque actors inside these same authority/repository guards.
 
 use uuid::Uuid;
 

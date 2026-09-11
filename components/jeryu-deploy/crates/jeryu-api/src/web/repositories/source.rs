@@ -525,6 +525,9 @@ pub(in crate::web) async fn repo_readme_update(
             Json(readme_response_with_markdown(&state, &repo, markdown)).into_response()
         }
         Err(ForgeError::NotFound(_)) => readme_not_found_error(),
+        Err(error @ (ForgeError::Unauthenticated(_) | ForgeError::PreconditionRequired(_))) => {
+            super::super::auth::authenticated_actor_error(error)
+        }
         Err(ForgeError::Forbidden(err)) => api_error_with_hint(
             axum::http::StatusCode::FORBIDDEN,
             "forbidden",
