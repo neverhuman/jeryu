@@ -37,9 +37,7 @@ use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
-use axum::extract::Request;
 use axum::middleware::Next;
-use axum::response::Response as AxumResponse;
 use jeryu_codegraph::CodeGraphStore;
 use jeryu_core::{ForgeCore, UserRole};
 use jeryu_jira::WorkStore;
