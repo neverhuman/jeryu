@@ -171,7 +171,7 @@ impl WebState {
         // ForgeCore is Arc-backed, so this handle shares state with `github`.
         let core_handle = core.clone();
         #[cfg(test)]
-        let test_databases = Arc::new(test_databases::TestDatabases::temporary());
+        let test_databases = Arc::new(test_databases::TestDatabases::scratch());
         let codegraph_path = {
             #[cfg(test)]
             {
@@ -493,6 +493,11 @@ use bootstrap::bootstrap_public_accounts;
 #[cfg(test)]
 use bootstrap::bootstrap_public_accounts_with_admin_password;
 
+#[cfg(test)]
+use http::{
+    HDR_API, HDR_FAST_PATH, HDR_TOOL, advisory_headers, bootstrap_tui, capabilities_payload,
+    is_automation_agent, suggested_tool,
+};
 use http::{api_error, app, server_time};
 
 #[cfg(test)]
