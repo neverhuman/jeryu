@@ -18,7 +18,7 @@
       "kind": "workflow",
       "path": ".github/workflows/ci.yml",
       "port_status": "pending-equivalence-proof",
-      "sha256": "85850333bbf089cc0a43ce844969b56d36c2e2eb1bccc65e9d7f33e640e065cb"
+      "sha256": "bc56ee0507926a30241a6a6970d221f1b68b1bc8e8fb9ea30ded2aff1bdae657"
     },
     {
       "component": "jeryu",
@@ -26,7 +26,7 @@
       "kind": "workflow",
       "path": ".github/workflows/jankurai-score.yml",
       "port_status": "pending-equivalence-proof",
-      "sha256": "8b2ab690e4289fb6d6e6fb03d1a60edbe729d690ea9d4cfc0acfcd7ac8af8d97"
+      "sha256": "d537c1bbe64d70f251fec7e8c7be6f589b96404638ba2e943e9b962a046ca8cf"
     },
     {
       "component": "jeryu",
@@ -302,6 +302,14 @@
       "path": "agent/tool-adoption.toml",
       "port_status": "pending-equivalence-proof",
       "sha256": "8745b3353e5dee6983747d98a9b8100e0861b6f6a5081ee0b86c978b0669c6e8"
+    },
+    {
+      "component": "jeryu",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "ci/apparmor.d/jeryu-audit-bwrap",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "c91dfd377fb3a75e381ca046b99b1ae0f576946746561bc43914041bc88d7621"
     },
     {
       "component": "jeryu",
@@ -8952,6 +8960,14 @@
       "path": "scripts/build.sh",
       "port_status": "pending-equivalence-proof",
       "sha256": "bdab8f3e6f29028e81d1348edb419885d3892a1438d9bd5869c0ff6258de7200"
+    },
+    {
+      "component": "jeryu",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "scripts/check-audit-sandbox.sh",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "73d8b7a3b68c4fa7666b6d40c14723b5b774537d99ee76276853998225a504a6"
     },
     {
       "component": "jeryu",

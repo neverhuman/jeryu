@@ -50,6 +50,16 @@ the required source, build and provenance checks remain intact.
 
 ## Current public evidence
 
+The retained census artifact for `324a4faf`
+[10268586956](https://github.com/neverhuman/jeryu/actions/runs/34610898798/artifacts/10268586956)
+records `bwrap: loopback: Failed RTM_NEWADDR: Operation not permitted`.
+Disposable hosted CI now prepares narrowly scoped executable user-namespace
+admission when its unprivileged capability probe fails under Ubuntu's AppArmor
+restriction. Existing policies are never replaced and global restriction stays
+enabled. The shared host is unchanged. The real confinement/exit/timeout
+regressions and complete census must execute successfully at the corrected
+head; this configuration change does not establish a passing audit.
+
 At `324a4faffe386dc5c5afb02fcc7328e0b04a45df`,
 [run 34610898798, attempt 1](https://github.com/neverhuman/jeryu/actions/runs/34610898798)
 passes all 259 API unit tests and the live-HTTP suite. The complete Rust
@@ -443,10 +453,10 @@ claim. Missing maintained commands remain explicit gaps.
 | R01 | Reviewed integrated candidate / monorepo | `scripts/ci.sh source` | Public ancestry retained; pending slice integrated. Complete hosted source lane passes at 791bd393. Latest private-mode correction and Core/Deploy source intake require their own qualification. | [66](https://github.com/neverhuman/jeryu/pull/66) |
 | R02 | Exact complete CI inventory / Deploy | `jeryu-split ci-required-check`; `scripts/check-required-ci.sh` | Five validator tests pass, covering exact repository/source/workflow/run/attempt and missing, duplicate, substituted or unsuccessful jobs. Hosted final-head execution pending. | [66](https://github.com/neverhuman/jeryu/pull/66) |
 | R03 | Required audit work survives later pushes / CI | `.github/workflows/ci.yml`, `jankurai-score.yml` | Unique run/attempt concurrency groups and cancellation disabled. Service reconciliation remains separate. | [66](https://github.com/neverhuman/jeryu/pull/66) |
-| R04 | Full Rust product matrix / components | `scripts/ci.sh rust` | At 791bd393, full Clippy passes but eight API creation tests fail storage permission checks. Explicit private creation correction awaits qualification; complete test union remains required. | 65; 66 |
+| R04 | Full Rust product matrix / components | `scripts/ci.sh rust` | At 324a4faf, API, live-HTTP and Core persistence/custody controls pass; three audit-executor controls fail without reports. Scoped CI capability correction and subsequent authenticated Core source need complete qualification. | 65; 66 |
 | R05 | Browser journey, accessibility, performance / Web | `scripts/ci.sh web` | Complete hosted Web lane passes at 791bd393, including 210 unit and 72 rendered tests. Subsequent source requires new evidence. | 65; Web 1 |
-| R06 | Bootstrap, credentials, Git, issues, Work, PRs, checks, merge, restart / Core+Deploy+Work | `scripts/ci.sh runtime`, `scripts/ci.sh product` | Bootstrap now prepares and syncs the one-time receipt before creating an account and resumes from that receipt after interruption. New restart/custody regressions and final-source complete journey remain pending. | 65 |
-| R07 | Interrupted repository/Core-Work repair / Core+Deploy+Work | API repository/Work modules and owning tests | Core journals the original request/UUID; Git publication and browser setup resume that identity and planned commit. Seven Core and the rendered retry controls pass at 791bd393. Earlier five materializer/seven API passes remain retained, but full hosted API exposes eight permission failures. Private-mode correction, CLI/reload recovery, pending-repair visibility, Core-Work repair and migration composition remain open. | [66](https://github.com/neverhuman/jeryu/pull/66) |
+| R06 | Bootstrap, credentials, Git, issues, Work, PRs, checks, merge, restart / Core+Deploy+Work | `scripts/ci.sh runtime`, `scripts/ci.sh product` | Bootstrap recovery is implemented. At 8f669646, authenticated review and credential source is integrated but unqualified; the unsafe split merge route is closed. The actual durable protected-merge executor and complete final-source journey remain required. | 65 |
+| R07 | Interrupted repository/Core-Work repair / Core+Deploy+Work | API repository/Work modules and owning tests | Core journals the original request/UUID and Git publication resumes it. At 324a4faf, all eight creation controls, mutation custody, stable persistence and live-HTTP pass. CLI/reload recovery, pending-repair visibility, Core-Work repair and complete composed-migration qualification remain open. | [66](https://github.com/neverhuman/jeryu/pull/66) |
 | R08 | Backup/restore, upgrade/rollback, permissions, TLS / Deploy | `scripts/test-source-install.sh`; `docs/recovery.md` | Dedicated-account hosted runtime passes at 7ca21a00 and 9be7395e with strict cleanup retained. Cross-version upgrade/rollback and remote TLS drills remain required. | [66](https://github.com/neverhuman/jeryu/pull/66) |
 | R09 | Anonymous source installation / Deploy | `scripts/build.sh`; `scripts/install.sh --from-source` | Build no longer reconstructs component source or adds a Python prerequisite for that operation. Final anonymous empty-cache source journey pending. | [66](https://github.com/neverhuman/jeryu/pull/66) |
 | R10 | Full dependency closure / Deploy | `jeryu-split dependency-inputs` | Version-aware inventory implemented. Exact revision/hash/license/capability closure and public acquisition evidence remain required. | 65 |

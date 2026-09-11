@@ -1,0 +1,9 @@
+# Ubuntu's per-executable user-namespace admission. Bubblewrap still owns the
+# read-only mounts, isolated network/PID namespaces and child capability drops.
+# https://ubuntu.com/blog/ubuntu-23-10-restricted-unprivileged-user-namespaces
+abi <abi/4.0>,
+include <tunables/global>
+
+profile jeryu-audit-bwrap /usr/bin/bwrap flags=(default_allow) {
+  userns,
+}

@@ -37,7 +37,10 @@ jobs:
       - name: Install host prerequisites
         run: |
           sudo apt-get update
-          sudo apt-get install -y ripgrep bubblewrap acl
+          sudo apt-get install -y ripgrep bubblewrap acl apparmor
+      - name: Admit unprivileged audit sandbox
+        if: ${{ matrix.lane == 'rust' || matrix.lane == 'audit' }}
+        run: bash scripts/check-audit-sandbox.sh --prepare-disposable-ci
       - name: Install pinned Rust toolchain
         run: rustup show active-toolchain
       - name: Prepare dedicated process test identity

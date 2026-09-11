@@ -28,7 +28,9 @@ jobs:
       - name: Install host prerequisites
         run: |
           sudo apt-get update
-          sudo apt-get install -y ripgrep bubblewrap
+          sudo apt-get install -y ripgrep bubblewrap apparmor
+      - name: Admit unprivileged audit sandbox
+        run: bash scripts/check-audit-sandbox.sh --prepare-disposable-ci
       - name: Install pinned Rust toolchain
         run: rustup show active-toolchain
       - name: Audit every enrolled scope
