@@ -67,7 +67,15 @@ case ${1:-all} in
     # on a fresh host. Absence or verification failure is a lane failure.
     source scripts/bootstrap-jankurai.sh
     bootstrap_public_jankurai
-    cargo test --locked --workspace --all-features --exclude jeryu-sandbox-linux
+    if [[ ${GITHUB_ACTIONS:-} == true && ${JAIN_RELEASE_CI:-0} != 1 ]]; then
+      # Public Actions shares one VM. jeryu-api workcell stdout capture flakes
+      # under default libtest fan-out. Host stays fully parallel.
+      cargo test --locked --workspace --all-features --exclude jeryu-sandbox-linux \
+        --exclude jeryu-api
+      cargo test --locked -p jeryu-api --all-features -- --test-threads=1
+    else
+      cargo test --locked --workspace --all-features --exclude jeryu-sandbox-linux
+    fi
     # Workspace feature unification otherwise hides the supported API without Web.
     cargo test --locked -p jeryu-api --no-default-features
     cargo clippy --locked -p jeryu-api --all-targets --no-default-features -- -D warnings

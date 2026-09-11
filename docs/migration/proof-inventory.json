@@ -8735,7 +8735,7 @@
       "kind": "proof-implementation-or-input",
       "path": "scripts/ci.sh",
       "port_status": "pending-equivalence-proof",
-      "sha256": "d1c3f2fafde783964dfa1412b6502c3fa6e2ff8bd6b15d3e9df1f263531996b5"
+      "sha256": "870cc38c6e5ed923eeef3076532c9751221d57be466368f460254b0403bd682c"
     },
     {
       "component": "jeryu",
