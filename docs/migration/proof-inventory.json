@@ -1409,7 +1409,7 @@
       "kind": "proof-implementation-or-input",
       "path": "components/jeryu-ci-runner/ops/ci/lib.sh",
       "port_status": "pending-equivalence-proof",
-      "sha256": "e447453cbdfdd802896c145e273dcde86ed87d4dfb690697ffe38a5c7f2c440a"
+      "sha256": "3e18feb166545a958e29d13fb8c779d58d1ef2c662cf9e28b03694a2f6c7350d"
     },
     {
       "component": "jeryu-ci-runner",
@@ -8551,7 +8551,7 @@
       "kind": "proof-implementation-or-input",
       "path": "ops/ci/lib.sh",
       "port_status": "pending-equivalence-proof",
-      "sha256": "641d5dea95afc4e2999207a45ecb4d5d0d597b12144384100c835a9c548f698c"
+      "sha256": "236fcf70987d6b97e54b7aa0dae7a682ca5dca80b5e83db1756dbd3ad80f17e4"
     },
     {
       "component": "jeryu",
