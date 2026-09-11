@@ -125,20 +125,20 @@ gap remains documented in the historical record.
 
 ## Public candidate (GitHub)
 
-GitHub `main` may lag this source candidate. Until `main` fast-forwards,
-clone by tag:
+After this candidate is fast-forwarded to GitHub `main`, clone the default
+branch:
 
-`git clone --branch jeryu-public-candidate-20260911t035111z https://github.com/neverhuman/jeryu.git`
+`git clone https://github.com/neverhuman/jeryu.git`
 
-The earlier lock tag `jeryu-public-candidate-lock-72035eaf` remains published
-and is not moved. It proved build/install/serve and family reconstruct.
-Hosted required CI repairs land on the newer candidate tag.
+The proven stranger lock tag `jeryu-public-candidate-lock-72035eaf` remains
+published and is not moved. It proved build/install/serve and family
+reconstruct. Do not treat that lock as `main` until the SHAs match.
 
 Published 2026-09-11:
 - Close-out commit `72035eaf281f0b2cf459ac8d271b162c046a6d29` (tree `dcd977b23ee5a223eb5635a2b068a6a25e4fc965`), tag `jeryu-public-candidate-20260911t021229z`
 - Family-lock follow-up tag `jeryu-public-candidate-lock-72035eaf` rewrites every `family.lock.toml` pin to a GitHub `*-family-72035eaf` tag whose tree equals `72035eaf:components/<name>`
-- Standalone `jeryu-core` remains dirty/claimed; the family pin is the **monorepo nested tree**, not the dirty checkout
-- Runner family tag is the nested tree; standalone hosted-green of `48406af` is still a footnote
+- Standalone `jeryu-core` remains dirty/claimed; the family pin is nested tag `jeryu-core-family-bb7cb7fb`, not the dirty checkout
+- Runner family pin is nested tag `jeryu-ci-runner-family-install-quiet`; standalone hosted `main` CI is historically red
 
 Throwaway `git clone --no-local` of that lock tag also reconstructed a
 deleted `jeryu-cache` tree via `scripts/fetch-family.sh`; `diff -rq`
