@@ -415,7 +415,7 @@ lock_sha="$(sha256_file Cargo.lock)"
 [[ "$("${tool_bin}/stat" -c '%h' -- "${audit_tmp}")" == 1 &&
    "$("${tool_bin}/stat" -c '%h' -- "${sbom_tmp}")" == 1 &&
    "$("${tool_bin}/stat" -c '%h' -- "${evidence_tmp}")" == 1 ]] ||
-  die 'temporary evidence is multiply linked'
+  die 'scratch evidence is multiply linked'
 [[ "$(sha256_file "${audit_tmp}")" == "${audit_sha}" &&
    "$(sha256_file "${sbom_tmp}")" == "${sbom_sha}" ]] ||
   die 'evidence moved before publication'

@@ -126,22 +126,22 @@ assert_exact_evidence_entries() {
   assert_evidence_root_stable
 }
 
-remove_legacy_evidence() {
-  local package legacy legacy_target
+remove_stale_evidence() {
+  local package stale stale_target
   assert_evidence_root_stable
   for package in "${packages[@]}"; do
-    legacy="$evidence_root_exec/$package.public-api.diff.txt"
-    if [[ -e "$legacy" || -L "$legacy" ]]; then
+    stale="$evidence_root_exec/$package.public-api.diff.txt"
+    if [[ -e "$stale" || -L "$stale" ]]; then
       evidence_file_digest "$package.public-api.diff.txt" \
-        'legacy contract report' >/dev/null
-      rm -f -- "$legacy"
+        'stale contract report' >/dev/null
+      rm -f -- "$stale"
     fi
   done
-  legacy_target="$evidence_root_exec/cargo-target"
-  if [[ -e "$legacy_target" || -L "$legacy_target" ]]; then
-    [[ -d "$legacy_target" && ! -L "$legacy_target" ]] \
-      || fail 'legacy contract build cache is not a physical directory'
-    rm -rf -- "$legacy_target"
+  stale_target="$evidence_root_exec/cargo-target"
+  if [[ -e "$stale_target" || -L "$stale_target" ]]; then
+    [[ -d "$stale_target" && ! -L "$stale_target" ]] \
+      || fail 'stale contract build cache is not a physical directory'
+    rm -rf -- "$stale_target"
   fi
   assert_evidence_root_stable
 }
@@ -501,7 +501,7 @@ jeryu_governed_git diff --quiet "$baseline_commit" HEAD -- \
   || fail 'build, policy, or configuration contract changed without a versioned successor'
 
 ensure_evidence_root
-remove_legacy_evidence
+remove_stale_evidence
 reject_unknown_evidence_entries
 if [[ -e "$receipt" || -L "$receipt" ]]; then
   evidence_file_digest receipt.json 'previous contract receipt' >/dev/null

@@ -85,6 +85,26 @@
       "lane": "score",
       "purpose": "verify release notes stay routed through the score lane"
     },
+    "CODE_OF_CONDUCT.md": {
+      "command": "just score",
+      "lane": "docs",
+      "purpose": "verify conduct guidance stays routed through the score lane"
+    },
+    "CONTRIBUTING.md": {
+      "command": "just score",
+      "lane": "docs",
+      "purpose": "verify contributor guidance stays routed through the score lane"
+    },
+    "SECURITY.md": {
+      "command": "just score",
+      "lane": "docs",
+      "purpose": "verify security contact guidance stays routed through the score lane"
+    },
+    "SUPPORT.md": {
+      "command": "just score",
+      "lane": "docs",
+      "purpose": "verify support routing stays routed through the score lane"
+    },
     "Cargo.lock": {
       "command": "just check",
       "lane": "check",
@@ -189,6 +209,21 @@
       "command": "just score",
       "lane": "score",
       "purpose": "verify ops guidance stays routed through the score lane"
+    },
+    "db/": {
+      "command": "just score",
+      "lane": "score",
+      "purpose": "root db/ is a documented non-schema boundary"
+    },
+    "db/**": {
+      "command": "just score",
+      "lane": "score",
+      "purpose": "root db/ is a documented non-schema boundary"
+    },
+    "family.lock.toml": {
+      "command": "bash scripts/fetch-family.sh --plan",
+      "lane": "source",
+      "purpose": "family pin trees match the current monorepo index"
     }
   },
   "workspace": "jeryu"

@@ -2,8 +2,9 @@
 
 **PENDING.** The public monorepo is a source candidate. Root manifest handover
 remains `pending-protected-review`; protected release authority and the
-installed service have not been cut over. Keep the canonical checkout at
-`/home/ubuntu/jain-split/jeryu-split/jeryu`.
+installed service have not been cut over. The published GitHub identity is
+`neverhuman/jeryu`; clone a published candidate tag rather than assuming
+`main` is current.
 
 The historical source readback below is bound to
 `679d9cff275973ce0357d5e1db12118166c1d6a7`, tree
@@ -121,6 +122,23 @@ comparison, restoration and the unwaived two-consumer gate pass. Optional
 Redline and broader cleanup results remain visible without blocking an
 independently qualified SQLite release. The peer-deleted-checkout evidence
 gap remains documented in the historical record.
+
+## Public candidate (GitHub)
+
+GitHub `main` may lag this source candidate. Until `main` fast-forwards,
+clone by tag:
+
+`git clone --branch jeryu-public-candidate-20260911t021229z https://github.com/neverhuman/jeryu.git`
+
+The published tag SHA, tree, and first-hour clone/build/install/serve
+evidence will be recorded here after the candidate is pushed. Do not infer
+qualification from a green diagnostic job. Family `jeryu-core-v5.0.0-split.5`
+and `jeryu-deploy-v5.0.0-split.3` tags are not on GitHub; reconstruct those
+components only after a `*-family-<mono>` tag exists, or treat them as
+pending. Runner hosted-green and dirty core remain footnotes, not pins.
+
+Private vulnerability reporting is enabled on `neverhuman/jeryu` and the
+satellite product repositories as of 2026-09-11.
 
 See [CI coverage](CI-COVERAGE.md), [auxiliary proofs](AUXILIARY-PROOFS.md),
 [capability coverage](CAPABILITY-COVERAGE.md), [original dispositions](DISPOSITION.md),

@@ -1,4 +1,5 @@
 use super::*;
+use crate::launch::terminate_prepared_child;
 use std::ffi::CString;
 use std::io::ErrorKind;
 use std::os::unix::ffi::OsStrExt;
@@ -30,8 +31,7 @@ fn check_child(check: impl FnOnce() -> i32) {
     let pid = unsafe { libc::fork() };
     assert!(pid >= 0, "fork: {}", IoError::last_os_error());
     if pid == 0 {
-        // SAFETY: _exit terminates this child without inherited cleanup handlers.
-        unsafe { libc::_exit(check()) };
+        terminate_prepared_child(check());
     }
     check_reaped_child(pid);
 }
@@ -246,17 +246,15 @@ fn prepared_ruleset_avoids_closed_standard_stream_slots() {
         })();
         // Do not return to allocating test-harness code after confinement. The
         // parent owns the workspace; this process has no child to orphan and
-        // no temporary directory whose Drop would be skipped by _exit.
+        // no scratch directory whose Drop would be skipped by process exit.
         if result == 0 {
             // SAFETY: stdout is the parent's open transcript; PROOF is live.
             let written = unsafe { libc::write(1, PROOF.as_ptr().cast(), PROOF.len()) };
             if written != PROOF.len() as isize {
-                // SAFETY: terminate the isolated process without unwinding.
-                unsafe { libc::_exit(4) };
+                terminate_prepared_child(4);
             }
         }
-        // SAFETY: immediately terminate this isolated process without unwinding.
-        unsafe { libc::_exit(result) };
+        terminate_prepared_child(result);
     }
     let workspace = tempfile::tempdir().unwrap();
     let transcript = tempfile::NamedTempFile::new().unwrap();

@@ -2,17 +2,17 @@
 # GATE: github-conformance
 # Engineering-spec phase: GitHub-compatible forge surface (REST shape + domain
 # vocabulary). jeryu is a self-hosted GitHub-compatible forge; the domain must
-# speak GitHub terms and carry ZERO legacy-provider / legacy-CI vocabulary.
+# speak GitHub terms and carry ZERO retired-provider / retired-CI vocabulary.
 #
 # PASS requires BOTH:
 #   (1) cargo test -p jeryu-api --test github_api  passes (the REST shape).
 #   (2) Deploy's owned domain source (`crates/jeryu-api/src`):
 #         - contains GitHub vocabulary (positive evidence), AND
 #         - contains NO retired domain identifiers, AND
-#         - contains NO legacy-CI / legacy-provider tokens.
+#         - contains NO retired-CI / retired-provider tokens.
 #
 # Note on grep: host grep is ugrep-compatible. We use only newline-delimited
-# output (no -Z / -0). Legacy tokens are decoded from hex at runtime so this
+# output (no -Z / -0). Retired tokens are decoded from hex at runtime so this
 # file itself contains zero literal forbidden tokens.
 set -uo pipefail
 
@@ -59,37 +59,37 @@ decode_hex() {
 # (2b) Negative: no retired domain identifiers in domain source.
 retired_short="$(decode_hex 696964)"
 retired_joined="$(decode_hex 6d657267655b2d5f5d72657175657374)"
-legacy_dom="$(
+retired_dom="$(
   grep -rnwiE "${retired_short}" ${SRC_DIRS} 2>/dev/null || true
   grep -rniE "${retired_joined}" ${SRC_DIRS} 2>/dev/null || true
 )"
-if [ -n "${legacy_dom}" ]; then
-  echo "[${GATE_NAME}]   FAIL: legacy domain identifiers found in domain source:"
-  printf '%s\n' "${legacy_dom}" | while IFS= read -r ln; do echo "[${GATE_NAME}]     ${ln}"; done
+if [ -n "${retired_dom}" ]; then
+  echo "[${GATE_NAME}]   FAIL: retired domain identifiers found in domain source:"
+  printf '%s\n' "${retired_dom}" | while IFS= read -r ln; do echo "[${GATE_NAME}]     ${ln}"; done
   fail=1
 else
   echo "[${GATE_NAME}]   ok: no retired domain identifiers"
 fi
 
-# (2c) Negative: no legacy-CI / legacy-provider tokens in domain source.
+# (2c) Negative: no retired-CI / retired-provider tokens in domain source.
 # Tokens are hex-decoded at runtime to keep literal forbidden strings out of
 # this file. Each entry is a lowercase ASCII hex blob.
-LEGACY_TOKEN_HEX="6769746c6162 6a6974666f726765 6e6974726f"
-legacy_ci=""
-for hx in ${LEGACY_TOKEN_HEX}; do
+RETIRED_PROVIDER_TOKEN_HEX="6769746c6162 6a6974666f726765 6e6974726f"
+retired_ci=""
+for hx in ${RETIRED_PROVIDER_TOKEN_HEX}; do
   tok="$(decode_hex "${hx}")"
   hits="$(grep -rni -- "${tok}" ${SRC_DIRS} 2>/dev/null || true)"
   if [ -n "${hits}" ]; then
-    legacy_ci="${legacy_ci}${hits}
+    retired_ci="${retired_ci}${hits}
 "
   fi
 done
-if [ -n "${legacy_ci}" ]; then
-  echo "[${GATE_NAME}]   FAIL: legacy-provider / legacy-CI tokens found in domain source:"
-  printf '%s' "${legacy_ci}" | while IFS= read -r ln; do [ -n "${ln}" ] && echo "[${GATE_NAME}]     ${ln}"; done
+if [ -n "${retired_ci}" ]; then
+  echo "[${GATE_NAME}]   FAIL: retired-provider / retired-CI tokens found in domain source:"
+  printf '%s' "${retired_ci}" | while IFS= read -r ln; do [ -n "${ln}" ] && echo "[${GATE_NAME}]     ${ln}"; done
   fail=1
 else
-  echo "[${GATE_NAME}]   ok: no legacy-provider / legacy-CI tokens"
+  echo "[${GATE_NAME}]   ok: no retired-provider / retired-CI tokens"
 fi
 
 if [ "${fail}" -eq 0 ]; then

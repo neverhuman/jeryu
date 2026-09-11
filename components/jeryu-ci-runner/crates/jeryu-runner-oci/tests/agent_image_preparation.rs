@@ -19,7 +19,7 @@ fn shell(program: &str, body: &str, args: &[&str], home: &std::path::Path) -> Ou
 }
 
 #[test]
-fn entrypoint_creates_home_and_preserves_command_exit() {
+fn entrypoint_creates_home_and_preserves_command_status() {
     let temp = tempfile::tempdir().expect("private fixture");
     let home = temp.path().join("home");
     let output = shell(

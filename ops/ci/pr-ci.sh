@@ -5,7 +5,7 @@
 set -euo pipefail
 
 # BEGIN GENERATED JANKURAI PIN — DO NOT EDIT
-export JERYU_JANKURAI_SOURCE_REPO="http://127.0.0.1:8787/git/jeryu/jankurai.git"
+export JERYU_JANKURAI_SOURCE_REPO="https://github.com/neverhuman/jankurai.git"
 export JERYU_JANKURAI_VERSION="jankurai 1.6.11"
 export JERYU_JANKURAI_SHA256="9e6b8857a26f6004d4c74e510e13b06d880f2e2ae0c89502698889ed690c5d6c"
 export JERYU_JANKURAI_SOURCE_REV="b88562fdb124aa86dedd70ab972e7d0d87e58be1"

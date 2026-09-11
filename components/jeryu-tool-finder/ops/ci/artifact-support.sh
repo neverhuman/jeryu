@@ -831,7 +831,7 @@ produce_receipt() {
   receipt_tmp=''
   jeryu_test_scratch="$artifact_tmp_dir" \
     jeryu_test_scratch_identity="$artifact_tmp_identity" jeryu_remove_test_scratch ||
-    die 'published artifact temporary directory changed custody'
+    die 'published artifact scratch directory changed custody'
   artifact_tmp_dir=''
   validate_receipt
   cleanup 0 || die 'artifact build scratch cleanup failed'

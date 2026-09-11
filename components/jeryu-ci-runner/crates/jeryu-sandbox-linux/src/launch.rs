@@ -307,12 +307,12 @@ pub fn spawn_sandboxed_with_io(
         }
     }
 
-    // SAFETY: the closure runs in the forked child between fork() and exec().
-    // Landlock construction and path lookup have finished in the parent; the
-    // child only restricts the prepared descriptor and preserves raw errno.
+    // Landlock construction and path lookup have finished in the parent.
     // Existing cgroup path writes still allocate here, so this correction alone
     // does not establish allocation-free setup for the entire child sequence.
     // Any setup error makes spawn fail closed before the job is exec'd.
+    // SAFETY: pre_exec runs only in the forked child between fork and exec.
+    // The payload is already prepared; the closure returns Err to fail spawn.
     unsafe {
         cmd.pre_exec(move || apply_in_child(&payload));
     }
@@ -372,6 +372,12 @@ pub fn spawn_command_on_pty(
     }
     cmd.spawn()
         .map_err(|err| SandboxError::new("process_start_failed", err.to_string()))
+}
+
+#[cfg(test)]
+pub(crate) fn terminate_prepared_child(code: i32) -> ! {
+    // SAFETY: the caller is a forked child that must not unwind or run Drop.
+    unsafe { libc::_exit(code) }
 }
 
 /// Read `/proc/<pid>/status` to PROVE the kernel actually enforced the sandbox.

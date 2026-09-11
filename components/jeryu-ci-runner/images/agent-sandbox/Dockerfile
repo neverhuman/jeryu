@@ -42,7 +42,7 @@ RUN cargo fetch --locked
 # inside the sandbox can never cargo-install it at session time. Bumping the pin means
 # bumping it there first, then rebuilding this image.
 FROM rust:1.95-slim-bookworm AS jankurai-build
-ARG JANKURAI_REPO="http://127.0.0.1:8787/git/jeryu/jankurai.git"
+ARG JANKURAI_REPO="https://github.com/neverhuman/jankurai.git"
 ARG JANKURAI_REV="b88562fdb124aa86dedd70ab972e7d0d87e58be1"
 ARG JANKURAI_VERSION="jankurai 1.6.11"
 ARG JANKURAI_BUILD_CONTEXT_SHA256="889d19f86fc390b0f0cf0bd6ecb4d451c51a2d6fb328e5520e4310e7ee5dedd6"

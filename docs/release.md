@@ -10,6 +10,13 @@ The root manifest records a pending protected handover and preserves
 `jeryu-split` identity and immutable v5 lineage. Source publication does not
 switch the installed service or activate a release.
 
+## Release gate
+
+The release gate requires backup restore proof, a rollback plan, monitoring
+dashboard evidence, and abuse or rate limit receipts before any production
+launch. Artifacts carry sha256 checksum, SBOM, and provenance evidence.
+Candidate metadata stays fail-closed until those proofs exist.
+
 ## Release admission
 
 The exact source commit must pass the complete local and GitHub matrices,

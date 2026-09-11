@@ -105,9 +105,9 @@ result=$(LC_ALL=C awk -v want="$*" -v eps="$epsilon" -v update="$update" '
 if [[ $update == 1 ]]; then
   parent=$(dirname -- "$baseline")
   [[ $(realpath -e -- "$parent") == "$(realpath -m -s -- "$parent")" ]] || exit 1
-  temporary=$(umask 077; mktemp "$parent/.coverage-baseline.XXXXXXXX")
+  scratch=$(umask 077; mktemp "$parent/.coverage-baseline.XXXXXXXX")
   # Keep a failed publication for diagnosis rather than deleting an unknown path.
-  printf '%s\n' "$result" | LC_ALL=C sort >"$temporary"
-  mv -T -- "$temporary" "$baseline"
+  printf '%s\n' "$result" | LC_ALL=C sort >"$scratch"
+  mv -T -- "$scratch" "$baseline"
   printf '[coverage-ratchet] explicitly updated baseline: %s\n' "$baseline"
 fi

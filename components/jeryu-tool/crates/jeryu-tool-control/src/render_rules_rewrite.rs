@@ -99,7 +99,7 @@ pub(super) fn bind_jankurai_wrapper(text: &str) -> Result<String, String> {
     match bin.as_str() {
         "JERYU_GOVERNED_JANKURAI_BIN" | "JERYU_JANKURAI_BIN" => {
             let mut rendered = text.to_owned();
-            let matched = captures.get(0).expect("matched exact legacy wrapper");
+            let matched = captures.get(0).expect("matched exact predecessor wrapper");
             rendered.replace_range(matched.range(), CANONICAL_JANKURAI_WRAPPER);
             Ok(rendered)
         }

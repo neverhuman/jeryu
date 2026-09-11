@@ -33,4 +33,5 @@ activate an installed service or qualify a release.
 
 Keep credentials, runtime exports, `.work`, custody archives and build output
 out of commits and issue attachments. Use [SECURITY.md](SECURITY.md) for
-vulnerabilities and [SUPPORT.md](SUPPORT.md) for help.
+vulnerabilities, [SUPPORT.md](SUPPORT.md) for help, and
+[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for conduct.

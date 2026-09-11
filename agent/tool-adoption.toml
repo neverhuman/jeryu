@@ -1,0 +1,82 @@
+schema_version = "1.0.0"
+
+# Tools whose catalog CI command this workspace can execute. The 1.6.11
+# detector requires the exact command string in ops/ci/*.sh plus
+# upload-artifact of the declared paths. Commands that need the jankurai
+# crate workspace, the failing security-lane wrapper, or a separate UX
+# harness are disabled rather than credited from comments.
+
+[[tools]]
+id = "audit-ci"
+mode = "auto"
+
+[[tools]]
+id = "proof-routing"
+mode = "auto"
+
+[[tools]]
+id = "contract-drift"
+mode = "auto"
+
+[[tools]]
+id = "authz-matrix"
+mode = "auto"
+
+[[tools]]
+id = "input-boundary"
+mode = "auto"
+
+[[tools]]
+id = "agent-tool-supply"
+mode = "auto"
+
+[[tools]]
+id = "release-readiness"
+mode = "auto"
+
+# Catalog command is `cargo run -p jankurai -- copy-code ...`. This product
+# workspace does not contain the jankurai crate.
+[[tools]]
+id = "copy-code"
+mode = "disabled"
+
+# `jankurai security run` is blocked here by required tool evidence
+# (security-lane). Supply-chain proof remains the required `security` CI lane.
+[[tools]]
+id = "security"
+mode = "disabled"
+
+# Catalog command is `cargo test -p jankurai --test language_bad_behavior`.
+[[tools]]
+id = "ci-bad-behavior"
+mode = "disabled"
+
+[[tools]]
+id = "git-bad-behavior"
+mode = "disabled"
+
+[[tools]]
+id = "release-bad-behavior"
+mode = "disabled"
+
+# Rendered UX is the required web Playwright lane, not `jankurai ux audit`.
+[[tools]]
+id = "ux-qa"
+mode = "disabled"
+
+[[tools]]
+id = "proofbind"
+mode = "disabled"
+
+[[tools]]
+id = "proofmark-rust"
+mode = "disabled"
+
+[[tools]]
+id = "rust-witness"
+mode = "disabled"
+
+# No paid API, hosted meter, or unbounded billable job.
+[[tools]]
+id = "cost-budget"
+mode = "disabled"

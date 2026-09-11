@@ -463,7 +463,7 @@ done
 fn installer_retains_source_while_builder_completion_is_unknown() {
     run(r#"
 sed -n '/^  if \[\[ "${builder_in_flight}" == 1 \]\]; then$/,/^  if \[\[ -n "${candidate_state}"/p' \
-  "${tool_root}/ops/install-jankurai.sh" | sed '$d' >"${test_root}/installer-cleanup.sh"
+  "${tool_root}/ops/install-jankurai-lib.sh" | sed '$d' >"${test_root}/installer-cleanup.sh"
 test -s "${test_root}/installer-cleanup.sh"
 remove_owned_scratch() { printf 'removed\n' >>"${test_root}/cleanup.calls"; }
 for code in 0 1 130 143; do
@@ -482,7 +482,7 @@ test "$(cat "${test_root}/cleanup.calls")" = removed
 candidate_state="${test_root}/candidate-state"
 mkdir -m 700 "${candidate_state}"
 printf 'hermetic container custody: id=%064d name=fixture removed=true\n' 0 >"${candidate_state}/build.log"
-line=$(sed -n '/^    tail -n 20 "${candidate_state}\/build.log"/p' "${tool_root}/ops/install-jankurai.sh")
+line=$(sed -n '/^    tail -n 20 "${candidate_state}\/build.log"/p' "${tool_root}/ops/install-jankurai-lib.sh")
 test "$(printf '%s\n' "${line}" | wc -l)" = 1 && test -n "${line}"
 emit_installer_result() { eval "${line}"; printf '{"receipt":"synthetic-fixture"}\n'; }
 { output=$(emit_installer_result); } 2>"${test_root}/transport.stderr"

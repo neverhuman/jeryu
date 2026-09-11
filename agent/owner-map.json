@@ -24,6 +24,10 @@
     ".jankurai/**": "audit",
     "AGENTS.md": "split",
     "CHANGELOG.md": "release",
+    "CODE_OF_CONDUCT.md": "docs",
+    "CONTRIBUTING.md": "docs",
+    "SECURITY.md": "docs",
+    "SUPPORT.md": "docs",
     "Cargo.lock": "workspace",
     "Cargo.toml": "workspace",
     "Justfile": "workspace",
@@ -44,7 +48,12 @@
     "tests/": "tests",
     "ops/ci/": "ops",
     "ops/split/": "split",
-    "ops/AGENTS.md": "ops"
+    "ops/AGENTS.md": "ops",
+    "db/": "data",
+    "db/**": "data",
+    "db/AGENTS.md": "data",
+    "family.lock.toml": "split",
+    "scripts/fetch-family.sh": "ops"
   },
   "workspace": "jeryu"
 }

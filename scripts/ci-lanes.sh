@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Keep the hosted matrix in sync with this list; tests/ci-matrix.sh checks it.
-JERYU_REQUIRED_CI_LANES=(source public rust web runtime product security sandbox oci splits legacy auxiliary audit)
+JERYU_REQUIRED_CI_LANES=(source public rust web runtime product security sandbox oci splits legacy auxiliary audit auditor)
 
 jeryu_ci_all() {
   local lane result failed=0

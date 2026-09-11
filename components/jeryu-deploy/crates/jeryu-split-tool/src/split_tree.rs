@@ -157,8 +157,8 @@ pub(super) fn export_tree(
     };
     files.insert("README.md".into(), format!(
         "# {component}\n\nA generated component of [Jeryu](https://github.com/neverhuman/jeryu), licensed under Apache-2.0. This tree derives from monorepo commit `{source}`; `.jeryu-source.json` records its provenance and qualification status.\n\nRun `bash scripts/split-ci.sh` for independent checks with the pinned Rust toolchain, Node.js 26.1.0, Git, jq, ripgrep, a C compiler, pkg-config and OpenSSL development headers. Cross-component Rust dependencies resolve the originating public monorepo commit. Runner sandbox checks additionally require a disposable capable Linux host and `JERYU_DISPOSABLE_SANDBOX=1 bash scripts/split-ci.sh sandbox`.\n\nDevelop and review changes in the monorepo. See [contribution instructions](CONTRIBUTING.md) and [the imported component documentation](docs/split-original-guidance/README.md). Full forge installation and release qualification are maintained centrally. Before the source commit is public, `bash scripts/split-ci.sh ordinary --prepare-local /absolute/clean/monorepo` uses explicitly verified local transport while preserving public dependency identities. It is preparatory evidence, not anonymous qualification. Resolver scratch is retained for supervised custody.{score_guidance}\n"));
-    let temporary = tempfile::tempdir()?;
-    let index = temporary.path().join("index");
+    let scratch = tempfile::tempdir()?;
+    let index = scratch.path().join("index");
     git(root, &["read-tree", source_tree.trim()], Some(&index))?;
     // Keep original workflow bytes as provenance without activating private writers.
     let paths = git(

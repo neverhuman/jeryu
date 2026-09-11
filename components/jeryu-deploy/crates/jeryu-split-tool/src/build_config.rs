@@ -42,12 +42,12 @@ fn toml_file(path: &Path) -> Result<(Vec<u8>, Value)> {
     Ok((bytes, value))
 }
 
-fn reject_legacy_overrides(directory: &Path) -> Result<()> {
+fn reject_predecessor_overrides(directory: &Path) -> Result<()> {
     for name in ["rust-toolchain", ".cargo/config"] {
         let path = directory.join(name);
         match fs::symlink_metadata(&path) {
             Ok(_) => bail!(
-                "legacy build configuration overrides root authority: {}",
+                "predecessor build configuration overrides root authority: {}",
                 path.display()
             ),
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
@@ -58,7 +58,7 @@ fn reject_legacy_overrides(directory: &Path) -> Result<()> {
 }
 
 fn projections(root: &Path) -> Result<Vec<Projection>> {
-    reject_legacy_overrides(root)?;
+    reject_predecessor_overrides(root)?;
     let (toolchain, pin) = toml_file(&root.join("rust-toolchain.toml"))?;
     let channel = pin
         .get("toolchain")
@@ -101,7 +101,7 @@ fn projections(root: &Path) -> Result<Vec<Projection>> {
             "component must be a physical directory: {}",
             component.display()
         );
-        reject_legacy_overrides(&component)?;
+        reject_predecessor_overrides(&component)?;
         let mut paths = vec![(component.join("rust-toolchain.toml"), &toolchain)];
         let local_config = component.join(".cargo/config.toml");
         match fs::symlink_metadata(&local_config) {

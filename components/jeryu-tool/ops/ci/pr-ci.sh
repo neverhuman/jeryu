@@ -5,7 +5,7 @@
 set -euo pipefail
 
 # BEGIN GENERATED JANKURAI PIN — DO NOT EDIT
-export JERYU_JANKURAI_SOURCE_REPO="http://127.0.0.1:8787/git/jeryu/jankurai.git"
+export JERYU_JANKURAI_SOURCE_REPO="https://github.com/neverhuman/jankurai.git"
 export JERYU_JANKURAI_VERSION="jankurai 1.6.11"
 export JERYU_JANKURAI_SHA256="9e6b8857a26f6004d4c74e510e13b06d880f2e2ae0c89502698889ed690c5d6c"
 export JERYU_JANKURAI_SOURCE_REV="b88562fdb124aa86dedd70ab972e7d0d87e58be1"
@@ -80,9 +80,26 @@ else
     printf 'expected exactly one candidate qualification environment\n' >&2
     exit 1
   }
+  candidate_bin=""
+  while IFS= read -r line || [[ -n "${line}" ]]; do
+    case "${line}" in
+      JERYU_JANKURAI_BIN=*)
+        candidate_bin="${line#JERYU_JANKURAI_BIN=}"
+        candidate_bin="${candidate_bin#\"}"
+        candidate_bin="${candidate_bin%\"}"
+        ;;
+    esac
+  done < "${candidate_envs[0]}"
+  [[ -n "${candidate_bin}" ]] || {
+    printf 'candidate qualification did not select Jankurai\n' >&2
+    exit 1
+  }
   # shellcheck source=/dev/null
   source "${candidate_envs[0]}"
-  candidate_bin="${JERYU_JANKURAI_BIN:?candidate qualification did not select Jankurai}"
+  [[ -f "${candidate_bin}" && ! -L "${candidate_bin}" ]] || {
+    printf 'qualified Jankurai is not a regular file\n' >&2
+    exit 1
+  }
   candidate_bin_dir="$(dirname "${candidate_bin}")"
   export PATH="${candidate_bin_dir}:${PATH}"
   export JERYU_GOVERNED_JANKURAI_BIN="${candidate_bin}"

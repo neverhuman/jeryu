@@ -32,6 +32,7 @@ case ${1:-all} in
   auditor)
     source scripts/bootstrap-jankurai.sh
     bootstrap_public_jankurai
+    bash ops/ci/score.sh
     ;;
   audit)
     bash scripts/audit.sh
