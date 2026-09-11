@@ -13,6 +13,21 @@ sha256_file() {
   sha256sum "$1" | awk '{print $1}'
 }
 
+# RepoDigests binds the immutable OCI index; .Id is an engine-specific handle
+# (an index digest on some engines, an image config digest on others). Admit the
+# pinned repository and platform once, then use that handle for container custody.
+builder_image_id() {
+  [[ "${JANKURAI_BUILDER_IMAGE}" == "rust@${JANKURAI_BUILDER_IMAGE_ID}" ]] || return 1
+  jq -ers --arg image "${JANKURAI_BUILDER_IMAGE}" '
+    if length != 1 or (.[0] | type) != "array" or (.[0] | length) != 1
+    then error("expected one image inspection") else .[0][0] end
+    | if .Os == "linux" and .Architecture == "amd64"
+      and (.RepoDigests | type == "array" and index($image) != null)
+      and (.Id | type == "string" and test("^sha256:[0-9a-f]{64}$"))
+      then .Id else error("builder repository digest, platform or image handle mismatch") end
+  ' "$1"
+}
+
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 pin_env="${JERYU_PIN_ENV:-${here}/../generated/jankurai-pin.env}"
 source_root="${1:-}"
@@ -189,13 +204,10 @@ local_docker() {
     "${docker_call_limit:-5}s" "${docker_bin}" \
     --host "unix://${docker_socket}" --config "${scratch}/docker-config" "$@"
 }
-actual_image_id="$(local_docker image inspect --format '{{.Id}}' \
-  "${JANKURAI_BUILDER_IMAGE}")" || die "pinned builder image is unavailable"
-[[ "${actual_image_id}" == "${JANKURAI_BUILDER_IMAGE_ID}" ]] ||
-  die "builder image ID mismatch"
-local_docker image inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' \
-  "${JANKURAI_BUILDER_IMAGE}" | grep -Fx "${JANKURAI_BUILDER_IMAGE}" >/dev/null ||
-  die "builder image repository digest mismatch"
+local_docker image inspect "${JANKURAI_BUILDER_IMAGE}" >"${scratch}/builder-image.json" ||
+  die "pinned builder image is unavailable"
+actual_image_id="$(builder_image_id "${scratch}/builder-image.json")" ||
+  die "builder image admission failed"
 
 sed 's#^directory = ".*"$#directory = "/opt/jeryu/vendor"#' \
   "${scratch}/vendor-config.raw" >"${scratch}/cargo-config.toml"
@@ -281,7 +293,7 @@ container_inspect() {
   local_docker container inspect --format '{{json .}}' "${container_id}" \
     >"${control}/inspect.json" 2>"${control}/inspect.stderr" || return 1
   jq -e --arg id "${container_id}" --arg name "${container_name}" \
-    --arg invocation "${invocation}" --arg image "${JANKURAI_BUILDER_IMAGE_ID}" \
+    --arg invocation "${invocation}" --arg image "${actual_image_id}" \
     --arg user "${build_uid}:${build_gid}" --arg source "${source_root}" --arg scratch "${scratch}" '
     .Id == $id and .Name == ("/" + $name) and .Image == $image
     and .Config.User == $user

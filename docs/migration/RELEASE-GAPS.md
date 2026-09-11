@@ -14,8 +14,27 @@ The corrective source is in [draft PR 66](https://github.com/neverhuman/jeryu/pu
 PR 65's later `a350a5e8` Runner family reference is also retained; its public
 commit and tree were read back against the named immutable tag. This historical
 reference does not qualify the Runner mirror or change tracked build inputs.
+Public history through `5c127131` is separately preserved. Its Bubblewrap
+prerequisite is integrated and its predecessor assertion was already corrected.
+Its new environment-selected custody/executor skips and permission-denied
+deletion exceptions are not accepted; these requirements remain fail-closed.
 
 ## Current public evidence
+
+[PR 66 run 34563986065, attempt 1](https://github.com/neverhuman/jeryu/actions/runs/34563986065)
+executes the complete matrix at `e97aa6330832db8a270e5150a86ab65644e59ad4`.
+Product, security, sandbox, web, source, OCI and public passed. Auxiliary,
+auditor, audit, runtime, Rust and legacy failed; splits was still running at
+the readback. The immutable builder check confused the OCI index digest with
+the engine's image handle. It now admits the pinned repository digest and
+Linux amd64 platform, then binds container inspection to the admitted handle.
+All 12 Tool builder regressions, package warning-denied Clippy and workflow
+linters pass locally. A real reproducible builder run remains required.
+
+Runtime retained fixtures when hosted same-user process state was unreadable.
+The workflow now prepares a dedicated unprivileged runtime UID and runs the
+same maintained command with an empty credential environment. Cleanup and
+live-handle checks remain strict. Its hosted result is pending.
 
 [PR 65](https://github.com/neverhuman/jeryu/pull/65) remains open without an
 approval. At its exact `5c881aaa` head,
@@ -101,13 +120,13 @@ claim. Missing maintained commands remain explicit gaps.
 | R05 | Browser journey, accessibility, performance / Web | `scripts/ci.sh web` | Public consolidation lost the effective keyboard-scroll lint setting. Restored original behavior; lint and full rendered matrix required. | 65; Web 1 |
 | R06 | Bootstrap, credentials, Git, issues, Work, PRs, checks, merge, restart / Core+Deploy+Work | `scripts/ci.sh runtime`, `scripts/ci.sh product` | Bootstrap now prepares and syncs the one-time receipt before creating an account and resumes from that receipt after interruption. New restart/custody regressions and final-source complete journey remain pending. | 65 |
 | R07 | Interrupted repository/Core-Work repair / Core+Deploy+Work | API repository/Work modules and owning tests | Atomic linked Work creation exists. Complete durable recovery, visible pending repairs and idempotent retries remain unqualified. | 65 |
-| R08 | Backup/restore, upgrade/rollback, permissions, TLS / Deploy | `scripts/test-source-install.sh`; `docs/recovery.md` | Public runtime failed fixture cleanup on inaccessible same-user process state. Retain failed custody; qualify isolated unprivileged execution and cross-version/TLS drills. | 65 |
+| R08 | Backup/restore, upgrade/rollback, permissions, TLS / Deploy | `scripts/test-source-install.sh`; `docs/recovery.md` | Public runtime failed fixture cleanup on inaccessible same-user process state. Dedicated hosted runtime UID proposed; strict cleanup retained. Qualify actual execution and cross-version/TLS drills. | [66](https://github.com/neverhuman/jeryu/pull/66) |
 | R09 | Anonymous source installation / Deploy | `scripts/build.sh`; `scripts/install.sh --from-source` | Build no longer reconstructs component source or adds a Python prerequisite for that operation. Final anonymous empty-cache source journey pending. | [66](https://github.com/neverhuman/jeryu/pull/66) |
 | R10 | Full dependency closure / Deploy | `jeryu-split dependency-inputs` | Version-aware inventory implemented. Exact revision/hash/license/capability closure and public acquisition evidence remain required. | 65 |
 | R11 | Public Cache scanners, advisories and API baseline / Cache | Cache `ops/ci/security.sh`, `ops/ci/api-compat.sh` | Source guards integrated. Full public scanner producer, pinned advisory DB and immutable API baseline remain unqualified. | 65; Cache 1 |
 | R12 | Runner image ownership and immutable inputs / Runner | Runner `images/agent-sandbox`, `scripts/test-oci.sh` | Product image and duplicate Deploy route need complete reconciliation. Native and OCI-probe successes do not qualify the product image. | 65 |
 | R13 | Enforced network denial / Runner | `cargo test -p jeryu-runner-oci --lib` | All 20 unit tests pass. Requested and effective Deny required; session bridge override removed; exact dispatch argv covered. Product image remains separately unqualified. | 65 |
-| R14 | Auditor public acquisition / Tool | `scripts/ci.sh auditor` | Complete source/build/receipt path retained. Hosted builder image identity mismatch remains a real failed result; repair must retain immutable provenance. | 65; Tool 1 |
+| R14 | Auditor public acquisition / Tool | `scripts/ci.sh auditor` | Complete source/build/receipt path retained. Immutable repository/platform admission now binds the runtime engine handle; all 12 builder regressions pass. Real builder reproduction and receipt qualification remain pending. | [66](https://github.com/neverhuman/jeryu/pull/66); Tool 1 |
 | R15 | Independent producer qualification / Jankurai owners | Producer owning protected quality gates | Classification, readonly behavior, child status and SVG corrections must be independently qualified before consumer adoption. No substitute binary or repin is admitted. | Owning producer PRs |
 | R16 | Complete root/component/export/dependency census / Deploy | `scripts/ci.sh audit` | Every scope is recorded; producer, governing policy and execution admission still prevent a qualified aggregate. | 65 |
 | R17 | Authentic predecessors and auxiliary proofs / Tool+Release Ops | `scripts/ci.sh auxiliary`; Tool `ops/ci/tool-adoption.sh` | Candidate-derived baseline is insufficient. Protected predecessor, complete changed paths/hunks, proofbind/proofmark/configuration/conformance remain open. | 65; Tool 1 |

@@ -37,9 +37,15 @@ jobs:
       - name: Install host prerequisites
         run: |
           sudo apt-get update
-          sudo apt-get install -y ripgrep
+          sudo apt-get install -y ripgrep bubblewrap
       - name: Install pinned Rust toolchain
         run: rustup show active-toolchain
+      - name: Prepare dedicated runtime test identity
+        if: ${{ matrix.lane == 'runtime' }}
+        run: |
+          sudo -n useradd --uid 45165 --user-group --create-home --shell /bin/bash jeryu-runtime
+          sudo -n mv "$HOME/.cargo" "$HOME/.rustup" /home/jeryu-runtime/
+          sudo -n chown -R jeryu-runtime:jeryu-runtime "$GITHUB_WORKSPACE" /home/jeryu-runtime
       - name: Run shared local command
         env:
           JERYU_CI_LANE: ${{ matrix.lane }}
@@ -47,6 +53,14 @@ jobs:
           if [ "$JERYU_CI_LANE" = sandbox ] || [ "$JERYU_CI_LANE" = oci ]; then
             sudo -n env PATH="$PATH" CARGO_HOME="$HOME/.cargo" RUSTUP_HOME="$HOME/.rustup" \
               CARGO_BUILD_JOBS=2 JERYU_DISPOSABLE_SANDBOX=1 bash ops/ci/monorepo.sh "$JERYU_CI_LANE"
+          elif [ "$JERYU_CI_LANE" = runtime ]; then
+            # Process-custody checks require visibility of every process with
+            # the fixture UID. The hosted runner's own UID includes private
+            # supervisor processes; keep their identity outside this proof.
+            sudo -n -u jeryu-runtime env -i HOME=/home/jeryu-runtime \
+              PATH="/home/jeryu-runtime/.cargo/bin:$PATH" \
+              CARGO_HOME=/home/jeryu-runtime/.cargo RUSTUP_HOME=/home/jeryu-runtime/.rustup \
+              CARGO_BUILD_JOBS=2 CI=true bash ops/ci/monorepo.sh "$JERYU_CI_LANE"
           else
             bash ops/ci/monorepo.sh "$JERYU_CI_LANE"
           fi

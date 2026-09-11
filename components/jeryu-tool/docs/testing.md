@@ -109,6 +109,13 @@ installation and source qualification still require their own successful results
 fixtures cannot qualify the auditor binary; the real network-disabled build
 must reproduce the manifest's unchanged binary digest separately.
 
+Image admission requires the pinned repository digest and Linux amd64 platform
+from the trusted local engine. The resulting engine image ID may be an OCI
+index digest or a configuration digest; container inspection must match that
+admitted ID before start and cleanup. The `image_identity::` tests exercise both
+representations and reject wrong repositories, platforms, malformed inspection
+data and a changed container image. This does not qualify a real image build.
+
 Container creation has a separate 120-second bound plus two seconds of kill
 grace. Before dispatch, the builder records the exact command array, executable
 digests and timeout in private `create-request.json`. After dispatch,

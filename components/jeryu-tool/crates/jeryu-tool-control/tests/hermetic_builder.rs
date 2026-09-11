@@ -7,6 +7,8 @@ use std::{
 
 #[path = "hermetic_builder/create_attempt.rs"]
 mod create_attempt;
+#[path = "hermetic_builder/image_identity.rs"]
+mod image_identity;
 
 const FIXTURE: &str = r#"
 tool_root="$1"
@@ -285,6 +287,7 @@ invocation=01234567-89ab-cdef-0123-456789abcdef
 container_name="jeryu-jankurai-${invocation}"
 build_uid="$(id -u)" build_gid="$(id -g)" build_cpus=0,1
 fixture_id=$(printf 'a%.0s' {1..64})
+actual_image_id="${JANKURAI_BUILDER_IMAGE_ID}"
 create_attempted=1 container_removed=0 container_id= docker_call_limit=5
 fixture_mode=ok fixture_counter=0 fixture_cleanup=0 stage= stage_identity=
 reset_container() {
@@ -296,7 +299,7 @@ reset_container() {
   printf '%s' "${fixture_id}" >"${control}/cid"
   : >"${test_root}/engine.calls"
   jq -n --arg id "${fixture_id}" --arg name "${container_name}" --arg invocation "${invocation}" \
-    --arg image "${JANKURAI_BUILDER_IMAGE_ID}" --arg user "${build_uid}:${build_gid}" \
+    --arg image "${actual_image_id}" --arg user "${build_uid}:${build_gid}" \
     --arg source "${source_root}" --arg scratch "${scratch}" '{
     Id:$id,Name:("/"+$name),Image:$image,Config:{User:$user,Labels:{"org.jeryu.builder.invocation":$invocation}},
     State:{Running:false,Status:"created",ExitCode:0},Mounts:[
@@ -370,7 +373,7 @@ launch_fixture() {
     printf 'set -euo pipefail\n'
     declare -p build_uid build_gid build_cpus source_root scratch control invocation container_name \
       container_id create_attempted container_removed docker_call_limit fixture_id fixture_mode \
-      test_root control_identity scratch_identity docker_bin docker_socket stage stage_identity "${!JANKURAI_@}"
+      test_root control_identity scratch_identity docker_bin docker_socket stage stage_identity actual_image_id "${!JANKURAI_@}"
     declare -f local_docker change_container die
     printf 'create_attempted=0 create_status=\nsource %q\n' "${test_root}/lifecycle.sh"
     if [[ "${fixture_cleanup}" == 1 ]]; then
