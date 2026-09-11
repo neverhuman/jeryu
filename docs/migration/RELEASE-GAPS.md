@@ -226,6 +226,25 @@ migration analysis and independent review. Opaque actors, bound reviews, Git
 intents/outbox, required attempts, publisher enrollment and commissioning barriers
 remain required subsequent intake; this intermediate source is not merge-ready.
 
+The subsequent persistence intake retains original Core
+`1d3a9c4f158335afd3139cac7c85b47279df7116`: private ref-operation preparation,
+reconciliation and acknowledgement hooks plus scoped readback. Migration 0014
+keeps full intent and qualification snapshots, immutable terminal observations,
+audit identities and committed-event outbox records outside State ownership.
+Repository deletion does not erase them. The proposed State closure, operation
+outcome, audit and event commit together; failed writes leave shared State
+unchanged. Identical retries retain the original operation and event IDs.
+
+All 16 original regressions are retained, including concurrent preparation,
+lost returns, four injected transaction failures, ambiguous observations,
+immutable terminal results, scoped delivery acknowledgements, catalog deletion,
+migration/restart and expired authorization after proven application. Modular
+storage, both 0013 migrations and the creation journal remain composed. This
+source requires its own test and migration-analysis results; the authenticated
+Git executor, ordinary-writer recovery admission, review/required-publisher
+integration and actual outbox dispatcher remain unavailable pending their owning
+implementation and qualification.
+
 All ten component GitHub `main` protections now require strict,
 GitHub Actions app-bound `<component>/required` and `<component>/audit`, one
 independent approval, stale-review dismissal, latest-push approval, enforced

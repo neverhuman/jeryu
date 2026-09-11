@@ -13,6 +13,7 @@ mod codec;
 mod load;
 mod migrations;
 mod persist;
+mod ref_operations;
 mod snapshot;
 
 #[cfg(test)]
@@ -51,9 +52,7 @@ impl SqliteStore {
         conn.execute_batch("PRAGMA temp_store = MEMORY;")
             .map_err(storage_error)?;
         let tx = conn.transaction().map_err(storage_error)?;
-        snapshot::create_tables(&tx)?;
-        stage_state(&tx, state)?;
-        snapshot::apply(&tx)?;
+        persist_snapshot(&tx, state)?;
         tx.commit().map_err(storage_error)?;
         Ok(())
     }
@@ -65,24 +64,7 @@ impl SqliteStore {
     /// never delete or rewrite audit receipts.
     pub(super) fn append_audit(&self, entry: &AuditEntry) -> Result<()> {
         let conn = self.connect()?;
-        conn.execute(
-            r#"
-            INSERT INTO forge_audit_log (
-              id, occurred_at, actor, action, subject, phase, detail_json
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
-            "#,
-            params![
-                entry.id,
-                entry.occurred_at,
-                entry.actor,
-                entry.action,
-                entry.subject,
-                entry.phase,
-                json(&entry.detail)?,
-            ],
-        )
-        .map_err(storage_error)?;
-        Ok(())
+        insert_audit(&conn, entry)
     }
 
     /// All audit entries for one subject, oldest first.
@@ -138,6 +120,30 @@ impl SqliteStore {
     pub(super) fn validate_writer(&self) -> Result<()> {
         self.writer.validate()
     }
+}
+
+fn persist_snapshot(conn: &Connection, state: &State) -> Result<()> {
+    snapshot::create_tables(conn)?;
+    stage_state(conn, state)?;
+    snapshot::apply(conn)
+}
+
+fn insert_audit(conn: &Connection, entry: &AuditEntry) -> Result<()> {
+    conn.execute(
+        "INSERT INTO forge_audit_log (id, occurred_at, actor, action, subject, phase, detail_json)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        params![
+            entry.id,
+            entry.occurred_at,
+            entry.actor,
+            entry.action,
+            entry.subject,
+            entry.phase,
+            json(&entry.detail)?
+        ],
+    )
+    .map_err(storage_error)?;
+    Ok(())
 }
 
 pub(super) fn repo_id(

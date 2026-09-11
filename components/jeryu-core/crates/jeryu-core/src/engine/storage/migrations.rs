@@ -44,6 +44,8 @@ const MIGRATION_0013: &str =
 // Both independently named 0013 migrations are preserved on monorepo intake.
 const MIGRATION_0013_MUTATION_BLOCKS: &str =
     include_str!("../../../../../db/migrations/0013_repository_mutation_blocks.sql");
+const MIGRATION_0014: &str =
+    include_str!("../../../../../db/migrations/0014_ref_operation_journal.sql");
 
 pub(super) fn apply_migrations(conn: &Connection) -> Result<()> {
     apply_migrations_through_0010(conn)?;
@@ -52,6 +54,7 @@ pub(super) fn apply_migrations(conn: &Connection) -> Result<()> {
     conn.execute_batch(MIGRATION_0013).map_err(storage_error)?;
     conn.execute_batch(MIGRATION_0013_MUTATION_BLOCKS)
         .map_err(storage_error)?;
+    conn.execute_batch(MIGRATION_0014).map_err(storage_error)?;
     Ok(())
 }
 

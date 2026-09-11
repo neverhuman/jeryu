@@ -32,6 +32,7 @@ mod jankurai;
 mod mutation;
 mod pull_requests;
 mod readmes;
+mod ref_operations;
 mod repositories;
 mod repository_creation;
 mod repository_transfer;
@@ -48,6 +49,11 @@ mod tests;
 pub use audit::AuditEntry;
 pub use coordinator::MutationCoordinator;
 pub use pull_requests::MergeReadiness;
+pub use ref_operations::{
+    DurableRefOperation, DurableRefOperationKind, DurableRefOperationState, ObservedRef,
+    RefChangeIntent, RefOperationEvent, RefOperationIntent, RefOperationObservation,
+    RefOperationOutcome, RefValue,
+};
 pub use repositories::RepositoryDeletion;
 pub use repository_creation::RepositoryCreation;
 

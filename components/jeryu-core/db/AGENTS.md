@@ -63,3 +63,19 @@ Migration 0013 mutation restrictions:
 - Retain restrictions on rollback and keep incompatible older writers stopped.
 - Run mutation_custody, core::mutation::tests, all creation controls, SQLite
   persistence and migration analysis under the allocated native CI window.
+
+Migration 0014 operation journal notes:
+- `forge_ref_operations` and `forge_ref_operation_outbox` are independently
+  persisted, outside State loading/staging/save ownership. Repository UUIDs are
+  retained values, without catalog FKs, so deletion cannot erase recovery custody.
+- New private Core hooks compose a proposed State snapshot, immutable terminal
+  operation, audit and committed-event insertion in one SQLite transaction. Only
+  a successful commit publishes the proposed shared State. Lost-return retries
+  preserve original operation, audit and event IDs without repeating the closure.
+- There is no historical intent/event backfill. Keep older writers stopped and
+  preserve/restore-test the complete state package before installed migration.
+  Never discard the journal or roll Git backward to reconcile metadata failure.
+- This is persistence groundwork: no public mutation endpoint, Git backend,
+  authenticated qualification, ordinary-writer recovery admission or outbox
+  dispatcher is activated. Reconciliation-required outcomes cannot be cleared
+  by ordinary retries; their separate authority procedure remains pending.

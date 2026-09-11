@@ -337,3 +337,58 @@ metadata. Preserve all restriction rows during rollback and keep incompatible
 older writers stopped: they do not enforce these restrictions. After accepted
 mutations or custody decisions, recover forward. A pre-adoption package may be
 restored only when no accepted mutation or restriction is lost.
+
+## 0014 Durable ref operations and committed-event outbox
+
+`forge_ref_operations` binds a server-generated operation UUID to one immutable
+repository UUID/idempotency key, complete serialized intent and canonical SHA256,
+canonical qualification snapshot digest, marker identity and preparation audit.
+The full snapshot preserves policy revision, policy, review/attempt UUIDs, actor
+authorization and empty blockers plus any additional evidence. Digests are
+recomputed on read; a supplied digest alone is never a qualification snapshot.
+The private caller still must obtain and enforce the authoritative qualification;
+storing a snapshot does not authenticate it.
+
+Supported intents use explicit absent/exact preconditions and full nonzero
+lowercase SHA1 object IDs. The current ref subset is ASCII `refs/heads/` and
+`refs/tags/`, excluding Git revision syntax, invalid components and the reserved
+`refs/jeryu/operations/<UUID>` marker namespace. Each ref occurs once. The future
+Git backend must also enforce that marker namespace against all other writers.
+
+The only ordinary transition is prepared to committed, aborted_not_applied or
+reconciliation_required. A correct recorded marker plus every exact result ref
+classifies committed; exact predecessors without a marker or other application
+evidence classify not-applied. Missing, inconsistent or unavailable observations
+require reconciliation. All terminal observations are immutable. An identical
+retry returns its original receipt; any different outcome conflicts. A partial
+unique index blocks another prepared operation while a repository's prepared or
+reconciliation-required row remains unresolved. No ordinary method clears it.
+
+Private outcome persistence uses one transaction for the optional proposed State
+closure, operation outcome, immutable audit and committed-event outbox. The State
+closure runs only for a new committed outcome. Shared State is replaced only
+after commit, so faults leave both memory and SQLite at the predecessor. An
+outbox event has one stable UUID per committed operation and its immutable full
+payload. Pending delivery survives restart and State saves. Acknowledgement is
+private, requires that committed operation and binds an immutable delivery-receipt
+digest; duplicate acknowledgement returns the original record. No event or
+acknowledgement is manufactured for a prepared, aborted or quarantined operation.
+
+The operation and audit have no catalog FK. Outbox references the operation with
+ON DELETE RESTRICT and no repository FK. Ordinary State reconciliation never
+owns these rows; intentional repository deletion preserves their UUID-based
+historical custody. These private primitives do not yet fence ordinary writers,
+dispatch Git, close production PRs, authenticate an actor, emit required checks,
+deliver effects or replace the existing merge routes. The next execute_merge and
+receive-pack integration must hold the coordinator continuously across current
+qualification, prepared intent, Git CAS/marker transaction and durable outcome.
+
+Migration/backfill/recovery: the forward migration creates absent tables,
+indexes and guards idempotently; it invents no historical operation or event.
+Before installed use, stop incompatible writers and retain a consistent complete
+Git/database/artifact/configuration recovery package and its tested restoration.
+Do not drop a live journal, lose accepted effects or run an incompatible older
+binary to undo migration. Preserve accepted Git advances and recover forward.
+Resolving reconciliation_required requires a separately designed and reviewed
+authority path; this migration supplies none. Source transaction/regression tests
+are distinct from installed migration and crash-recovery qualification.

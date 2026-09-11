@@ -389,7 +389,11 @@ fn require_repository_writable(state: &State, repository_id: Uuid) -> Result<()>
     require_repository_admissible(state, repository_id, true)
 }
 
-fn require_repository_admissible(state: &State, repository_id: Uuid, writes: bool) -> Result<()> {
+pub(super) fn require_repository_admissible(
+    state: &State,
+    repository_id: Uuid,
+    writes: bool,
+) -> Result<()> {
     let repo = state
         .repos
         .values()

@@ -1808,6 +1808,14 @@
       "component": "jeryu-core",
       "declaration": null,
       "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-core/crates/jeryu-core/src/engine/ref_operations/tests.rs",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "8fc309864f7d80600f54e142ad094ffa276b6e9f54fdbc3b187a1dba6f424f9b"
+    },
+    {
+      "component": "jeryu-core",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
       "path": "components/jeryu-core/crates/jeryu-core/src/engine/repository_creation/tests.rs",
       "port_status": "pending-equivalence-proof",
       "sha256": "38b94aeb7c13a59085c9e09bfcf1e1dfb2466ec4128ce793a5943de32d220eb9"

@@ -22,7 +22,9 @@ pub use crate::branch_protection::{
     RefOperationEvaluation, effective_reviews_for_head, effective_reviews_for_pull_request,
 };
 pub use crate::core::{
-    AuditEntry, ForgeCore, MergeReadiness, MutationCoordinator, RepoMaterializer,
+    AuditEntry, DurableRefOperation, DurableRefOperationKind, DurableRefOperationState, ForgeCore,
+    MergeReadiness, MutationCoordinator, ObservedRef, RefChangeIntent, RefOperationEvent,
+    RefOperationIntent, RefOperationObservation, RefOperationOutcome, RefValue, RepoMaterializer,
     RepositoryCreation, RepositoryDeletion,
 };
 pub use crate::error::{AgentRepairHint, JeryuError, JeryuResult};
