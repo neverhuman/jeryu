@@ -44,6 +44,13 @@ impl ForgeCore {
                 "creation UUID must not be nil".into(),
             ));
         }
+        if let Some(materializer) = &self.repo_materializer {
+            materializer.validate(
+                owner,
+                &request.name,
+                request.default_branch.as_deref().unwrap_or("main"),
+            )?;
+        }
         let key = (owner.to_owned(), request.name.clone());
         let mut state = self.runtime.state.write();
         let repo = if let Some(journal) = state.repository_creations.get(&repository_id) {
@@ -109,7 +116,7 @@ impl ForgeCore {
         };
         drop(state);
         if let Some(materializer) = &self.repo_materializer {
-            materializer.materialize(owner, &repo.name, &repo.default_branch)?;
+            materializer.materialize_repository(&repo)?;
         }
         let mut state = self.runtime.state.write();
         let current = state

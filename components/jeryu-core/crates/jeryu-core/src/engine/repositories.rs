@@ -165,6 +165,27 @@ impl ForgeCore {
         repo: &str,
         family: Option<String>,
     ) -> Result<Repository> {
+        self.set_repository_family_for_identity(owner, repo, None, family)
+    }
+
+    /// Complete a retained creation without changing a replacement repository.
+    pub fn set_repository_family_with_id(
+        &self,
+        owner: &str,
+        repo: &str,
+        repository_id: uuid::Uuid,
+        family: Option<String>,
+    ) -> Result<Repository> {
+        self.set_repository_family_for_identity(owner, repo, Some(repository_id), family)
+    }
+
+    fn set_repository_family_for_identity(
+        &self,
+        owner: &str,
+        repo: &str,
+        repository_id: Option<uuid::Uuid>,
+        family: Option<String>,
+    ) -> Result<Repository> {
         let family = match family {
             Some(value) => {
                 let trimmed = value.trim();
@@ -181,6 +202,11 @@ impl ForgeCore {
         let key = (owner.to_string(), repo.to_string());
         if !state.repos.contains_key(&key) {
             return Err(ForgeError::NotFound(format!("repository {owner}/{repo}")));
+        }
+        if repository_id.is_some_and(|id| state.repos[&key].id != id) {
+            return Err(ForgeError::Conflict(
+                "repository identity changed during creation".into(),
+            ));
         }
         let previous = state.clone();
         let entry = state.repos.get_mut(&key).expect("presence checked above");

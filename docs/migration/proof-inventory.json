@@ -18,7 +18,7 @@
       "kind": "workflow",
       "path": ".github/workflows/ci.yml",
       "port_status": "pending-equivalence-proof",
-      "sha256": "6594a721da41c2d9c826917ae3ce92b464b45d8158189d8d40471db42d9116b7"
+      "sha256": "85850333bbf089cc0a43ce844969b56d36c2e2eb1bccc65e9d7f33e640e065cb"
     },
     {
       "component": "jeryu",
@@ -1802,7 +1802,7 @@
       "kind": "proof-implementation-or-input",
       "path": "components/jeryu-core/crates/jeryu-core/src/engine/repository_creation/tests.rs",
       "port_status": "pending-equivalence-proof",
-      "sha256": "9b19ccdb9241a43e558d067b07a2d73cf449ef37b0555131da79a1b1da1f3a2e"
+      "sha256": "376dd4058aa0571505496da1909f6826d84c324490f05bc040be1d982f373155"
     },
     {
       "component": "jeryu-core",
@@ -2797,6 +2797,14 @@
       "component": "jeryu-deploy",
       "declaration": null,
       "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-deploy/crates/jeryu-api/src/git_materializer/tests.rs",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "83a93cf93b2a24fc19a3eeab9e455e6df8bb37a37eace99045b143072bb57f20"
+    },
+    {
+      "component": "jeryu-deploy",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
       "path": "components/jeryu-deploy/crates/jeryu-api/src/web/agent_runs/tail_tests.rs",
       "port_status": "pending-equivalence-proof",
       "sha256": "33fff9961b6caff75ef5bd0b50bdb194bd0bbc5be8cfd1c65399eee3220975fd"
@@ -2831,7 +2839,7 @@
       "kind": "proof-implementation-or-input",
       "path": "components/jeryu-deploy/crates/jeryu-api/src/web/repository_create/tests.rs",
       "port_status": "pending-equivalence-proof",
-      "sha256": "abdf4df9009681b78b65dfdc3d8d1098bafef59aab09ec7f942018275dc83fc6"
+      "sha256": "0eb2269ee2f0d8ba61b852319e7c062a4e668a57a4b1156579b3278aec13fc92"
     },
     {
       "component": "jeryu-deploy",
@@ -7639,7 +7647,7 @@
       "kind": "proof-implementation-or-input",
       "path": "components/jeryu-web/apps/web/e2e/02-repos.spec.ts",
       "port_status": "pending-equivalence-proof",
-      "sha256": "3d13cca99664b38aaf014e2c51fdbea29d4cd83c87bfc9e5a5db22f8b5aeda94"
+      "sha256": "1f8af9251176edd6d60c485299f1d9660dae880a6af37fe7dfc9b803179023d3"
     },
     {
       "component": "jeryu-web",
@@ -8184,6 +8192,14 @@
       "path": "components/jeryu-web/apps/web/src/components/repo/__tests__/familyRollup.test.ts",
       "port_status": "pending-equivalence-proof",
       "sha256": "712c985e37485b1f5b9d5a10fdb1390109a705362af0cfd6546a9d22330c746f"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-web/apps/web/src/components/repo/__tests__/useCreateRepoDialog.test.tsx",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "b5ed77633dbe2c17808df5439b4b523a8d6740bcfa8aabccf6300d5e3b65f7c3"
     },
     {
       "component": "jeryu-web",

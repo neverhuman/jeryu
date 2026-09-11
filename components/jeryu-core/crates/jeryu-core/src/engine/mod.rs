@@ -138,10 +138,23 @@ fn backfill_default_branch_protections(state: &mut State) -> usize {
 /// [`ForgeCore::with_repo_materializer`]. With no materializer set (the default,
 /// e.g. in unit tests) repository creation stays metadata-only.
 pub trait RepoMaterializer: std::fmt::Debug + Send + Sync {
+    /// Validate transport/storage names before Core commits a creation intent.
+    fn validate(&self, _owner: &str, _name: &str, _default_branch: &str) -> Result<()> {
+        Ok(())
+    }
+
     /// Create the bare repository for `owner/name` with `default_branch` as its
-    /// initial `HEAD`. Implementations MUST be idempotent: an already-present
-    /// repository is success, not an error.
+    /// initial `HEAD`. Implementations must refuse unrelated existing storage.
     fn materialize(&self, owner: &str, name: &str, default_branch: &str) -> Result<()>;
+
+    /// Resume materialization using Core's durable, non-reusable identity.
+    fn materialize_repository(&self, repository: &Repository) -> Result<()> {
+        self.materialize(
+            &repository.owner,
+            &repository.name,
+            &repository.default_branch,
+        )
+    }
 }
 
 #[derive(Debug, Clone, Default)]

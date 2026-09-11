@@ -30,6 +30,39 @@ fn request() -> CreateRepositoryRequest {
 }
 
 #[test]
+fn creation_family_completion_cannot_change_a_replacement_repository() {
+    let core = ForgeCore::new();
+    let original = core.create_repository("alice", request()).unwrap();
+    core.delete_repository("alice", "recovery").unwrap();
+    let replacement = core.create_repository("alice", request()).unwrap();
+    assert!(
+        core.set_repository_family_with_id(
+            "alice",
+            "recovery",
+            original.id,
+            Some("previous".into())
+        )
+        .is_err()
+    );
+    assert_eq!(
+        core.get_repository("alice", "recovery").unwrap().family,
+        None
+    );
+    assert_eq!(
+        core.set_repository_family_with_id(
+            "alice",
+            "recovery",
+            replacement.id,
+            Some("current".into())
+        )
+        .unwrap()
+        .family
+        .as_deref(),
+        Some("current")
+    );
+}
+
+#[test]
 fn failed_materialization_resumes_exact_identity_after_reopen_and_unrelated_write() {
     let directory = tempfile::tempdir().unwrap();
     let database = directory.path().join("forge.sqlite");

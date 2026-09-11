@@ -51,6 +51,7 @@ jobs:
           # umask for new descendants such as the private auditor installation.
           sudo -n setfacl --remove-all --remove-default /home/jeryu-runtime
           sudo -n chmod 0700 /home/jeryu-runtime
+          sudo -n mkdir --mode=0700 /home/jeryu-runtime/tmp
           sudo -n mv "$HOME/.cargo" "$HOME/.rustup" /home/jeryu-runtime/
           sudo -n chown -R jeryu-runtime:jeryu-runtime "$GITHUB_WORKSPACE" /home/jeryu-runtime
           if [ "$JERYU_CI_LANE" = rust ]; then
@@ -91,6 +92,7 @@ jobs:
             test "$(sudo -n stat -c '%d:%i' "$isolated_source")" = "$checkout_identity"
             trap restore_source EXIT
             sudo -n -u jeryu-runtime env -i HOME=/home/jeryu-runtime \
+              TMPDIR=/home/jeryu-runtime/tmp \
               PATH="/home/jeryu-runtime/.cargo/bin:$PATH" \
               CARGO_HOME=/home/jeryu-runtime/.cargo RUSTUP_HOME=/home/jeryu-runtime/.rustup \
               CARGO_BUILD_JOBS=2 CI=true bash "$isolated_source/ops/ci/monorepo.sh" "$JERYU_CI_LANE"
@@ -118,6 +120,19 @@ jobs:
             ${{ runner.temp }}/jeryu-audit-census/attempt.*/census/*/audit.log
             ${{ runner.temp }}/jeryu-audit-census/attempt.*/census/*/report.json
             ${{ runner.temp }}/jeryu-audit-census/attempt.*/census/*/report.md
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Preserve owning root audit findings
+        if: ${{ always() && matrix.lane == 'auditor' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: root-audit-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            .jankurai/repo-score.json
+            .jankurai/repo-score.md
+            target/jankurai/repair-queue.jsonl
+          include-hidden-files: true
           if-no-files-found: error
           retention-days: 30
 

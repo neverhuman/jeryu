@@ -2,6 +2,43 @@ use super::*;
 use axum::body::to_bytes;
 use jeryu_core::{AccountStatus, ForgeCore};
 use serde_json::Value;
+use std::os::unix::fs::PermissionsExt;
+
+fn directory() -> tempfile::TempDir {
+    let directory = tempfile::tempdir().unwrap();
+    fs::set_permissions(directory.path(), fs::Permissions::from_mode(0o700)).unwrap();
+    directory
+}
+
+fn receipt_location(state: &WebState) -> (Directory, String) {
+    let directory = Directory::open(
+        &state
+            .repo_manager
+            .config()
+            .storage_root
+            .join(".jeryu-create-receipts"),
+    )
+    .unwrap();
+    let name = hex::encode(Sha256::digest("alice\0repository-create-fixture"));
+    (directory, format!("{name}.json"))
+}
+
+fn open_sqlite_after_last_writer(path: &Path) -> ForgeCore {
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+    loop {
+        match ForgeCore::open_sqlite(path) {
+            Ok(core) => return core,
+            Err(jeryu_core::ForgeError::WriterUnavailable(message))
+                if std::time::Instant::now() < deadline
+                    && message.contains("resource lease refused")
+                    && message.contains("would block") =>
+            {
+                std::thread::sleep(std::time::Duration::from_millis(5));
+            }
+            Err(error) => panic!("reopen after last writer dropped: {error}"),
+        }
+    }
+}
 
 fn account() -> AccountSummary {
     AccountSummary {
@@ -49,7 +86,7 @@ async fn body(response: Response) -> Value {
 
 #[tokio::test]
 async fn preview_is_read_only_and_create_replays_after_database_reopen() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = directory();
     let database = dir.path().join("forge.sqlite");
     let storage = dir.path().join("git");
     let state = Arc::new(WebState::new_with_git_storage(
@@ -92,7 +129,7 @@ async fn preview_is_read_only_and_create_replays_after_database_reopen() {
     drop(state);
 
     let reopened = Arc::new(WebState::new_with_git_storage(
-        ForgeCore::open_sqlite(database).unwrap(),
+        open_sqlite_after_last_writer(&database),
         storage,
     ));
     let response = create(
@@ -120,7 +157,7 @@ async fn preview_is_read_only_and_create_replays_after_database_reopen() {
 
 #[tokio::test]
 async fn creation_rejects_other_owners_invalid_paths_and_missing_keys_without_mutation() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = directory();
     let storage = dir.path().join("git");
     let state = Arc::new(WebState::new_with_git_storage(
         ForgeCore::new(),
@@ -166,7 +203,7 @@ async fn creation_rejects_other_owners_invalid_paths_and_missing_keys_without_mu
 
 #[tokio::test]
 async fn creation_never_adopts_or_changes_orphaned_git_storage() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = directory();
     let state = Arc::new(WebState::new_with_git_storage(
         ForgeCore::new(),
         dir.path().join("git"),
@@ -191,8 +228,214 @@ async fn creation_never_adopts_or_changes_orphaned_git_storage() {
         Json(request()),
     )
     .await;
-    assert_eq!(retry.status(), StatusCode::CONFLICT);
-    assert_eq!(body(retry).await["code"], "creation_incomplete");
+    assert_eq!(retry.status(), StatusCode::INTERNAL_SERVER_ERROR);
+    assert_eq!(body(retry).await["code"], "creation_failed");
     assert!(state.core.list_repositories(None).is_empty());
     assert_eq!(fs::read(bare.path.join("HEAD")).unwrap(), original_head);
+}
+
+#[tokio::test]
+async fn reserved_creation_resumes_its_uuid_and_legacy_pending_receipts_stay_closed() {
+    for legacy in [false, true] {
+        let dir = directory();
+        let state = Arc::new(WebState::new_with_git_storage(
+            ForgeCore::new(),
+            dir.path().join("git"),
+        ));
+        let (directory, filename) = receipt_location(&state);
+        let identity = Uuid::new_v4();
+        directory
+            .write(
+                &filename,
+                &Receipt {
+                    request_sha256: hex::encode(Sha256::digest(
+                        serde_json::to_vec(&request()).unwrap(),
+                    )),
+                    repository_id: None,
+                    creation_id: (!legacy).then_some(identity),
+                    initial_commit: None,
+                },
+                false,
+            )
+            .unwrap();
+        let response = create(
+            State(state.clone()),
+            Extension(account()),
+            headers(),
+            Json(request()),
+        )
+        .await;
+        if legacy {
+            assert_eq!(response.status(), StatusCode::CONFLICT);
+            assert_eq!(body(response).await["code"], "creation_incomplete");
+            assert!(state.core.list_repositories(None).is_empty());
+        } else {
+            assert_eq!(response.status(), StatusCode::CREATED);
+            assert_eq!(body(response).await["entity"]["id"], identity.to_string());
+        }
+    }
+}
+
+#[tokio::test]
+async fn interrupted_completion_reopens_and_preserves_a_pushed_descendant() {
+    let dir = directory();
+    let database = dir.path().join("core.sqlite");
+    let storage = dir.path().join("git");
+    let state = Arc::new(WebState::new_with_git_storage(
+        ForgeCore::open_sqlite(&database).unwrap(),
+        storage.clone(),
+    ));
+    let response = create(
+        State(state.clone()),
+        Extension(account()),
+        headers(),
+        Json(request()),
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::CREATED);
+    let repo = body(response).await;
+    let (directory, filename) = receipt_location(&state);
+    let mut receipt: Receipt = directory.read(&filename).unwrap();
+    // Model the durable state immediately after ref publication, before the
+    // final browser receipt was committed. Keep its exact planned commit.
+    receipt.repository_id = None;
+    directory.write(&filename, &receipt, true).unwrap();
+    let bare = state.repo_manager.open_parts("alice", "first").unwrap();
+    let tree = git(&state, &bare.path, &["rev-parse", "HEAD^{tree}"], b"").unwrap();
+    let pushed = git(
+        &state,
+        &bare.path,
+        &["commit-tree", &tree, "-p", "HEAD"],
+        b"User push\n",
+    )
+    .unwrap();
+    git(
+        &state,
+        &bare.path,
+        &["update-ref", "refs/heads/trunk", &pushed],
+        b"",
+    )
+    .unwrap();
+    drop(state);
+    let state = Arc::new(WebState::new_with_git_storage(
+        open_sqlite_after_last_writer(&database),
+        storage,
+    ));
+    let response = create(
+        State(state.clone()),
+        Extension(account()),
+        headers(),
+        Json(request()),
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::CREATED);
+    assert_eq!(body(response).await["id"], repo["id"]);
+    assert_eq!(
+        git(&state, &bare.path, &["rev-parse", "HEAD"], b"").unwrap(),
+        pushed
+    );
+    assert_eq!(
+        directory.read::<Receipt>(&filename).unwrap().initial_commit,
+        receipt.initial_commit
+    );
+    assert_eq!(state.core.list_repositories(None).len(), 1);
+}
+
+#[tokio::test]
+async fn interrupted_initialization_never_replaces_an_unrelated_pushed_branch() {
+    let dir = directory();
+    let state = Arc::new(WebState::new_with_git_storage(
+        ForgeCore::new(),
+        dir.path().join("git"),
+    ));
+    let response = create(
+        State(state.clone()),
+        Extension(account()),
+        headers(),
+        Json(request()),
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::CREATED);
+    let (directory, filename) = receipt_location(&state);
+    let mut receipt: Receipt = directory.read(&filename).unwrap();
+    receipt.repository_id = None;
+    directory.write(&filename, &receipt, true).unwrap();
+    let bare = state.repo_manager.open_parts("alice", "first").unwrap();
+    let tree = git(&state, &bare.path, &["rev-parse", "HEAD^{tree}"], b"").unwrap();
+    let unrelated = git(
+        &state,
+        &bare.path,
+        &["commit-tree", &tree],
+        b"Unrelated push\n",
+    )
+    .unwrap();
+    git(
+        &state,
+        &bare.path,
+        &["update-ref", "refs/heads/trunk", &unrelated],
+        b"",
+    )
+    .unwrap();
+    let response = create(
+        State(state.clone()),
+        Extension(account()),
+        headers(),
+        Json(request()),
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
+    assert_eq!(
+        git(&state, &bare.path, &["rev-parse", "HEAD"], b"").unwrap(),
+        unrelated
+    );
+    assert!(
+        directory
+            .read::<Receipt>(&filename)
+            .unwrap()
+            .repository_id
+            .is_none()
+    );
+}
+
+#[tokio::test]
+async fn completed_replay_refuses_missing_git_or_incomplete_commit_receipts() {
+    for missing_git in [true, false] {
+        let dir = directory();
+        let state = Arc::new(WebState::new_with_git_storage(
+            ForgeCore::new(),
+            dir.path().join("git"),
+        ));
+        let response = create(
+            State(state.clone()),
+            Extension(account()),
+            headers(),
+            Json(request()),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::CREATED);
+        let bare = state.repo_manager.open_parts("alice", "first").unwrap();
+        if missing_git {
+            fs::rename(&bare.path, dir.path().join("retained-git")).unwrap();
+        } else {
+            let (directory, filename) = receipt_location(&state);
+            let mut receipt: Receipt = directory.read(&filename).unwrap();
+            receipt.initial_commit = None;
+            directory.write(&filename, &receipt, true).unwrap();
+        }
+        let response = create(
+            State(state.clone()),
+            Extension(account()),
+            headers(),
+            Json(request()),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
+        if missing_git {
+            assert!(
+                !bare.path.exists(),
+                "replay must not recreate a removed completed repository"
+            );
+            assert!(dir.path().join("retained-git/HEAD").is_file());
+        }
+    }
 }

@@ -130,24 +130,34 @@ it does not erase the failed candidate or move an immutable release tag.
 
 ## Interrupted repository creation
 
-The browser creation API records the authenticated actor, request digest and
-`Idempotency-Key` before allocating the database record and Git storage.
+The browser creation API records a proposed repository UUID and the request
+digest under the authenticated actor's `Idempotency-Key` before allocating
+the database record and Git storage. Core commits the UUID and original request
+in its SQLite creation journal. Git initialization uses private staging and
+publishes the complete bare directory with an atomic rename that refuses an
+existing destination. The browser records its intended README commit before
+updating an absent branch; retries preserve subsequent descendant pushes.
 A completed replay with the same actor, key and request returns the existing
 repository. A different request with the same key returns
-`idempotency_conflict`; an unfinished or unreadable receipt returns
-`creation_incomplete`; a missing completed repository returns
-`repository_changed`. Creation can stop between database and Git operations.
+`idempotency_conflict`. A retained legacy receipt without a proposed UUID
+returns `creation_incomplete`, because it cannot establish retry identity.
+A removed or replaced Core repository returns `repository_changed`.
+Unsafe receipts and Git storage fail without acknowledging completion.
 
-For `creation_failed`, `creation_incomplete` or inconsistent readback, stop
-retries and preserve the stopped data directory, private logs, original actor,
-key and request. Compare the repository API record, managed Git directory,
-refs and receipt against that evidence without modifying them. Do not delete
-the receipt, retry under a new key, edit SQLite rows, or adopt an orphan Git
-directory to bypass the failure. There is currently no admitted repair CLI.
-Restore a verified consistent snapshot into a new directory, or obtain a
-reviewed owning repair that preserves all subsequent accepted writes. The
-creation tests cover fail-closed replay and orphan refusal; they do not prove
-an automated interrupted-creation repair procedure.
+For `creation_failed`, keep the dialog open and retry with identical settings
+after the server or storage becomes available. The dialog retains that request
+key across failures. API callers must resend the same key and body. Browser
+reload recovery and a repair-management CLI remain unavailable.
+
+For repeated failure, `creation_incomplete`, or inconsistent readback, preserve
+the stopped data directory, private logs, original actor, key and request.
+Include the hidden `git/.jeryu-creation` staging records and
+`git/.jeryu-create-receipts` browser records. Compare Core identity, Git refs
+and receipts without modifying them. Do not remove receipts, use a new key,
+edit SQLite rows or adopt an orphan directory to bypass a failure. Restore a
+verified consistent snapshot into a new directory or obtain an owning reviewed
+repair that preserves subsequent accepted writes. The new recovery paths and
+failure controls still require qualification at the final candidate.
 
 ## Remote binding and TLS
 
