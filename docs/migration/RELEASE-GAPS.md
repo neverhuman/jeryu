@@ -64,11 +64,16 @@ Authenticated governing-policy and predecessor admission are still missing.
 
 Public `50eb49f90423c82f422dc9410efe5ba745719027` integrates Deploy PR 1's
 credential-bound review routes, private real-Git/SQLite fixtures and logout
-failure propagation. Full [run 34615620791, attempt 1](https://github.com/neverhuman/jeryu/actions/runs/34615620791)
-and score run 34615622666 are pending. Earlier Core or executor results do not
-qualify this transport source.
+failure propagation. In [run 34615620791, attempt 1](https://github.com/neverhuman/jeryu/actions/runs/34615620791),
+all six authenticated review transport tests and eight review-route/logout
+regressions pass. API unit results are 265 passed and two old merge-bridge
+failures. Full Rust also fails the GitHub merge, Git merge-gating and complete
+CLI protected-merge targets; the runtime lane remains nine passed and one failed.
+These results qualify those controls at 50eb only; full product and later-source
+qualification remain required.
 
-The next original Core intake preserves `7d6cba0169bf036c090c284e715d209ed3f45877`:
+Public `1665fc35545c0afb6bc67f4873a649dd5862dc19` preserves original Core
+`7d6cba0169bf036c090c284e715d209ed3f45877`:
 server-issued attempt UUIDs/ordinals, fixed enrollment/source/credential/runtime
 bindings, bounded received artifact bytes, atomic terminal audit/outbox writes,
 latest-attempt precedence and durable enrollment rotation/revocation. All 14
@@ -76,9 +81,31 @@ persistence and 11 controller regressions are retained with explicitly private
 SQLite fixture roots. Migrations 0016/0017 include owner metadata and retained
 rollback guidance; neither invents authority for historical checks. The private
 enrollment installer has no HTTP route, and runtime authority starts absent.
-This is unqualified source. Later actual publisher-custody/readback and
-commissioning-barrier contributions, signing provider, dispatch, protected merge
-and complete composed-migration/recovery qualification remain required.
+Full [run 34616367388, attempt 1](https://github.com/neverhuman/jeryu/actions/runs/34616367388)
+and score run 34616370195 remain pending; this source is unqualified.
+
+The subsequent original Core `cfa5badbf057b197caaa2061b67bc7650b1cf908`
+contribution binds publisher authority to actual database/storage identity,
+process and held database/lease descriptors, and continuously checks the actual
+Linux advisory writer locks. Released locks cannot be reacquired as proof of
+continuous custody. Current credential revocation invalidates approvals;
+authenticated merge-operation readback validates current repository UUID/access
+and returns one durable operation/outbox snapshot. Gitd observes complete strict
+Git graphs and exact raw changes, including forks and gitlinks, and rejects
+shallow/promisor/external objects or repository-local fsck waivers. All owning
+regressions are retained with private fixture roots. Execution remains pending.
+
+The original contribution's four score CLI/dependency paths are superseded by
+maintained `ops/ci/score.sh` and root Rust `audit-score-check`
+(`audit_score.rs` / `audit_score_tests.rs`): its 12 tests and 256-case matrix
+cover the original integer, malformed JSON/policy, score-floor, cap and hard
+finding controls, additionally rejecting duplicate fields and weaker floors.
+Standalone tooling acquisition binds the exact public source. No duplicate CLI,
+weaker advisory parser or unrelated original lockfile changes are imported.
+Full producer and governing-policy decisions remain separately required.
+
+Commissioning barriers, signing provider, dispatch, actual protected merge and
+complete composed-migration/recovery qualification remain required.
 
 The retained census artifact for `324a4faf`
 [10268586956](https://github.com/neverhuman/jeryu/actions/runs/34610898798/artifacts/10268586956)

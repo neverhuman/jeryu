@@ -1,9 +1,9 @@
-//! NEXT-SLICE PROPOSAL: test-only service fixtures are not enrolled operators or
+//! Test-only service fixtures are not enrolled operators or
 //! production trust implementations. Real managed-Git/HTTP and signing-gate
 //! campaigns remain required before this proposed layer can be accepted.
 
 use std::os::unix::fs::{DirBuilderExt, PermissionsExt};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use parking_lot::RwLock;
@@ -59,21 +59,22 @@ impl ReviewGitObserver for Observer {
 
 #[derive(Debug)]
 struct FixtureAuthority {
-    root: PathBuf,
+    custody: super::super::RequiredPublisherCustody,
     active: AtomicBool,
 }
 
 impl RequiredPublisherAuthority for FixtureAuthority {
-    fn storage_root(&self) -> &Path {
-        &self.root
+    fn custody(&self) -> &super::super::RequiredPublisherCustody {
+        &self.custody
     }
     fn validate(
         &self,
+        actual: &super::super::RequiredPublisherCustody,
         _: &DurableRequiredPublisher,
         _: RequiredPublisherAction,
         _: DateTime<Utc>,
     ) -> Result<()> {
-        if self.active.load(Ordering::SeqCst) {
+        if actual == &self.custody && self.active.load(Ordering::SeqCst) {
             Ok(())
         } else {
             Err(unavailable())
@@ -124,14 +125,15 @@ impl Fixture {
             root: root.clone(),
             head: RwLock::new(HEAD.into()),
         });
-        let authority = Arc::new(FixtureAuthority {
-            root: root.clone(),
-            active: AtomicBool::new(true),
-        });
         let core = ForgeCore::open_managed(directory.path().join("forge.sqlite"), &root)
             .unwrap()
             .with_review_git_observer(observer.clone())
-            .unwrap()
+            .unwrap();
+        let authority = Arc::new(FixtureAuthority {
+            custody: core.required_publisher_custody().unwrap(),
+            active: AtomicBool::new(true),
+        });
+        let core = core
             .with_required_publisher_authority(authority.clone())
             .unwrap();
         let repository = core
@@ -671,4 +673,138 @@ fn durable_enrollment_survives_unrelated_save_and_reopen_without_reactivating_ga
     ));
     drop(reopened);
     drop(_directory);
+}
+
+#[cfg(unix)]
+#[test]
+fn each_operation_rechecks_actual_custody_under_existing_guards() {
+    use std::os::unix::fs::{MetadataExt, PermissionsExt};
+    for resource in 0..4 {
+        let f = Fixture::new();
+        let successful = f.reserve();
+        f.complete(&successful, RequiredAttemptConclusion::Success)
+            .unwrap();
+        let measured = f.core.required_publisher_custody().unwrap();
+        let path = match resource {
+            0 => &measured.database.resource.path,
+            1 => &measured.storage_root.path,
+            _ => &measured.writer_leases[resource - 2].resource.path,
+        };
+        let original = std::fs::metadata(path).unwrap().mode();
+        // Group-read alone remains compatible with the cooperative writer lease,
+        // but differs from the exact publisher installation incarnation.
+        std::fs::set_permissions(path, std::fs::Permissions::from_mode(original ^ 0o040)).unwrap();
+        assert!(
+            matches!(
+                f.core
+                    .reserve_required_attempt(&f.publisher, f.repository.id, f.request()),
+                Err(ForgeError::WriterUnavailable(_))
+            ),
+            "reserve resource {resource}"
+        );
+        assert!(
+            matches!(
+                f.complete(&successful, RequiredAttemptConclusion::Success),
+                Err(ForgeError::WriterUnavailable(_))
+            ),
+            "terminal replay resource {resource}"
+        );
+        let snapshot = f
+            .core
+            .required_attempt_snapshot(&f.other, f.repository.id, HEAD)
+            .unwrap();
+        assert!(!snapshot.satisfied, "snapshot resource {resource}");
+        assert_eq!(
+            snapshot.contexts[0].status,
+            Some(RequiredAttemptStatus::Success)
+        );
+        assert!(
+            snapshot.contexts[0]
+                .blockers
+                .iter()
+                .any(|reason| reason.contains("does not bind this database"))
+        );
+        std::fs::set_permissions(path, std::fs::Permissions::from_mode(original)).unwrap();
+        assert!(
+            f.core
+                .required_attempt_snapshot(&f.other, f.repository.id, HEAD)
+                .unwrap()
+                .satisfied
+        );
+    }
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn released_live_lock_refuses_all_publisher_routes_without_reacquisition() {
+    for resource in 0..3 {
+        let f = Fixture::new();
+        let attempt = f.reserve();
+        let before = f.core.required_publisher_custody().unwrap();
+        let held = if resource == 0 {
+            &before.database
+        } else {
+            &before.writer_leases[resource - 1]
+        };
+        f.core
+            .runtime
+            .storage
+            .as_ref()
+            .unwrap()
+            .release_writer_lock_for_test(resource)
+            .unwrap();
+        assert!(
+            matches!(
+                f.core.required_publisher_custody(),
+                Err(ForgeError::WriterUnavailable(_))
+            ),
+            "readback resource {resource}"
+        );
+        assert!(
+            matches!(
+                f.core
+                    .clone()
+                    .with_required_publisher_authority(f.authority.clone()),
+                Err(ForgeError::WriterUnavailable(_))
+            ),
+            "attachment resource {resource}"
+        );
+        assert!(
+            matches!(
+                f.core
+                    .reserve_required_attempt(&f.publisher, f.repository.id, f.request()),
+                Err(ForgeError::WriterUnavailable(_))
+            ),
+            "reserve resource {resource}"
+        );
+        assert!(
+            matches!(
+                f.complete(&attempt, RequiredAttemptConclusion::Success),
+                Err(ForgeError::WriterUnavailable(_))
+            ),
+            "complete resource {resource}"
+        );
+        assert!(
+            matches!(
+                f.core
+                    .required_attempt_snapshot(&f.other, f.repository.id, HEAD),
+                Err(ForgeError::WriterUnavailable(_))
+            ),
+            "snapshot resource {resource}"
+        );
+        let metadata = std::fs::metadata(format!("/proc/self/fd/{}", held.descriptor)).unwrap();
+        use std::os::unix::fs::MetadataExt;
+        assert_eq!(
+            (metadata.dev(), metadata.ino()),
+            (held.resource.device, held.resource.inode)
+        );
+        let fdinfo =
+            std::fs::read_to_string(format!("/proc/self/fdinfo/{}", held.descriptor)).unwrap();
+        assert!(
+            !fdinfo
+                .lines()
+                .any(|line| line.starts_with("lock:") && line.contains("FLOCK")),
+            "broken custody was silently reacquired"
+        );
+    }
 }

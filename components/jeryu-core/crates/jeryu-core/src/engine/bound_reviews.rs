@@ -80,11 +80,43 @@ pub struct ReviewGitObservation {
     pub destination: ObservedReviewRef,
 }
 
+/// Actual Git tree delta used by complete merge qualification. Paths are exact
+/// UTF-8 repository-relative names; unsupported byte paths refuse observation.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct MergeGitChange {
+    pub path: String,
+    pub status: String,
+    pub old_mode: String,
+    pub new_mode: String,
+    pub old_oid: String,
+    pub new_oid: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct MergeGitObservation {
+    pub refs: ReviewGitObservation,
+    pub object_format: String,
+    pub base_is_ancestor: bool,
+    pub contains_merge_commits: bool,
+    pub source_graph_verified: bool,
+    pub destination_has_source_graph: bool,
+    pub changes: Vec<MergeGitChange>,
+}
+
 /// Trusted service adapter. Core supplies targets from its guarded catalog and
 /// PR; adapters must use exact direct refs and reject ambiguous Git/I/O results.
 pub trait ReviewGitObserver: std::fmt::Debug + Send + Sync {
     fn storage_root(&self) -> &Path;
     fn observe(&self, target: &ReviewGitTarget) -> Result<ReviewGitObservation>;
+    /// Ordinary ref-only observers cannot silently qualify a merge. Core must
+    /// hold both UUID guards and the installed writer perimeter for this read.
+    fn observe_merge(&self, _: &ReviewGitTarget) -> Result<MergeGitObservation> {
+        Err(ForgeError::WriterUnavailable(
+            "complete managed Git merge observation is unavailable".into(),
+        ))
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -739,19 +771,7 @@ pub(super) fn bound_reviews_for_evaluation(state: &State, pr: &PullRequest) -> V
             }
             event.snapshot.policy.as_ref() == policy
                 && event.snapshot.codeowners.as_ref() == codeowners
-                && state
-                    .accounts
-                    .get(&event.actor.login)
-                    .is_some_and(|account| {
-                        account.status.permits_authentication()
-                            && !account.must_change_password
-                            && account.created_at == event.actor.account_created_at
-                            && account.auth_epoch == event.actor.auth_epoch
-                    })
-                && state
-                    .users
-                    .get(&event.actor.login)
-                    .is_some_and(|profile| profile.id == event.actor.profile_id)
+                && super::actors::validate_actor_binding(state, &event.actor).is_ok()
                 && require_access(
                     state,
                     &event.actor.login,

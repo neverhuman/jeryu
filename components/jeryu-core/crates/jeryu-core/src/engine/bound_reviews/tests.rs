@@ -1109,3 +1109,176 @@ fn challenge_expiry_is_rechecked_after_blocking_git_observation() {
             .is_empty()
     );
 }
+
+#[test]
+fn stored_approval_withdraws_on_exact_credential_revocation_or_expiry() {
+    for case in [
+        "pat-revoke",
+        "pat-expire",
+        "session-revoke",
+        "session-expire",
+    ] {
+        let f = fixture();
+        let (session, session_bound_actor) = session_actor(&f.core, "reviewer");
+        let pat = f
+            .core
+            .create_personal_access_token(&session_bound_actor, "review", None)
+            .unwrap();
+        let reviewer = if case.starts_with("pat") {
+            f.core
+                .authenticate_actor(ActorCredential::PersonalAccessToken(&pat.secret))
+                .unwrap()
+        } else {
+            session_bound_actor
+        };
+        let epoch = f.core.get_account("reviewer").unwrap().auth_epoch;
+        let challenge = f
+            .core
+            .create_review_challenge(&reviewer, f.repo.id, f.pr.number, HEAD)
+            .unwrap();
+        let event = f
+            .core
+            .submit_bound_review(
+                &reviewer,
+                f.repo.id,
+                f.pr.number,
+                request(&challenge, ReviewState::Approved),
+            )
+            .unwrap();
+        assert_eq!(
+            f.core
+                .review_qualification("owner", "demo", f.pr.number)
+                .unwrap()
+                .effective_reviews
+                .len(),
+            1
+        );
+        match case {
+            "pat-revoke" => {
+                f.core
+                    .revoke_personal_access_token("reviewer", pat.token.id)
+                    .unwrap();
+            }
+            "session-revoke" => {
+                f.core.revoke_session(&session.token).unwrap();
+            }
+            "pat-expire" | "session-expire" => {
+                f.core
+                    .with_global_mutation(|| {
+                        let mut state = f.core.runtime.state.write();
+                        let previous = state.clone();
+                        if case == "pat-expire" {
+                            state
+                                .personal_tokens
+                                .get_mut(&pat.token.id)
+                                .unwrap()
+                                .expires_at = Some(Utc::now() - Duration::seconds(1));
+                        } else {
+                            state
+                                .sessions
+                                .values_mut()
+                                .find(|stored| stored.id == session.session.id)
+                                .unwrap()
+                                .expires_at = Utc::now() - Duration::seconds(1);
+                        }
+                        f.core.persist_after_mutation(&mut state, previous)
+                    })
+                    .unwrap();
+            }
+            _ => unreachable!(),
+        }
+        assert_eq!(f.core.get_account("reviewer").unwrap().auth_epoch, epoch);
+        assert!(
+            f.core
+                .review_qualification("owner", "demo", f.pr.number)
+                .unwrap()
+                .effective_reviews
+                .is_empty(),
+            "case {case}"
+        );
+        let repo_id = f.repo.id;
+        let number = f.pr.number;
+        let Fixture {
+            core,
+            observer,
+            database,
+            _directory,
+            ..
+        } = f;
+        drop(core);
+        let reopened = ForgeCore::open_managed(&database, &observer.root)
+            .unwrap()
+            .with_review_git_observer(observer)
+            .unwrap();
+        assert!(
+            reopened
+                .review_qualification("owner", "demo", number)
+                .unwrap()
+                .effective_reviews
+                .is_empty(),
+            "restart case {case}"
+        );
+        let (_, reader) = session_actor(&reopened, "second");
+        let history = reopened
+            .bound_review_history(&reader, repo_id, number)
+            .unwrap();
+        assert_eq!(history.events, vec![event]);
+        drop(reopened);
+        drop(_directory);
+    }
+}
+
+#[test]
+fn credential_revocation_keeps_rejection_without_resurrecting_prior_approval() {
+    let f = fixture();
+    let (_, actor) = session_actor(&f.core, "reviewer");
+    let first = f
+        .core
+        .create_personal_access_token(&actor, "first", None)
+        .unwrap();
+    let second = f
+        .core
+        .create_personal_access_token(&actor, "second", None)
+        .unwrap();
+    for (secret, verdict) in [
+        (&first.secret, ReviewState::Approved),
+        (&second.secret, ReviewState::ChangesRequested),
+    ] {
+        let reviewer = f
+            .core
+            .authenticate_actor(ActorCredential::PersonalAccessToken(secret))
+            .unwrap();
+        let challenge = f
+            .core
+            .create_review_challenge(&reviewer, f.repo.id, f.pr.number, HEAD)
+            .unwrap();
+        f.core
+            .submit_bound_review(
+                &reviewer,
+                f.repo.id,
+                f.pr.number,
+                request(&challenge, verdict),
+            )
+            .unwrap();
+    }
+    f.core
+        .revoke_personal_access_token("reviewer", second.token.id)
+        .unwrap();
+    let qualification = f
+        .core
+        .review_qualification("owner", "demo", f.pr.number)
+        .unwrap();
+    assert_eq!(qualification.effective_reviews.len(), 1);
+    assert_eq!(
+        qualification.effective_reviews[0].state,
+        ReviewState::ChangesRequested
+    );
+    assert_eq!(
+        f.core
+            .bound_review_history(&actor, f.repo.id, f.pr.number)
+            .unwrap()
+            .events
+            .len(),
+        2
+    );
+}

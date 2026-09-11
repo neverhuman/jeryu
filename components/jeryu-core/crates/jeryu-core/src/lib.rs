@@ -25,17 +25,19 @@ pub use crate::branch_protection::{
 pub use crate::core::{
     ActorCredential, AuditEntry, AuthenticatedActor, BoundReviewEvent, BoundReviewHistory,
     DismissBoundReviewRequest, DurableRefOperation, DurableRefOperationKind,
-    DurableRefOperationState, ForgeCore, ManagedGitIdentity, MergeReadiness, MutationCoordinator,
-    ObservedRef, ObservedReviewRef, RefChangeIntent, RefOperationEvent, RefOperationIntent,
-    RefOperationObservation, RefOperationOutcome, RefValue, RepoMaterializer, RepositoryCreation,
-    RepositoryDeletion, ReviewActorBinding, ReviewChallenge, ReviewCredentialKind,
-    ReviewGitObservation, ReviewGitObserver, ReviewGitRepository, ReviewGitTarget,
-    ReviewQualification, ReviewSnapshot, SubmitBoundReviewRequest,
+    DurableRefOperationState, ForgeCore, ManagedGitIdentity, MergeGitChange, MergeGitObservation,
+    MergeOperationReadback, MergeReadiness, MutationCoordinator, ObservedRef, ObservedReviewRef,
+    RefChangeIntent, RefOperationEvent, RefOperationIntent, RefOperationObservation,
+    RefOperationOutcome, RefValue, RepoMaterializer, RepositoryCreation, RepositoryDeletion,
+    ReviewActorBinding, ReviewChallenge, ReviewCredentialKind, ReviewGitObservation,
+    ReviewGitObserver, ReviewGitRepository, ReviewGitTarget, ReviewQualification, ReviewSnapshot,
+    SubmitBoundReviewRequest,
 };
 pub use crate::core::{
-    CompleteRequiredAttemptRequest, DurableRequiredPublisher, RequiredArtifactUpload,
-    RequiredAttemptSnapshot, RequiredContextSnapshot, RequiredPublisherAction,
-    RequiredPublisherAuthority, RequiredPublisherEnrollment, RequiredPublisherRevocation,
+    CompleteRequiredAttemptRequest, DurableRequiredPublisher, PublisherHeldFileIdentity,
+    PublisherResourceIdentity, RequiredArtifactUpload, RequiredAttemptSnapshot,
+    RequiredContextSnapshot, RequiredPublisherAction, RequiredPublisherAuthority,
+    RequiredPublisherCustody, RequiredPublisherEnrollment, RequiredPublisherRevocation,
     RequiredPublisherScope, ReserveRequiredAttemptRequest,
 };
 pub use crate::core::{

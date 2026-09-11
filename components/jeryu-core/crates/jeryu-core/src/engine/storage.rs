@@ -123,6 +123,15 @@ impl SqliteStore {
     pub(super) fn validate_writer(&self) -> Result<()> {
         self.writer.validate()
     }
+
+    pub(super) fn required_publisher_custody(&self) -> Result<super::RequiredPublisherCustody> {
+        self.writer.required_publisher_custody()
+    }
+
+    #[cfg(all(test, target_os = "linux"))]
+    pub(super) fn release_writer_lock_for_test(&self, index: usize) -> Result<()> {
+        self.writer.release_lock_for_test(index)
+    }
 }
 
 fn persist_snapshot(conn: &Connection, state: &State) -> Result<()> {

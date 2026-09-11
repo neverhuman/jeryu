@@ -151,42 +151,51 @@ impl ForgeCore {
         state: &State,
         binding: &ReviewActorBinding,
     ) -> Result<ReviewActorBinding> {
-        let account = state
-            .accounts
-            .get(&binding.login)
-            .ok_or_else(invalid_credential)?;
-        if !account.status.permits_authentication()
-            || account.must_change_password
-            || account.auth_epoch != binding.auth_epoch
-            || account.created_at != binding.account_created_at
-            || state
-                .users
-                .get(&binding.login)
-                .is_none_or(|profile| profile.id != binding.profile_id)
-        {
-            return Err(invalid_credential());
-        }
-        let live = match binding.credential_kind {
-            ReviewCredentialKind::PersonalAccessToken => state
-                .personal_tokens
-                .get(&binding.credential_id)
-                .is_some_and(|token| {
-                    token.login == binding.login
-                        && token.auth_epoch == binding.auth_epoch
-                        && token.expires_at.is_none_or(|expiry| expiry > Utc::now())
-                }),
-            ReviewCredentialKind::Session => state.sessions.values().any(|session| {
-                session.id == binding.credential_id
-                    && session.login == binding.login
-                    && session.auth_epoch == binding.auth_epoch
-                    && session.expires_at > Utc::now()
-            }),
-        };
-        if !live {
-            return Err(invalid_credential());
-        }
-        Ok(binding.clone())
+        validate_actor_binding(state, binding)
     }
+}
+
+// Shared private eligibility for stored evidence and current opaque actors.
+// This helper never constructs an AuthenticatedActor from a persisted binding.
+pub(super) fn validate_actor_binding(
+    state: &State,
+    binding: &ReviewActorBinding,
+) -> Result<ReviewActorBinding> {
+    let account = state
+        .accounts
+        .get(&binding.login)
+        .ok_or_else(invalid_credential)?;
+    if !account.status.permits_authentication()
+        || account.must_change_password
+        || account.auth_epoch != binding.auth_epoch
+        || account.created_at != binding.account_created_at
+        || state
+            .users
+            .get(&binding.login)
+            .is_none_or(|profile| profile.id != binding.profile_id)
+    {
+        return Err(invalid_credential());
+    }
+    let live = match binding.credential_kind {
+        ReviewCredentialKind::PersonalAccessToken => state
+            .personal_tokens
+            .get(&binding.credential_id)
+            .is_some_and(|token| {
+                token.login == binding.login
+                    && token.auth_epoch == binding.auth_epoch
+                    && token.expires_at.is_none_or(|expiry| expiry > Utc::now())
+            }),
+        ReviewCredentialKind::Session => state.sessions.values().any(|session| {
+            session.id == binding.credential_id
+                && session.login == binding.login
+                && session.auth_epoch == binding.auth_epoch
+                && session.expires_at > Utc::now()
+        }),
+    };
+    if !live {
+        return Err(invalid_credential());
+    }
+    Ok(binding.clone())
 }
 
 fn invalid_credential() -> ForgeError {

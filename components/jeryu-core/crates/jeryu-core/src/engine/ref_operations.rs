@@ -13,7 +13,8 @@ use serde_json::Value;
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
-use super::{ForgeCore, State, mutation::require_repository_admissible};
+use super::{AuthenticatedActor, ForgeCore, State, mutation::require_repository_admissible};
+use crate::UserRole;
 use crate::{ForgeError, Result};
 
 #[cfg(test)]
@@ -124,6 +125,16 @@ pub struct RefOperationEvent {
     pub operation: DurableRefOperation,
     pub delivered_at: Option<DateTime<Utc>>,
     pub delivery_receipt: Option<String>,
+}
+
+/// One durable read snapshot. The observation is the persisted backend evidence
+/// in operation.outcome, not a fresh Git observation or permission to dispatch.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MergeOperationReadback {
+    pub operation: DurableRefOperation,
+    pub delivery: Option<RefOperationEvent>,
+    pub observed_at: DateTime<Utc>,
 }
 
 impl RefOperationIntent {
@@ -270,6 +281,58 @@ impl DurableRefOperation {
 }
 
 impl ForgeCore {
+    /// Authenticated repository-scoped recovery readback. Reads remain available
+    /// while repository mutation is quarantined. Deleted UUIDs require a current
+    /// administrator; slug reuse never transfers historical operation access.
+    pub fn merge_operation(
+        &self,
+        actor: &AuthenticatedActor,
+        repository_id: Uuid,
+        operation_id: Uuid,
+    ) -> Result<MergeOperationReadback> {
+        if repository_id.is_nil() || operation_id.is_nil() {
+            return Err(invalid(
+                "full nonnil repository and operation UUIDs are required",
+            ));
+        }
+        self.validate_mutation_process()?;
+        self.runtime
+            .coordinator
+            .with_repositories(&[repository_id], || {
+                let state = self.runtime.state.read();
+                let binding = self.validate_actor_locked(&state, actor, false)?;
+                let account = state
+                    .accounts
+                    .get(&binding.login)
+                    .ok_or_else(|| ForgeError::Unauthenticated("account disappeared".into()))?;
+                require_operation_read_access(
+                    &state,
+                    &binding.login,
+                    account.role == UserRole::Admin,
+                    repository_id,
+                )?;
+                let result = self
+                    .operation_storage()?
+                    .merge_operation_readback(repository_id, operation_id)?;
+                if let DurableRefOperationKind::Merge {
+                    source_repository_id,
+                    ..
+                } = &result.operation.intent.operation
+                {
+                    require_operation_read_access(
+                        &state,
+                        &binding.login,
+                        account.role == UserRole::Admin,
+                        *source_repository_id,
+                    )?;
+                }
+                // Time-based credential expiry is checked again before disclosure.
+                self.validate_actor_locked(&state, actor, false)?;
+                self.validate_mutation_process()?;
+                Ok(result)
+            })
+    }
+
     /// Repository-scoped durable readback, including historical deleted UUIDs.
     /// Transport adapters must separately authenticate and authorize readers.
     pub fn get_ref_operation(
@@ -493,4 +556,33 @@ fn validate_ref(reference: &str) -> Result<()> {
 
 fn invalid(message: &str) -> ForgeError {
     ForgeError::Validation(message.into())
+}
+
+fn require_operation_read_access(
+    state: &State,
+    login: &str,
+    administrator: bool,
+    repository_id: Uuid,
+) -> Result<()> {
+    if administrator {
+        return Ok(());
+    }
+    let repository = state
+        .repos
+        .values()
+        .find(|repository| repository.id == repository_id)
+        .ok_or_else(|| {
+            ForgeError::Forbidden("current repository read access is required".into())
+        })?;
+    let access = state.repo_grants.get(&(
+        login.to_owned(),
+        repository.owner.clone(),
+        repository.name.clone(),
+    ));
+    if repository.private && !access.is_some_and(|grant| grant.access.allows_read()) {
+        return Err(ForgeError::Forbidden(
+            "current repository read access is required".into(),
+        ));
+    }
+    Ok(())
 }

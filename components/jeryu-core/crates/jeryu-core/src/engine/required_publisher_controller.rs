@@ -1,8 +1,7 @@
-//! NEXT-SLICE PROPOSAL, not integrated. These controllers are not a substitute
+//! Authenticated publisher controllers are not a substitute
 //! for the independently verified root-owned commissioning gate. A deployed
 //! runtime without that gate and a persisted enrollment refuses publication.
 
-use std::path::Path;
 use std::sync::Arc;
 
 use chrono::{DateTime, Duration, Utc};
@@ -33,9 +32,10 @@ pub enum RequiredPublisherAction {
 /// records, current epochs/revocation, installed runtime/origin and held custody
 /// for every call. No production implementation is supplied in this slice.
 pub trait RequiredPublisherAuthority: std::fmt::Debug + Send + Sync {
-    fn storage_root(&self) -> &Path;
+    fn custody(&self) -> &super::RequiredPublisherCustody;
     fn validate(
         &self,
+        custody: &super::RequiredPublisherCustody,
         publisher: &DurableRequiredPublisher,
         action: RequiredPublisherAction,
         now: DateTime<Utc>,
@@ -99,16 +99,7 @@ impl ForgeCore {
         authority: Arc<dyn RequiredPublisherAuthority>,
     ) -> Result<Self> {
         self.with_global_mutation(|| {
-            let root = self
-                .runtime
-                .storage_root
-                .as_deref()
-                .ok_or_else(unavailable)?;
-            if authority.storage_root() != root {
-                return Err(ForgeError::Conflict(
-                    "publisher authority storage root differs from managed custody".into(),
-                ));
-            }
+            self.compare_required_custody(authority.as_ref())?;
             let mut slot = self.runtime.required_publisher_authority.write();
             match slot.as_ref() {
                 Some(current) if Arc::ptr_eq(current, &authority) => Ok(()),
@@ -160,12 +151,12 @@ impl ForgeCore {
                 return Err(ForgeError::Conflict("required attempt must fit the fixed enrolled window and 7200-second maximum".into()));
             }
             let authority = self.required_authority()?;
-            authority.validate(&publisher, RequiredPublisherAction::Reserve, now)?;
+            self.validate_required_authority(authority.as_ref(), &publisher, RequiredPublisherAction::Reserve, now)?;
             self.observe_required_source(&repository, scope)?;
             self.required_actor_context(actor, repository_id, true)?;
             let now = Utc::now();
             publisher.require_current(now)?;
-            authority.validate(&publisher, RequiredPublisherAction::Reserve, now)?;
+            self.validate_required_authority(authority.as_ref(), &publisher, RequiredPublisherAction::Reserve, now)?;
             let reservation = publisher.enrollment.reservation(scope, key, request.expires_at, publisher.enrollment_sha256.clone());
             storage.reserve_required_attempt(&reservation, now)
         })
@@ -243,7 +234,12 @@ impl ForgeCore {
                     RequiredPublisherAction::Complete
                 };
                 let authority = self.required_authority()?;
-                authority.validate(&publisher, action, Utc::now())?;
+                self.validate_required_authority(
+                    authority.as_ref(),
+                    &publisher,
+                    action,
+                    Utc::now(),
+                )?;
                 // A terminal replay is readback of immutable bytes. It must remain
                 // currently authenticated and unrevoked but does not renew expiry,
                 // require the old branch still exist or create a new publication.
@@ -256,7 +252,7 @@ impl ForgeCore {
                 if action == RequiredPublisherAction::Complete {
                     publisher.require_current(now)?;
                 }
-                authority.validate(&publisher, action, now)?;
+                self.validate_required_authority(authority.as_ref(), &publisher, action, now)?;
                 let bytes = request
                     .artifacts
                     .iter()
@@ -347,7 +343,8 @@ impl ForgeCore {
                                 ) {
                                     failures.push(error.to_string());
                                 }
-                                if let Err(error) = authority.validate(
+                                if let Err(error) = self.validate_required_authority(
+                                    authority.as_ref(),
                                     &publisher,
                                     RequiredPublisherAction::Snapshot,
                                     now,
@@ -390,6 +387,44 @@ impl ForgeCore {
                     blockers,
                 })
             })
+    }
+
+    // These helpers run inside the existing coordinator operation. Calling the
+    // public custody readback here would reacquire a non-reentrant write guard.
+    fn compare_required_custody(
+        &self,
+        authority: &dyn RequiredPublisherAuthority,
+    ) -> Result<super::RequiredPublisherCustody> {
+        let actual = self
+            .runtime
+            .storage
+            .as_ref()
+            .ok_or_else(unavailable)?
+            .required_publisher_custody()?;
+        if authority.custody() != &actual {
+            return Err(ForgeError::WriterUnavailable(
+                "publisher authority does not bind this database and storage incarnation".into(),
+            ));
+        }
+        Ok(actual)
+    }
+
+    fn validate_required_authority(
+        &self,
+        authority: &dyn RequiredPublisherAuthority,
+        publisher: &DurableRequiredPublisher,
+        action: RequiredPublisherAction,
+        now: DateTime<Utc>,
+    ) -> Result<()> {
+        let before = self.compare_required_custody(authority)?;
+        authority.validate(&before, publisher, action, now)?;
+        let after = self.compare_required_custody(authority)?;
+        if before != after {
+            return Err(ForgeError::WriterUnavailable(
+                "publisher custody changed during validation".into(),
+            ));
+        }
+        Ok(())
     }
 
     fn required_authority(&self) -> Result<Arc<dyn RequiredPublisherAuthority>> {

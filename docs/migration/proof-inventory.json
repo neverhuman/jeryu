@@ -1810,7 +1810,7 @@
       "kind": "proof-implementation-or-input",
       "path": "components/jeryu-core/crates/jeryu-core/src/engine/bound_reviews/tests.rs",
       "port_status": "pending-equivalence-proof",
-      "sha256": "23b75ac80bc331e7aa9244aa9f2ef39b94e877168cb92c28d41775672bf1995b"
+      "sha256": "93344fb1298dd212d282a8697bc986c56e6886e7f59ba9cd8f871f5bf6756e36"
     },
     {
       "component": "jeryu-core",
@@ -1824,9 +1824,17 @@
       "component": "jeryu-core",
       "declaration": null,
       "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-core/crates/jeryu-core/src/engine/publisher_custody/tests.rs",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "e42b2f07c492d1661e00059a6e2b56becf372197d8a2478306af0e81f6a90acc"
+    },
+    {
+      "component": "jeryu-core",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
       "path": "components/jeryu-core/crates/jeryu-core/src/engine/ref_operations/tests.rs",
       "port_status": "pending-equivalence-proof",
-      "sha256": "8fc309864f7d80600f54e142ad094ffa276b6e9f54fdbc3b187a1dba6f424f9b"
+      "sha256": "6fd8d49e081c7a0d00b5add29a5fb77fd7ea7b67b39743055d9cb7c2f94dc96f"
     },
     {
       "component": "jeryu-core",
@@ -1850,7 +1858,7 @@
       "kind": "proof-implementation-or-input",
       "path": "components/jeryu-core/crates/jeryu-core/src/engine/required_publisher_controller/tests.rs",
       "port_status": "pending-equivalence-proof",
-      "sha256": "a41c820fc50d3c632efa935ab1d610712ed6f343195375a0839b72d0393f6381"
+      "sha256": "a874254fb5e89394dd326663975f63ad4ec51bcd45df6973b9d04daf2eee643c"
     },
     {
       "component": "jeryu-core",
@@ -2186,7 +2194,7 @@
       "kind": "proof-implementation-or-input",
       "path": "components/jeryu-core/crates/jeryu-gitd/tests/review_observer.rs",
       "port_status": "pending-equivalence-proof",
-      "sha256": "f59ef1fd6615bb77b1645b9d9439a567acc5570544fa3ed22cd3cd5d1ab61c23"
+      "sha256": "285d1ac6f971b8794a75c7368fc6cc6106229b646b67b59dc877a459f9f8ba04"
     },
     {
       "component": "jeryu-core",

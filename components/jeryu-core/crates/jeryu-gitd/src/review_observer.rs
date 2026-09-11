@@ -4,7 +4,10 @@
 
 use std::path::{Component, Path, PathBuf};
 
-use jeryu_core::{ForgeError, ReviewGitObservation, ReviewGitObserver, ReviewGitTarget};
+use jeryu_core::{
+    ForgeError, MergeGitChange, MergeGitObservation, ReviewGitObservation, ReviewGitObserver,
+    ReviewGitTarget,
+};
 
 use crate::{GitdError, RepoManager};
 
@@ -290,6 +293,186 @@ mod native {
             Ok(output.stdout.trim_end_matches('\n').into())
         }
 
+        fn observe_merge_source(
+            &self,
+            target: &ReviewGitTarget,
+        ) -> jeryu_core::Result<MergeGitObservation> {
+            if target.source.id.is_nil()
+                || target.destination.id.is_nil()
+                || (target.source.id == target.destination.id
+                    && target.source != target.destination)
+            {
+                return Err(ForgeError::Validation(
+                    "inconsistent merge repository UUID mapping".into(),
+                ));
+            }
+            let before = self.observe(target)?;
+            let (source, source_identity) = self.inspect_repository(&target.source)?;
+            let (destination, destination_identity) =
+                self.inspect_repository(&target.destination)?;
+            if source_identity != before.source.identity
+                || destination_identity != before.destination.identity
+                || (source == destination && target.source.id != target.destination.id)
+            {
+                return Err(ForgeError::Conflict(
+                    "merge repository custody differs from observed UUID scope".into(),
+                ));
+            }
+            let head = &before.source.commit_sha;
+            let base = &before.destination.commit_sha;
+            self.require_complete_object_store(&source)?;
+            self.require_complete_object_store(&destination)?;
+            // Full fsck, with no alternate/promisor/config/network fallback,
+            // verifies the actual source graph rather than cached PR metadata.
+            self.success(
+                &source,
+                &[
+                    "fsck",
+                    "--strict",
+                    "--no-reflogs",
+                    "--no-dangling",
+                    head,
+                    base,
+                ],
+            )?;
+            if self.success(&source, &["cat-file", "-t", base])? != "commit"
+                || self.success(
+                    &source,
+                    &["rev-parse", "--verify", &format!("{base}^{{tree}}")],
+                )? != before.destination.tree_sha
+            {
+                return Err(unavailable("source lacks the observed base commit/tree"));
+            }
+            let ancestry = self.run(&source, &["merge-base", "--is-ancestor", base, head])?;
+            let base_is_ancestor = match ancestry.code {
+                Some(0) if ancestry.stdout.is_empty() && ancestry.stderr.is_empty() => true,
+                Some(1) if ancestry.stdout.is_empty() && ancestry.stderr.is_empty() => false,
+                _ => return Err(unavailable("Git could not determine exact merge ancestry")),
+            };
+            let range = format!("{base}..{head}");
+            let merge_commit = self.success(
+                &source,
+                &["rev-list", "--min-parents=2", "--max-count=1", &range],
+            )?;
+            if !merge_commit.is_empty() {
+                oid(&merge_commit)?;
+            }
+            let raw = self.success(
+                &source,
+                &[
+                    "diff-tree",
+                    "--no-commit-id",
+                    "--raw",
+                    "-z",
+                    "--no-abbrev",
+                    "--no-renames",
+                    "--no-ext-diff",
+                    "--no-textconv",
+                    "--ignore-submodules=none",
+                    "-r",
+                    base,
+                    head,
+                ],
+            )?;
+            let changes = parse_merge_delta(&raw)?;
+            // A fork's source objects must be admitted to the destination by a
+            // separate guarded import before an executor can advance its ref.
+            // Observation never fetches/copies objects or writes a quarantine.
+            let receive = self.run(
+                &destination,
+                &[
+                    "rev-parse",
+                    "--verify",
+                    "--quiet",
+                    &format!("{head}^{{commit}}"),
+                ],
+            )?;
+            let destination_has_source_graph = match receive.code {
+                Some(0)
+                    if receive.stdout.trim_end_matches('\n') == head
+                        && receive.stderr.is_empty() =>
+                {
+                    self.success(
+                        &destination,
+                        &["fsck", "--strict", "--no-reflogs", "--no-dangling", head],
+                    )?;
+                    true
+                }
+                Some(1) if receive.stdout.is_empty() && receive.stderr.is_empty() => false,
+                _ => return Err(unavailable("Git receiving object inspection failed")),
+            };
+            let after = self.observe(target)?;
+            if before != after {
+                return Err(ForgeError::Conflict(
+                    "source/base refs or custody changed during merge observation".into(),
+                ));
+            }
+            Ok(MergeGitObservation {
+                refs: before,
+                object_format: "sha1".into(),
+                base_is_ancestor,
+                contains_merge_commits: !merge_commit.is_empty(),
+                source_graph_verified: true,
+                destination_has_source_graph,
+                changes,
+            })
+        }
+
+        fn require_complete_object_store(&self, repository: &Path) -> jeryu_core::Result<()> {
+            let config = self.success(
+                repository,
+                &["config", "--local", "--no-includes", "--null", "--list"],
+            )?;
+            for entry in config.split('\0').filter(|entry| !entry.is_empty()) {
+                let (key, _) = entry.split_once('\n').unwrap_or((entry, ""));
+                if key.to_ascii_lowercase().starts_with("fsck.") {
+                    return Err(unavailable(
+                        "repository-local fsck policy or waiver input is not admitted",
+                    ));
+                }
+            }
+            match std::fs::symlink_metadata(repository.join("shallow")) {
+                Ok(_) => {
+                    return Err(unavailable(
+                        "shallow merge source is not a complete admitted graph",
+                    ));
+                }
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                Err(error) => return Err(io_error(error)),
+            }
+            let deadline = Instant::now() + Duration::from_secs(10);
+            let mut directories = vec![repository.join("objects")];
+            let mut count = 0_u64;
+            while let Some(directory) = directories.pop() {
+                checked(&directory, true)?;
+                for entry in std::fs::read_dir(&directory).map_err(io_error)? {
+                    count += 1;
+                    if count > 250_000 || Instant::now() >= deadline {
+                        return Err(unavailable(
+                            "complete object-store custody inventory exceeded its admitted limit",
+                        ));
+                    }
+                    let path = entry.map_err(io_error)?.path();
+                    let metadata = std::fs::symlink_metadata(&path).map_err(io_error)?;
+                    checked(&path, metadata.is_dir())?;
+                    if path
+                        .extension()
+                        .is_some_and(|extension| extension == "promisor")
+                    {
+                        return Err(unavailable("promisor object custody is not admitted"));
+                    }
+                    if metadata.is_dir() {
+                        directories.push(path);
+                    } else if metadata.nlink() != 1 {
+                        return Err(unavailable(
+                            "external hardlink object custody is not admitted",
+                        ));
+                    }
+                }
+            }
+            Ok(())
+        }
+
         fn inspect_repository(
             &self,
             repository: &ReviewGitRepository,
@@ -476,6 +659,107 @@ mod native {
         }
     }
 
+    fn parse_merge_delta(raw: &str) -> jeryu_core::Result<Vec<MergeGitChange>> {
+        if raw.is_empty() {
+            return Ok(Vec::new());
+        }
+        if !raw.ends_with('\0') {
+            return Err(unavailable("unterminated Git tree delta"));
+        }
+        let fields = raw[..raw.len() - 1].split('\0').collect::<Vec<_>>();
+        if fields.len() % 2 != 0 {
+            return Err(unavailable("incomplete Git tree delta record"));
+        }
+        let mut result = Vec::new();
+        let mut paths = std::collections::BTreeSet::new();
+        for pair in fields.chunks_exact(2) {
+            let path = pair[1];
+            if path.is_empty()
+                || path.starts_with('/')
+                || path.split('/').any(|part| matches!(part, "" | "." | ".."))
+                || !paths.insert(path.to_owned())
+            {
+                return Err(unavailable("invalid or duplicate actual Git delta path"));
+            }
+            let header = pair[0]
+                .strip_prefix(':')
+                .ok_or_else(|| unavailable("Git delta lacks raw header"))?;
+            let columns = header.split(' ').collect::<Vec<_>>();
+            if columns.len() != 5 || !matches!(columns[4], "A" | "D" | "M" | "T") {
+                return Err(unavailable("unsupported Git delta shape or status"));
+            }
+            for mode in &columns[..2] {
+                if !matches!(*mode, "000000" | "100644" | "100755" | "120000" | "160000") {
+                    return Err(unavailable("unsupported Git delta file mode"));
+                }
+            }
+            for (mode, object) in [(columns[0], columns[2]), (columns[1], columns[3])] {
+                if mode == "000000" {
+                    if object != "0000000000000000000000000000000000000000" {
+                        return Err(unavailable("absent Git delta side has an object"));
+                    }
+                } else {
+                    oid(object)?;
+                }
+            }
+            if (columns[0] == "000000") != (columns[4] == "A")
+                || (columns[1] == "000000") != (columns[4] == "D")
+                || (columns[0] == columns[1] && columns[2] == columns[3])
+            {
+                return Err(unavailable(
+                    "Git delta status contradicts its object/mode sides",
+                ));
+            }
+            result.push(MergeGitChange {
+                path: path.into(),
+                status: columns[4].into(),
+                old_mode: columns[0].into(),
+                new_mode: columns[1].into(),
+                old_oid: columns[2].into(),
+                new_oid: columns[3].into(),
+            });
+        }
+        result.sort_by(|left, right| left.path.cmp(&right.path));
+        Ok(result)
+    }
+
+    #[cfg(test)]
+    mod merge_delta_tests {
+        use super::*;
+        const ZERO: &str = "0000000000000000000000000000000000000000";
+        const BLOB: &str = "1111111111111111111111111111111111111111";
+
+        #[test]
+        fn raw_delta_preserves_nul_framed_newline_path_and_full_object_mode() {
+            let raw = format!(":000000 100644 {ZERO} {BLOB} A\0line\nname\0");
+            let delta = parse_merge_delta(&raw).unwrap();
+            assert_eq!(delta.len(), 1);
+            assert_eq!(delta[0].path, "line\nname");
+            assert_eq!(delta[0].new_oid, BLOB);
+            assert_eq!(delta[0].old_mode, "000000");
+            assert!(parse_merge_delta("").unwrap().is_empty());
+        }
+
+        #[test]
+        fn malformed_duplicate_and_contradictory_delta_records_refuse() {
+            let valid = format!(":000000 100644 {ZERO} {BLOB} A\0file\0");
+            for raw in [
+                valid.trim_end_matches('\0').to_owned(),
+                format!("{valid}{valid}"),
+                valid.replace(" A\0", " R100\0"),
+                valid.replace(" A\0", " M\0"),
+                valid.replace("100644", "100666"),
+                valid.replace("file", "../outside"),
+                valid.replace(BLOB, "1111"),
+                valid.replace(BLOB, ZERO),
+                format!(":100644 100644 {BLOB} {BLOB} M\0file\0"),
+                format!(":000000 100644 {BLOB} {BLOB} A\0file\0"),
+            ] {
+                assert!(parse_merge_delta(&raw).is_err(), "{raw:?}");
+            }
+        }
+    }
+
     fn oid(value: &str) -> jeryu_core::Result<()> {
         if value.len() != 40
             || value
@@ -489,6 +773,13 @@ mod native {
     }
 
     impl ReviewGitObserver for ManagedReviewGitObserver {
+        fn observe_merge(
+            &self,
+            target: &ReviewGitTarget,
+        ) -> jeryu_core::Result<MergeGitObservation> {
+            self.observe_merge_source(target)
+        }
+
         fn storage_root(&self) -> &Path {
             &self.root
         }

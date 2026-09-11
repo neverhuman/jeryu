@@ -32,6 +32,7 @@ mod coordinator;
 mod issues;
 mod jankurai;
 mod mutation;
+mod publisher_custody;
 mod publisher_enrollment;
 mod pull_requests;
 mod readmes;
@@ -55,11 +56,12 @@ pub use actors::{ActorCredential, AuthenticatedActor};
 pub use audit::AuditEntry;
 pub use bound_reviews::*;
 pub use coordinator::MutationCoordinator;
+pub use publisher_custody::*;
 pub use publisher_enrollment::*;
 pub use pull_requests::MergeReadiness;
 pub use ref_operations::{
-    DurableRefOperation, DurableRefOperationKind, DurableRefOperationState, ObservedRef,
-    RefChangeIntent, RefOperationEvent, RefOperationIntent, RefOperationObservation,
+    DurableRefOperation, DurableRefOperationKind, DurableRefOperationState, MergeOperationReadback,
+    ObservedRef, RefChangeIntent, RefOperationEvent, RefOperationIntent, RefOperationObservation,
     RefOperationOutcome, RefValue,
 };
 pub use repositories::RepositoryDeletion;

@@ -29,6 +29,48 @@ struct OperationRow {
 }
 
 impl SqliteStore {
+    pub(in crate::core) fn merge_operation_readback(
+        &self,
+        repository_id: Uuid,
+        operation_id: Uuid,
+    ) -> Result<MergeOperationReadback> {
+        let mut conn = self.connect()?;
+        let tx = conn
+            .transaction_with_behavior(TransactionBehavior::Deferred)
+            .map_err(storage_error)?;
+        let operation = load_operation(&tx, repository_id, operation_id)?;
+        if !matches!(
+            operation.intent.operation,
+            DurableRefOperationKind::Merge { .. }
+        ) {
+            return Err(ForgeError::Validation(
+                "operation is not a merge operation".into(),
+            ));
+        }
+        let delivery = operation
+            .outcome
+            .as_ref()
+            .and_then(|outcome| outcome.event_id)
+            .map(|event_id| load_event(&tx, repository_id, event_id))
+            .transpose()?;
+        if delivery.as_ref().is_some_and(|event| {
+            event.repository_id != repository_id
+                || event.operation_id != operation.id
+                || event.operation != operation
+        }) {
+            return Err(ForgeError::Storage(
+                "merge readback delivery belongs to a different operation".into(),
+            ));
+        }
+        let readback = MergeOperationReadback {
+            operation,
+            delivery,
+            observed_at: Utc::now(),
+        };
+        tx.commit().map_err(storage_error)?;
+        Ok(readback)
+    }
+
     pub(in crate::core) fn get_ref_operation(
         &self,
         repository_id: Uuid,

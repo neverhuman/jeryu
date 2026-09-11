@@ -762,3 +762,454 @@ fn qualification_object_key_order_does_not_change_the_persisted_binding() {
     );
     assert_eq!(counts(&database), (1, 1, 0));
 }
+
+const READBACK_PASSWORD: &str = "readback fixture strong password 5130490501483594442";
+
+fn readback_actor(
+    core: &ForgeCore,
+    login: &str,
+    role: UserRole,
+) -> (AuthenticatedActor, Uuid, String) {
+    core.create_account(login, READBACK_PASSWORD, role).unwrap();
+    let session = core.create_session(login, READBACK_PASSWORD).unwrap();
+    let actor = core
+        .authenticate_actor(crate::ActorCredential::Session {
+            token: &session.token,
+            csrf_token: &session.session.csrf_token,
+        })
+        .unwrap();
+    let pat = core
+        .create_personal_access_token(&actor, "readback fixture", None)
+        .unwrap();
+    (
+        core.authenticate_actor(crate::ActorCredential::PersonalAccessToken(&pat.secret))
+            .unwrap(),
+        pat.token.id,
+        pat.secret,
+    )
+}
+
+#[test]
+fn merge_readback_revalidates_uuid_grant_and_runtime_before_disclosure() {
+    let (_dir, _db, core, intent) = fixture();
+    core.set_repository_visibility("owner", "demo", true)
+        .unwrap();
+    let (actor, _, _) = readback_actor(&core, "reader", UserRole::User);
+    let prepared = core.prepare_ref_operation(intent.clone()).unwrap();
+    assert!(matches!(
+        core.merge_operation(&actor, intent.repository_id, prepared.id),
+        Err(ForgeError::Forbidden(_))
+    ));
+    core.grant_repo_access(
+        "fixture-operator",
+        "reader",
+        "owner",
+        "demo",
+        crate::RepoAccessLevel::Read,
+    )
+    .unwrap();
+    assert_eq!(
+        core.merge_operation(&actor, intent.repository_id, prepared.id)
+            .unwrap()
+            .operation,
+        prepared
+    );
+    assert!(matches!(
+        core.merge_operation(&actor, Uuid::new_v4(), prepared.id),
+        Err(ForgeError::Forbidden(_))
+    ));
+    assert!(matches!(
+        core.merge_operation(&actor, Uuid::nil(), prepared.id),
+        Err(ForgeError::Validation(_))
+    ));
+    let (_other_dir, _other_db, other, _) = fixture();
+    assert!(matches!(
+        other.merge_operation(&actor, intent.repository_id, prepared.id),
+        Err(ForgeError::Unauthenticated(_))
+    ));
+    core.revoke_repo_access("reader", "owner", "demo").unwrap();
+    assert!(matches!(
+        core.merge_operation(&actor, intent.repository_id, prepared.id),
+        Err(ForgeError::Forbidden(_))
+    ));
+}
+
+#[test]
+fn merge_readback_accepts_read_only_sessions_but_refuses_revoked_and_expired_credentials() {
+    let (_dir, _db, core, intent) = fixture();
+    let (actor, token_id, _) = readback_actor(&core, "reader", UserRole::User);
+    let prepared = core.prepare_ref_operation(intent.clone()).unwrap();
+    let session = core.create_session("reader", READBACK_PASSWORD).unwrap();
+    let readonly = core
+        .authenticate_actor(crate::ActorCredential::SessionReadOnly(&session.token))
+        .unwrap();
+    assert_eq!(
+        core.merge_operation(&readonly, intent.repository_id, prepared.id)
+            .unwrap()
+            .operation,
+        prepared
+    );
+    core.revoke_personal_access_token("reader", token_id)
+        .unwrap();
+    assert!(matches!(
+        core.merge_operation(&actor, intent.repository_id, prepared.id),
+        Err(ForgeError::Unauthenticated(_))
+    ));
+    core.with_global_mutation(|| {
+        let mut state = core.runtime.state.write();
+        let previous = state.clone();
+        let retained = state
+            .sessions
+            .values_mut()
+            .find(|entry| entry.id == session.session.id)
+            .unwrap();
+        retained.expires_at = Utc::now() - TimeDelta::seconds(1);
+        core.persist_after_mutation(&mut state, previous)
+    })
+    .unwrap();
+    assert!(matches!(
+        core.merge_operation(&readonly, intent.repository_id, prepared.id),
+        Err(ForgeError::Unauthenticated(_))
+    ));
+}
+
+#[test]
+fn merge_readback_preserves_operation_and_delivery_across_acknowledgement_and_restart() {
+    let (_dir, database, core, intent) = fixture();
+    let (actor, _, secret) = readback_actor(&core, "reader", UserRole::User);
+    let prepared = core.prepare_ref_operation(intent.clone()).unwrap();
+    assert!(
+        core.merge_operation(&actor, intent.repository_id, prepared.id)
+            .unwrap()
+            .delivery
+            .is_none()
+    );
+    let committed = core
+        .reconcile_ref_operation(
+            intent.repository_id,
+            prepared.id,
+            applied(&prepared),
+            close_pull,
+        )
+        .unwrap();
+    let readback = core
+        .merge_operation(&actor, intent.repository_id, prepared.id)
+        .unwrap();
+    assert_eq!(readback.operation, committed);
+    let delivery = readback.delivery.unwrap();
+    assert!(delivery.delivered_at.is_none());
+    let receiving_hash = "a".repeat(64);
+    let acknowledged = core
+        .acknowledge_ref_operation_event(intent.repository_id, delivery.id, &receiving_hash)
+        .unwrap();
+    assert_eq!(
+        core.merge_operation(&actor, intent.repository_id, prepared.id)
+            .unwrap()
+            .delivery,
+        Some(acknowledged.clone())
+    );
+    core.ensure_user("unrelated-save-after-readback").unwrap();
+    drop(actor);
+    drop(core);
+    let core = ForgeCore::open_sqlite(&database).unwrap();
+    let actor = core
+        .authenticate_actor(crate::ActorCredential::PersonalAccessToken(&secret))
+        .unwrap();
+    let reopened = core
+        .merge_operation(&actor, intent.repository_id, prepared.id)
+        .unwrap();
+    assert_eq!(reopened.operation, committed);
+    assert_eq!(reopened.delivery, Some(acknowledged));
+}
+
+#[test]
+fn merge_readback_remains_available_when_operation_requires_recovery() {
+    let (_dir, _db, core, intent) = fixture();
+    let (actor, _, _) = readback_actor(&core, "reader", UserRole::User);
+    let prepared = core.prepare_ref_operation(intent.clone()).unwrap();
+    let quarantined = core
+        .reconcile_ref_operation(
+            intent.repository_id,
+            prepared.id,
+            RefOperationObservation::Unavailable {
+                reason: "fixture lost backend response".into(),
+            },
+            |_| panic!("ambiguous observation cannot publish state"),
+        )
+        .unwrap();
+    let readback = core
+        .merge_operation(&actor, intent.repository_id, prepared.id)
+        .unwrap();
+    assert_eq!(readback.operation, quarantined);
+    assert_eq!(
+        readback.operation.state,
+        DurableRefOperationState::ReconciliationRequired
+    );
+    assert!(readback.delivery.is_none());
+    let mut later = intent;
+    later.idempotency_key = "later-operation".into();
+    assert!(matches!(
+        core.prepare_ref_operation(later),
+        Err(ForgeError::WriterUnavailable(_))
+    ));
+}
+
+#[test]
+fn merge_readback_deleted_uuid_requires_admin_and_slug_reuse_grants_nothing() {
+    let (_dir, _db, core, intent) = fixture();
+    let (reader, _, _) = readback_actor(&core, "reader", UserRole::User);
+    let (admin, _, _) = readback_actor(&core, "administrator", UserRole::Admin);
+    let prepared = core.prepare_ref_operation(intent.clone()).unwrap();
+    let committed = core
+        .reconcile_ref_operation(
+            intent.repository_id,
+            prepared.id,
+            applied(&prepared),
+            close_pull,
+        )
+        .unwrap();
+    core.delete_repository("owner", "demo").unwrap();
+    let successor = core
+        .create_repository(
+            "owner",
+            CreateRepositoryRequest {
+                name: "demo".into(),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    assert_ne!(successor.id, intent.repository_id);
+    core.grant_repo_access(
+        "fixture-operator",
+        "reader",
+        "owner",
+        "demo",
+        crate::RepoAccessLevel::Admin,
+    )
+    .unwrap();
+    assert!(matches!(
+        core.merge_operation(&reader, intent.repository_id, prepared.id),
+        Err(ForgeError::Forbidden(_))
+    ));
+    assert!(matches!(
+        core.merge_operation(&reader, successor.id, prepared.id),
+        Err(ForgeError::NotFound(_))
+    ));
+    assert_eq!(
+        core.merge_operation(&admin, intent.repository_id, prepared.id)
+            .unwrap()
+            .operation,
+        committed
+    );
+}
+
+#[test]
+fn merge_readback_refuses_other_operation_kinds_and_corrupt_delivery() {
+    let (_dir, _db, core, mut intent) = fixture();
+    let (actor, _, _) = readback_actor(&core, "reader", UserRole::User);
+    intent.operation = DurableRefOperationKind::RefUpdate;
+    let prepared = core.prepare_ref_operation(intent.clone()).unwrap();
+    assert!(matches!(
+        core.merge_operation(&actor, intent.repository_id, prepared.id),
+        Err(ForgeError::Validation(_))
+    ));
+    let (_dir2, database2, core2, intent2) = fixture();
+    let (actor2, _, _) = readback_actor(&core2, "reader", UserRole::User);
+    let prepared2 = core2.prepare_ref_operation(intent2.clone()).unwrap();
+    core2
+        .reconcile_ref_operation(
+            intent2.repository_id,
+            prepared2.id,
+            applied(&prepared2),
+            close_pull,
+        )
+        .unwrap();
+    let conn = Connection::open(&database2).unwrap();
+    let before = core2
+        .merge_operation(&actor2, intent2.repository_id, prepared2.id)
+        .unwrap();
+    let denied = conn
+        .execute(
+            "UPDATE forge_ref_operation_outbox SET payload_json = ?1 WHERE operation_id = ?2",
+            params!["{}", prepared2.id.to_string()],
+        )
+        .unwrap_err();
+    assert!(
+        matches!(denied, rusqlite::Error::SqliteFailure(error, Some(message))
+        if error.extended_code == 1811 && message == "immutable outbox event or delivery")
+    );
+    let after_denial = core2
+        .merge_operation(&actor2, intent2.repository_id, prepared2.id)
+        .unwrap();
+    // observed_at belongs to this fresh read, not to the immutable stored result.
+    assert_eq!(after_denial.operation, before.operation);
+    assert_eq!(after_denial.delivery, before.delivery);
+    // Simulate externally damaged storage only in this disposable fixture database.
+    // The ordinary write above must remain denied by the production migration.
+    conn.execute_batch("DROP TRIGGER forge_ref_operation_outbox_immutable")
+        .unwrap();
+    assert_eq!(
+        conn.execute(
+            "UPDATE forge_ref_operation_outbox SET payload_json = ?1 WHERE operation_id = ?2",
+            params!["{}", prepared2.id.to_string()],
+        )
+        .unwrap(),
+        1
+    );
+    assert!(matches!(
+        core2.merge_operation(&actor2, intent2.repository_id, prepared2.id),
+        Err(ForgeError::Storage(_))
+    ));
+}
+
+#[test]
+fn merge_readback_requires_current_private_source_uuid_access_too() {
+    let (_dir, _db, core, mut intent) = fixture();
+    let (reader, _, _) = readback_actor(&core, "reader", UserRole::User);
+    let source = core
+        .create_repository(
+            "fork-owner",
+            CreateRepositoryRequest {
+                name: "private-topic".into(),
+                private: true,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    if let DurableRefOperationKind::Merge {
+        source_repository_id,
+        ..
+    } = &mut intent.operation
+    {
+        *source_repository_id = source.id;
+    }
+    let prepared = core.prepare_ref_operation(intent.clone()).unwrap();
+    assert!(matches!(
+        core.merge_operation(&reader, intent.repository_id, prepared.id),
+        Err(ForgeError::Forbidden(_))
+    ));
+    core.grant_repo_access(
+        "fixture-operator",
+        "reader",
+        "fork-owner",
+        "private-topic",
+        crate::RepoAccessLevel::Read,
+    )
+    .unwrap();
+    assert_eq!(
+        core.merge_operation(&reader, intent.repository_id, prepared.id)
+            .unwrap()
+            .operation,
+        prepared
+    );
+    core.revoke_repo_access("reader", "fork-owner", "private-topic")
+        .unwrap();
+    assert!(matches!(
+        core.merge_operation(&reader, intent.repository_id, prepared.id),
+        Err(ForgeError::Forbidden(_))
+    ));
+}
+
+#[test]
+fn merge_readback_refuses_a_valid_delivery_from_another_committed_operation() {
+    let (_dir, database, core, intent) = fixture();
+    let (reader, _, _) = readback_actor(&core, "reader", UserRole::User);
+    let first = core.prepare_ref_operation(intent.clone()).unwrap();
+    let first = core
+        .reconcile_ref_operation(intent.repository_id, first.id, applied(&first), close_pull)
+        .unwrap();
+    let second_pull = core
+        .create_pull_request(
+            "owner",
+            "demo",
+            "author",
+            CreatePullRequestRequest {
+                title: "second journal fixture".into(),
+                head: "second-topic".into(),
+                base: "main".into(),
+                head_sha: Some(OTHER.into()),
+                base_sha: Some(NEW.into()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    let mut second_intent = intent.clone();
+    second_intent.idempotency_key = "second-committed-operation".into();
+    second_intent.operation = DurableRefOperationKind::Merge {
+        pull_request_id: second_pull.id,
+        source_repository_id: intent.repository_id,
+        source_ref: "refs/heads/second-topic".into(),
+        source_head: OTHER.into(),
+    };
+    second_intent.changes[0].expected = RefValue::Exact(NEW.into());
+    second_intent.changes[0].result = RefValue::Exact(OTHER.into());
+    second_intent.qualification_snapshot["source_evidence"]["head"] = json!(OTHER);
+    second_intent.qualification_snapshot["source_evidence"]["base"] = json!(NEW);
+    let second = core.prepare_ref_operation(second_intent).unwrap();
+    let second = core
+        .reconcile_ref_operation(intent.repository_id, second.id, applied(&second), |state| {
+            let pull = state
+                .pulls
+                .get_mut(&("owner".into(), "demo".into(), second_pull.number))
+                .unwrap();
+            pull.merged = true;
+            pull.state = PullRequestState::Merged;
+            Ok(())
+        })
+        .unwrap();
+    let second_delivery = core
+        .merge_operation(&reader, intent.repository_id, second.id)
+        .unwrap()
+        .delivery
+        .unwrap();
+    assert_eq!(second_delivery.operation, second);
+    let mut first_outcome = first.outcome.clone().unwrap();
+    first_outcome.event_id = Some(second_delivery.id);
+    let conn = Connection::open(&database).unwrap();
+    let before = core
+        .merge_operation(&reader, intent.repository_id, first.id)
+        .unwrap();
+    let denied = conn
+        .execute(
+            "UPDATE forge_ref_operations SET outcome_json = ?1 WHERE id = ?2",
+            params![
+                serde_json::to_string(&first_outcome).unwrap(),
+                first.id.to_string()
+            ],
+        )
+        .unwrap_err();
+    assert!(
+        matches!(denied, rusqlite::Error::SqliteFailure(error, Some(message))
+        if error.extended_code == 1811 && message == "immutable ref operation binding or outcome")
+    );
+    let after_denial = core
+        .merge_operation(&reader, intent.repository_id, first.id)
+        .unwrap();
+    assert_eq!(after_denial.operation, before.operation);
+    assert_eq!(after_denial.delivery, before.delivery);
+    // Simulate a damaged durable link only after proving the live trigger refuses it.
+    conn.execute_batch("DROP TRIGGER forge_ref_operation_immutable")
+        .unwrap();
+    assert_eq!(
+        conn.execute(
+            "UPDATE forge_ref_operations SET outcome_json = ?1 WHERE id = ?2",
+            params![
+                serde_json::to_string(&first_outcome).unwrap(),
+                first.id.to_string()
+            ],
+        )
+        .unwrap(),
+        1
+    );
+    assert!(matches!(
+        core.merge_operation(&reader, intent.repository_id, first.id),
+        Err(ForgeError::Storage(_))
+    ));
+    assert_eq!(
+        core.merge_operation(&reader, intent.repository_id, second.id)
+            .unwrap()
+            .delivery
+            .unwrap(),
+        second_delivery
+    );
+}
