@@ -20,8 +20,9 @@ Core/Web contracts from the exact `0bf84ae5` CI preparation described below.
 Current-source verification remains required. Deploy inclusion restores Git availability,
 separate real-Git legacy refusal and distinct fork identities, and adds complete
 active-manifest path confinement plus rejection of non-Jeryu local dependencies.
-Five path/metadata regression groups and four refusal regressions are source-only
-until executed. Every positive protected-merge requirement remains in place.
+The new path/metadata and four refusal regressions pass at `07c5a213`. The
+subsequent traversal-cancellation correction requires new execution. Every
+positive protected-merge requirement remains in place.
 See [reviewed Deploy dispositions](PR-RECONCILIATION.md#deploy-pr-1-reviewed-product-and-dependency-boundaries).
 
 This register reconciles the public candidate at
@@ -72,6 +73,35 @@ the required source, build and provenance checks remain intact.
 
 ## Current public evidence
 
+Runner's public export now acquires its descriptor's exact monorepo revision as
+an explicit Tool dependency, using a private guarded Git clone and the existing
+hermetic bootstrap and complete receipt verifier. Child login shells bind the
+actual Runner library/policy and shared source inputs to that acquired revision.
+The selected path alone grants no auditor authority. Three owning real-Git
+admission regression groups cover descriptor/revision/subtree mismatches,
+consumer drift, source aliases and hidden index changes. Source, installed
+authority and product-image qualification remain separate; this adapter awaits
+its actual owning and standalone executions.
+
+At `07c5a2133c8d61fc972e803728aa13cf79d5cb88`,
+[run 34625794942, attempt 1](https://github.com/neverhuman/jeryu/actions/runs/34625794942)
+passes the complete Web job 103350447492: 214 unit tests, seven backend-connected
+browser tests, 77 rendered scenarios, all 110 action-matrix entries and the
+maintained UX checks. This includes the prepared-review refusal, cancel and
+same-challenge retry controls. Rust-owned contract drift also passes. Existing
+Lighthouse warning thresholds still report script/style/total size overages;
+they are retained and are not newly satisfied limits. Source, public, security,
+product, native sandbox and OCI probe jobs pass. Auditor, auxiliary, census and
+runtime fail; runtime reaches the required protected merge and receives the
+explicit unavailable response. Full Rust job 103350447470 passes all 167 split-tool
+tests, including ten intake-queue tests, the manifest/metadata controls and the
+separate CLI current-directory regression. All four real-Git legacy refusal
+tests and six authenticated-review route tests pass. Four API/merge/CLI targets
+still fail, including the required positive merge journeys. Legacy fails on a
+Docker registry connection reset before its build; the failure is retained.
+Complete exports remain pending at this readback. These results do not qualify
+the later path correction or Runner adapter.
+
 At `0bf84ae52ef5a9c65efa04f5d2203c17ad3ed304`,
 [run 34624973507, attempt 1](https://github.com/neverhuman/jeryu/actions/runs/34624973507)
 produced the fourteen missing contract files through the maintained
@@ -89,7 +119,13 @@ That preparation's source job compiled the new maintenance binary, then caught
 the CLI passing relative `.` to the new physical manifest-root guard. The
 command now supplies its actual absolute working directory. A CLI regression
 must still reach and reject an external dependency before Cargo resolution;
-all physical-path controls remain required. Its execution is pending.
+all physical-path controls remain required. Its execution passes at `07c5a213`.
+
+The subsequent path correction also checks each traversed directory before
+normalizing a later `..`, rejecting symlink or missing-directory cancellation
+that would otherwise validate a different path from Cargo's. Original Deploy
+review-boundary documentation is restored and further CI/metadata source
+dispositions are recorded. These corrections await owning execution.
 
 The next maintenance-service slice connects an exact retained authenticated
 reception to complete local Git planning and the existing durable queue. Plans,
@@ -97,7 +133,8 @@ jobs, requests and immutable intake links commit together, including both PR
 head and merged ancestry. Ten new owning regressions cover multi-commit pushes,
 retry/reopen, rewrites/deletion, missing objects, transaction rollback, rejected
 reception bindings, distinct auditor inputs, schema migration and CLI admission.
-They are authored but unexecuted. Full automatic service dispatch, authenticated
+All ten pass in the complete Rust lane at `07c5a213`. Full automatic service
+dispatch, authenticated
 executor/policy admission, missed-delivery reconciliation and publication remain
 open; a local queue entry is not an accepted audit result. See the
 [maintainer command](AUDIT-SERVICE.md#bind-a-retained-event-to-the-local-queue).
@@ -110,8 +147,10 @@ refuse malformed/expired/foreign preparations and reuse the identical challenge
 and body after an uncertain response. Nonces remain in mutation memory, with no
 storage or report logging. The five added rendered refusal/cancel/retry scenarios,
 existing success/drift journeys, screenshot/accessibility checks and four unit
-cases are prepared. Owning Rust generation and actual browser/API execution are
-pending; generated contracts must never be hand-edited.
+cases now pass in the complete Web lane at `07c5a213`. Rust-owned generation
+and contract drift pass; all six owning authenticated-review route tests pass
+at the same revision. Generated
+contracts must never be hand-edited.
 
 At `1665fc35545c0afb6bc67f4873a649dd5862dc19`, full Rust job 103319204295
 passes all 14 required-attempt persistence and 11 publisher-controller controls.

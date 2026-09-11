@@ -25,6 +25,15 @@ verification in child modules. The HTTP and MCP edges both apply one bounded
 `x-request-id` middleware: portable caller IDs round-trip, while empty, hostile,
 or oversized values are replaced before handlers observe them.
 
+Native pull-request reviews cross an authenticated Core boundary: the API
+translates real credentials and exact-head challenge submissions, while Core
+owns observation, credential revalidation, event persistence and effective
+verdicts. Gitd independently reads managed refs and trees. The API dispatches
+those blocking operations outside its async worker threads and projects Core's
+qualification blockers. Older review/check rows are visible advisory history;
+the removed split readiness/finalization path cannot advance Git while the
+durable merge executor is unavailable.
+
 The R5 proof lane lives in `crates/jeryu-api` and closes the loop from claim to reviewed pull request: rebase, jailed edit, namespaced branch export, PR creation, and CI evidence verification. The export request carries the changed-file list so the pull request preserves branch ownership and reviewer-visible edit scope.
 
 JMCP/control-plane intelligence is an API/read-model boundary over local truth:

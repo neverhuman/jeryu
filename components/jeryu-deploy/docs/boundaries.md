@@ -35,6 +35,31 @@ in their owning repositories. Deploy tests only its typed integration points.
 Cross-boundary calls must use typed ids, receipts, or explicit policy decisions;
 direct state mutation from another layer is a bug.
 
+## Authenticated Review Boundary
+
+Native review mutations require a real current PAT or a current session with
+its CSRF token. An account summary, development-mode identity, or JSON login
+cannot authorize a bound review. Password verification and session issuance
+are one Core operation; PAT issuance derives its owner from the authenticated
+current holder. An invalid explicit Authorization header does not fall back
+to a cookie.
+
+The owning service opens Core with its managed storage root and attaches
+Gitd's managed Git observer. Core creates a persisted challenge from live refs,
+commit trees, policy, actor and evidence while holding its mutation guards.
+Submit and own-verdict dismissal carry that challenge, nonce and exact head
+back to Core, which revalidates them under the same guards. Client evidence
+and older login-authored review rows remain advisory. Native history requires
+authenticated repository read access; cookie history reads do not need CSRF.
+
+These blocking Core/Git operations run outside Axum's async worker threads.
+The UI projection uses Core's effective bound verdicts and complete authority
+blockers. The legacy split readiness/finalization merger is unavailable before
+Git dispatch. The durable merge executor and authoritative required-attempt
+publisher remain necessary before this candidate can qualify a protected merge.
+The browser must explicitly present a challenge for review before submission;
+Deploy does not create a challenge implicitly for old approval clients.
+
 ## Governed Tool Boundary
 
 Jankurai source identity is generated from the protected `jeryu-tool`

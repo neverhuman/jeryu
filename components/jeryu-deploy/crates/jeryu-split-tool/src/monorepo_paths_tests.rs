@@ -77,7 +77,16 @@ fn missing_absolute_linked_and_malformed_dependency_paths_refuse() {
         directory.path().join("inside-link"),
     )
     .unwrap();
-    for path in ["", "missing", "outside-link", "inside-link", "/tmp"] {
+    for path in [
+        "",
+        "missing",
+        "outside-link",
+        "inside-link",
+        "/tmp",
+        "inside-link/../member",
+        "outside-link/../member",
+        "missing/../member",
+    ] {
         let manifest: Value =
             toml::from_str(&format!("[dependencies]\na = {{path='{path}'}}\n")).unwrap();
         assert!(

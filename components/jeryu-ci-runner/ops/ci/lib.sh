@@ -114,6 +114,14 @@ require_jankurai() {
     candidate_root="$(env -i PATH=/usr/bin:/bin GIT_CONFIG_GLOBAL=/dev/null \
       GIT_CONFIG_NOSYSTEM=1 /usr/bin/git -C "$(dirname -- "${BASH_SOURCE[0]}")" \
       rev-parse --show-toplevel)" || return 1
+    if [[ -e $candidate_root/.jeryu-source.json || -L $candidate_root/.jeryu-source.json ]]; then
+      # The export adapter checks the tracked descriptor, exact acquired source,
+      # actual consumer/policy and the unchanged full Tool receipt verifier.
+      # shellcheck source=ops/ci/public-auditor.sh
+      source "$candidate_root/ops/ci/public-auditor.sh"
+      require_export_candidate_jankurai
+      return
+    fi
     # shellcheck source=/dev/null
     source "${candidate_root}/components/jeryu-tool/ops/verify-public-candidate.sh"
     require_public_candidate_jankurai

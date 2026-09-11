@@ -13,7 +13,18 @@ fn local_directory(root: &Path, directory: &Path, selected: &str) -> Result<Path
     let mut resolved = directory.to_path_buf();
     for component in Path::new(selected).components() {
         match component {
-            Component::Normal(name) => resolved.push(name),
+            Component::Normal(name) => {
+                resolved.push(name);
+                // Cargo resolves the traversed directory before a later `..`.
+                // Lexically removing a link or missing directory would validate
+                // a different path from the one Cargo actually opens.
+                ensure!(
+                    fs::symlink_metadata(&resolved)
+                        .context("dependency path unavailable")?
+                        .is_dir(),
+                    "dependency path must traverse physical directories"
+                );
+            }
             Component::CurDir => {}
             Component::ParentDir => {
                 ensure!(resolved != root, "dependency path leaves this repository");

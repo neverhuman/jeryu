@@ -25,6 +25,7 @@ struct Auditor {
 struct CandidateAuditor {
     head: String,
     receipt: PathBuf,
+    source_root: Option<PathBuf>,
 }
 
 impl Auditor {
@@ -50,6 +51,8 @@ impl Auditor {
                         .expect("candidate tests require the verified installation binary"),
                     candidate: Some(CandidateAuditor {
                         head,
+                        source_root: std::env::var_os("JERYU_PUBLIC_AUDITOR_SOURCE_ROOT")
+                            .map(PathBuf::from),
                         receipt: std::env::var_os("JERYU_JANKURAI_RECEIPT")
                             .map(PathBuf::from)
                             .expect("candidate tests require the verified installation receipt"),
@@ -223,6 +226,7 @@ jankurai --version"#,
         .env_remove("JAIN_RELEASE_CI")
         .env_remove("JERYU_MONOREPO_CANDIDATE")
         .env_remove("JERYU_MONOREPO_EXPECTED_HEAD")
+        .env_remove("JERYU_PUBLIC_AUDITOR_SOURCE_ROOT")
         .env_remove("JERYU_CANDIDATE_JANKURAI_DESCRIPTOR")
         .env_remove("JERYU_INSTALL_TEST_MODE")
         .env_remove("JERYU_GOVERNED_JANKURAI_BIN")
@@ -248,6 +252,9 @@ jankurai --version"#,
             .env("JERYU_MONOREPO_EXPECTED_HEAD", &candidate.head)
             .env("JERYU_GOVERNED_JANKURAI_BIN", &auditor.binary)
             .env("JERYU_JANKURAI_RECEIPT", &candidate.receipt);
+        if let Some(source_root) = &candidate.source_root {
+            command.env("JERYU_PUBLIC_AUDITOR_SOURCE_ROOT", source_root);
+        }
     }
     if let Some(path) = receipt_override {
         command.env("JERYU_JANKURAI_RECEIPT", path);

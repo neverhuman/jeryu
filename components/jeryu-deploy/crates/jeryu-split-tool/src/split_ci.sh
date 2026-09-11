@@ -106,7 +106,14 @@ case $lane in
       split_cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
       excluded=()
       if [[ $component == jeryu-ci-runner ]]; then excluded=(--exclude jeryu-sandbox-linux); fi
-      split_cargo test --locked --workspace --all-features "${excluded[@]}"
+      if [[ $component == jeryu-ci-runner ]]; then
+        auditor_args=()
+        if [[ -n $prepare_local ]]; then auditor_args=(--prepare-local "$prepare_local"); fi
+        bash ops/ci/public-auditor.sh "${auditor_args[@]}" -- \
+          cargo test --locked --workspace --all-features "${excluded[@]}"
+      else
+        split_cargo test --locked --workspace --all-features "${excluded[@]}"
+      fi
       split_cargo build --locked --workspace
       if [[ $component == jeryu-deploy ]]; then
         jeryu_web_finish 0
