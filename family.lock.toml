@@ -35,8 +35,8 @@ required_check = "jeryu-core/required"
 name = "jeryu-deploy"
 path = "components/jeryu-deploy"
 github = "https://github.com/neverhuman/jeryu-deploy.git"
-tag = "jeryu-deploy-family-gha-rust"
-tree = "e0421c65036c7aeaa9a960c63014bf1b7ac5406b"
+tag = "jeryu-deploy-family-git255"
+tree = "a695f0d8460df6405554e95e35b3ee993618e9f7"
 required_check = "jeryu-deploy/required"
 
 [[repo]]

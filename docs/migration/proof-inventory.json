@@ -2975,7 +2975,7 @@
       "kind": "proof-implementation-or-input",
       "path": "components/jeryu-deploy/crates/jeryu-split-tool/src/audit_acquisition_tests.rs",
       "port_status": "pending-equivalence-proof",
-      "sha256": "575aa786d4615aa9fb33639a73feac9c15b8538fae426a3a576909d54ed4b66e"
+      "sha256": "1c9bd69b4c1e7addac56cf568f06b572cbec0ae3d922b6f4db1f0849b148131c"
     },
     {
       "component": "jeryu-deploy",
@@ -8727,7 +8727,7 @@
       "kind": "proof-implementation-or-input",
       "path": "scripts/ci.sh",
       "port_status": "pending-equivalence-proof",
-      "sha256": "711b69ae740e5bc32ea0d3ee125ac9710d7cebd5232f52e7c06d0ad1deac1a8b"
+      "sha256": "d1c3f2fafde783964dfa1412b6502c3fa6e2ff8bd6b15d3e9df1f263531996b5"
     },
     {
       "component": "jeryu",
