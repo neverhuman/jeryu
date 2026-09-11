@@ -66,6 +66,7 @@ echo "[pr-ci] (jobs=$JOBS) standard lanes" >&2
 bash ops/ci/fast.sh
 JERYU_SPLIT_FULL_CHECK=1 bash ops/ci/check.sh
 bash ops/ci/score.sh
+bash scripts/auxiliary-proofs.sh
 bash tools/security-lane.sh
 bash ops/ci/artifact_support.sh
 

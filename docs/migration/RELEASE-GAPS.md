@@ -19,6 +19,13 @@ prerequisite is integrated and its predecessor assertion was already corrected.
 Its new environment-selected custody/executor skips and permission-denied
 deletion exceptions are not accepted; these requirements remain fail-closed.
 
+The root catalog helper's same-HEAD copy to `accepted-baseline.json` is also
+superseded: it never authenticated a predecessor and wrote report outputs before
+admission. Standard score now validates before copying any successful report.
+The canonical PR gate and compatibility catalog entrypoint invoke the complete
+auxiliary-proof gate, which remains required in the hosted matrix and fails
+while authentic predecessor/proof admission is unavailable.
+
 ## Current public evidence
 
 At `c929d6ed`, [PR run 34567779982](https://github.com/neverhuman/jeryu/actions/runs/34567779982)
