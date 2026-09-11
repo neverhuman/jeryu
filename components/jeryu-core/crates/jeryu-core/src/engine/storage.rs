@@ -4,9 +4,9 @@ use std::sync::Arc;
 
 use rusqlite::{Connection, DatabaseName, OpenFlags, params};
 
+use super::State;
 use super::audit::AuditEntry;
 use super::writer::WriterLease;
-use super::State;
 use crate::errors::{ForgeError, Result};
 
 mod codec;
@@ -132,7 +132,6 @@ impl SqliteStore {
         self.writer.validate()
     }
 }
-
 
 pub(super) fn repo_id(
     repo_ids: &HashMap<(String, String), String>,

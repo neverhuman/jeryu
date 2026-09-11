@@ -838,4 +838,3 @@ pub(super) fn backfill_missing_counters(state: &mut State) -> usize {
     }
     inserted
 }
-

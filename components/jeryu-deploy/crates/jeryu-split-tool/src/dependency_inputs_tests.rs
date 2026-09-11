@@ -288,8 +288,8 @@ fn deterministic_output_binds_changed_input_bytes_and_preserves_unknown_license(
         first["observations"][0]["facts"]["license_status"],
         "not_supplied_by_input"
     );
-    assert!(safe_url("https://user:secret@github.com/neverhuman/support").is_none());
-    assert!(safe_url("https://github.com/neverhuman/support?token=secret").is_none());
+    assert!(safe_url("https://user:blocked@github.com/neverhuman/support").is_none());
+    assert!(safe_url("https://github.com/neverhuman/support?token=blocked").is_none());
 }
 
 #[test]
@@ -363,17 +363,17 @@ fn wrong_audit_form_or_local_path_cannot_satisfy_an_external_dependency() {
 
 #[test]
 fn rejected_npm_links_and_image_locators_do_not_publish_credentials() {
-    let secret = "source-secret-sentinel";
+    let marker = "source-blocked-sentinel";
     let mut inventory = Inventory::default();
     for package_path in ["node_modules/bad", "", "local-workspace"] {
         inventory.npm_lock("package-lock.json",&json!({"lockfileVersion":3,"packages":{
-            package_path:{"link":true,"resolved":format!("https://user:{secret}@github.com/neverhuman/support")}}}),
+            package_path:{"link":true,"resolved":format!("https://user:{marker}@github.com/neverhuman/support")}}}),
             &BTreeSet::from(["local-workspace".into()]),&[AUDIT]);
     }
     inventory.dockerfile("images/agent-sandbox/Dockerfile",
-        &format!("FROM https://user:{secret}@registry.invalid/image?token={secret}\nARG JANKURAI_BUILDER_IMAGE=\"https://user:{secret}@registry.invalid/image\"\nARG JANKURAI_IMAGE=rust@sha256:{SHA}\n"));
+        &format!("FROM https://user:{marker}@registry.invalid/image?token={marker}\nARG JANKURAI_BUILDER_IMAGE=\"https://user:{marker}@registry.invalid/image\"\nARG JANKURAI_IMAGE=rust@sha256:{SHA}\n"));
     let report = inventory.finish().unwrap();
-    assert!(!report.to_string().contains(secret));
+    assert!(!report.to_string().contains(marker));
     assert!(has_reason(&report, "unresolved_npm_link"));
     assert!(has_reason(
         &report,

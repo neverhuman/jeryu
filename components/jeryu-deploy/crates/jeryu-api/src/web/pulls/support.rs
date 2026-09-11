@@ -5,8 +5,8 @@ use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response as AxumResponse};
 use jeryu_core::{ForgeError, PullRequest};
 use jeryu_readmodel::contracts::{
-    AgentPosture, AvailableAction, CheckPosture, EntityHandle, Mergeability, MergePassportStatus,
-    PullRequestDetail, PullRequestSummary, PullRequestState as WebPullRequestState,
+    AgentPosture, AvailableAction, CheckPosture, EntityHandle, MergePassportStatus, Mergeability,
+    PullRequestDetail, PullRequestState as WebPullRequestState, PullRequestSummary,
 };
 use serde_json::{Value, json};
 
@@ -237,8 +237,8 @@ pub(super) use super::posture::audit_merge_enforced_value;
 #[cfg(test)]
 use super::posture::required_contexts_with_enforcement;
 use super::posture::{
-    checks_for_pr, commit_tree_sha, passport, passport_blockers, passport_hash,
-    required_contexts, review_posture, reviews_for_pr, web_pr_state,
+    checks_for_pr, commit_tree_sha, passport, passport_blockers, passport_hash, required_contexts,
+    review_posture, reviews_for_pr, web_pr_state,
 };
 
 pub(super) fn not_found(purpose: &'static str, message: &str) -> AxumResponse {

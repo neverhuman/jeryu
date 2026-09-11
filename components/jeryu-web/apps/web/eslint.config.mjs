@@ -96,6 +96,9 @@ export default [
       'jsx-a11y/role-has-required-aria-props': 'warn',
       'jsx-a11y/click-events-have-key-events': 'warn',
       'jsx-a11y/no-noninteractive-element-interactions': 'warn',
+      // Scrollable panes use tabIndex={0} so keyboard users can reach them.
+      // Same advisory class as the other jsx-a11y rules above: visible, not a gate.
+      'jsx-a11y/no-noninteractive-tabindex': 'warn',
       'react-hooks/set-state-in-effect': 'warn',
       // react-hooks' purity / static-components / refs rules report
       // render-phase patterns (creating components or reading refs during

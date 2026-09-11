@@ -938,4 +938,3 @@ pub(super) fn require_login(login: &str) -> Result<()> {
     }
     Ok(())
 }
-

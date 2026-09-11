@@ -178,7 +178,7 @@ mod tests {
             assert!(source_kind(path).is_some(), "missing proof source: {path}");
         }
         assert_eq!(
-            source_kind("ci/legacy-cargo-tools.lock.tsv"),
+            source_kind("ci/predecessor-cargo-tools.lock.tsv"),
             Some("proof-implementation-or-input")
         );
         assert!(source_kind("crates/jeryu-runner-oci/examples/oci_probe.rs").is_some());

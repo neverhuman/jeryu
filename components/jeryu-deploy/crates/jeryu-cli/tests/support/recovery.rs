@@ -240,7 +240,12 @@ impl RecoveryFixture {
             }
             let metadata = match fs::metadata(&path) {
                 Ok(metadata) => metadata,
-                Err(error) if error.kind() == io::ErrorKind::NotFound => continue,
+                Err(error)
+                    if error.kind() == io::ErrorKind::NotFound
+                        || error.kind() == io::ErrorKind::PermissionDenied =>
+                {
+                    continue;
+                }
                 Err(error) => return Err(error),
             };
             if metadata.uid() != self.identity.uid() {
@@ -252,7 +257,9 @@ impl RecoveryFixture {
                         return Err(io::Error::other("live process references runtime fixture"));
                     }
                     Ok(_) => {}
-                    Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+                    Err(error)
+                        if error.kind() == io::ErrorKind::NotFound
+                            || error.kind() == io::ErrorKind::PermissionDenied => {}
                     Err(error) => return Err(error),
                 }
             }
@@ -262,16 +269,32 @@ impl RecoveryFixture {
                         check_mapping(line, &self.root)?;
                     }
                 }
-                Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+                Err(error)
+                    if error.kind() == io::ErrorKind::NotFound
+                        || error.kind() == io::ErrorKind::PermissionDenied => {}
                 Err(error) => return Err(error),
             }
             let handles = match fs::read_dir(path.join("fd")) {
                 Ok(handles) => handles,
-                Err(error) if error.kind() == io::ErrorKind::NotFound => continue,
+                Err(error)
+                    if error.kind() == io::ErrorKind::NotFound
+                        || error.kind() == io::ErrorKind::PermissionDenied =>
+                {
+                    continue;
+                }
                 Err(error) => return Err(error),
             };
             for handle in handles {
-                let handle = handle?;
+                let handle = match handle {
+                    Ok(handle) => handle,
+                    Err(error)
+                        if error.kind() == io::ErrorKind::NotFound
+                            || error.kind() == io::ErrorKind::PermissionDenied =>
+                    {
+                        continue;
+                    }
+                    Err(error) => return Err(error),
+                };
                 match fs::read_link(handle.path()) {
                     Ok(target) => {
                         let own_held_root = path.file_name() == Some(this_process.as_ref())
@@ -290,7 +313,9 @@ impl RecoveryFixture {
                             return Err(io::Error::other("open runtime fixture handle"));
                         }
                     }
-                    Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+                    Err(error)
+                        if error.kind() == io::ErrorKind::NotFound
+                            || error.kind() == io::ErrorKind::PermissionDenied => {}
                     Err(error) => return Err(error),
                 }
             }

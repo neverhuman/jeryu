@@ -72,7 +72,7 @@ pub(super) fn generate(root: &Path) -> Result<Value> {
     for path in [
         "ci/tools.lock.tsv",
         "ci/cargo-tools.lock.tsv",
-        "ci/legacy-cargo-tools.lock.tsv",
+        "ci/predecessor-cargo-tools.lock.tsv",
     ] {
         if let Some(source) = report.load(root, path, "tool-lock-tsv", &[AUDIT, MIRRORS]) {
             report.tsv(path, &source, path == "ci/tools.lock.tsv");
