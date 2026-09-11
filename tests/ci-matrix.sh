@@ -173,7 +173,14 @@ run_coverage_case() {
   local case_root="$fixture"
   [[ $lane != split-sandbox ]] || case_root="$fixture/standalone"
   : >"$calls_file"
-  (cd "$case_root" && JERYU_DISPOSABLE_SANDBOX=1 bash "$fixture/dispatch.sh" "$lane" "$scenario" "$calls_file" "$fail_call") >"$transcript" 2>&1 || result=$?
+  # Host rust dispatch must not inherit public GITHUB_ACTIONS; that path
+  # serializes jeryu-api and is proven by the hosted rust job itself.
+  if [[ $lane == rust ]]; then
+    (cd "$case_root" && env -u GITHUB_ACTIONS -u JAIN_RELEASE_CI \
+      JERYU_DISPOSABLE_SANDBOX=1 bash "$fixture/dispatch.sh" "$lane" "$scenario" "$calls_file" "$fail_call") >"$transcript" 2>&1 || result=$?
+  else
+    (cd "$case_root" && JERYU_DISPOSABLE_SANDBOX=1 bash "$fixture/dispatch.sh" "$lane" "$scenario" "$calls_file" "$fail_call") >"$transcript" 2>&1 || result=$?
+  fi
   [[ $result == "$expected" ]] || {
     printf 'CI dispatch %s/%s returned %s, expected %s\n' "$lane" "$scenario" "$result" "$expected" >&2
     cat "$transcript" >&2
