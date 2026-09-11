@@ -109,7 +109,8 @@ fn pin_block_replacement_rejects_ambiguous_or_malformed_shell() {
 fn jankurai_wrapper_executes_only_the_verified_governed_binary() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
     let function = require_function(&root).expect("governed verifier template");
-    assert_eq!(function.matches("type -P -- jankurai").count(), 2);
+    // GHA SHA-verified Release lookup, release-broker pin, and host shadow check.
+    assert_eq!(function.matches("type -P -- jankurai").count(), 3);
     assert!(!function.contains("command -v jankurai"));
 
     let legacy = r#"readonly JERYU_JANKURAI_BIN="${CARGO_HOME}/bin/jankurai"
