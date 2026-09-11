@@ -59,10 +59,107 @@ fn creation_publishes_complete_git_and_retry_preserves_changed_head() {
 }
 
 #[test]
+fn creation_modes_are_private_with_permissive_process_umasks() {
+    const CHILD: &str = "JERYU_TEST_CREATION_UMASK_CHILD";
+    if std::env::var_os(CHILD).is_none() {
+        // Change only the child process's umask, never the threaded test host's.
+        for mask in ["0002", "0000"] {
+            let output = Command::new("/bin/sh")
+                .args(["-c", "umask \"$1\"; shift; exec \"$@\"", "creation-umask", mask])
+                .arg(std::env::current_exe().unwrap())
+                .args([
+                    "--exact",
+                    "git_materializer::tests::creation_modes_are_private_with_permissive_process_umasks",
+                    "--test-threads=1",
+                    "--nocapture",
+                ])
+                .env(CHILD, "1")
+                .output()
+                .unwrap();
+            assert!(
+                output.status.success(),
+                "umask {mask}: {}\n{}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
+            assert!(String::from_utf8_lossy(&output.stdout).contains("1 passed"));
+        }
+        return;
+    }
+
+    let directory = directory();
+    let manager = Arc::new(RepoManager::new(GitdConfig::new(
+        directory.path().join("git"),
+    )));
+    let materializer = Arc::new(GitMaterializer::new(manager.clone()));
+    let core = ForgeCore::new().with_repo_materializer(materializer.clone());
+    let repo = core
+        .create_repository_with_id(uuid::Uuid::new_v4(), "alice", request())
+        .unwrap();
+    let bare = manager.open_parts("alice", "first").unwrap();
+    for path in [
+        "HEAD",
+        "config",
+        "objects",
+        "refs",
+        "jeryu",
+        "jeryu/repo-id",
+        "jeryu/phase",
+        "hooks",
+        "hooks/pre-receive",
+        "jeryu-creation.json",
+    ] {
+        assert_eq!(
+            fs::symlink_metadata(bare.path.join(path))
+                .unwrap()
+                .permissions()
+                .mode()
+                & 0o077,
+            0,
+            "{path} is not private"
+        );
+    }
+    materializer.resume(&repo).unwrap();
+
+    let direct = manager
+        .create_bare(&RepoId::new("bob", "direct").unwrap())
+        .unwrap();
+    storage::sync_tree(&direct.path).unwrap();
+    assert_eq!(
+        fs::metadata(direct.path.join("jeryu/repo-id"))
+            .unwrap()
+            .permissions()
+            .mode()
+            & 0o077,
+        0
+    );
+
+    // Explicitly unsafe storage still refuses admission and remains untouched.
+    let unsafe_path = directory.path().join("unsafe");
+    fs::create_dir(&unsafe_path).unwrap();
+    fs::set_permissions(&unsafe_path, fs::Permissions::from_mode(0o770)).unwrap();
+    assert!(Directory::open(&unsafe_path).is_err());
+    assert_eq!(
+        fs::metadata(&unsafe_path).unwrap().permissions().mode() & 0o777,
+        0o770
+    );
+    fs::set_permissions(bare.path.join("HEAD"), fs::Permissions::from_mode(0o660)).unwrap();
+    assert!(storage::sync_tree(&bare.path).is_err());
+    assert_eq!(
+        fs::metadata(bare.path.join("HEAD"))
+            .unwrap()
+            .permissions()
+            .mode()
+            & 0o777,
+        0o660
+    );
+}
+
+#[test]
 fn failed_git_initialization_is_pending_and_replays_after_database_restart() {
     let directory = directory();
     let launcher = directory.path().join("git-launcher");
-    fs::write(&launcher, "#!/bin/sh\nif [ \"$1\" = init ]; then mkdir -p objects; exit 73; fi\nexec /usr/bin/git \"$@\"\n").unwrap();
+    fs::write(&launcher, "#!/bin/sh\nif [ \"$1\" = init ]; then mkdir -m 700 -p objects; exit 73; fi\nexec /usr/bin/git \"$@\"\n").unwrap();
     fs::set_permissions(&launcher, fs::Permissions::from_mode(0o700)).unwrap();
     let mut config = GitdConfig::new(directory.path().join("git"));
     config.git_bin = launcher.to_string_lossy().into_owned();

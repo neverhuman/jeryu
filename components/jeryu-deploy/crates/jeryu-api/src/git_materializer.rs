@@ -122,6 +122,7 @@ impl GitMaterializer {
             &[
                 "init",
                 "--bare",
+                "--shared=0600",
                 "--template=",
                 "--initial-branch",
                 &identity.branch,

@@ -50,6 +50,39 @@ the required source, build and provenance checks remain intact.
 
 ## Current public evidence
 
+At `791bd3931a7a8cc8403602a8ce8869f73ef725f8`,
+[run 34603566489, attempt 1](https://github.com/neverhuman/jeryu/actions/runs/34603566489)
+passes source, public, web, runtime, product, security, sandbox and OCI. Web
+executed 210 unit tests and 72 browser tests, including creation retry. Rust
+fails eight API creation cases because newly written Git/metadata permissions
+are rejected; its 250 other API tests do not qualify the failed suite. Split
+diagnostics still fail Runner's governed auditor admission and Deploy's
+same-UID process custody. Audit, auditor and auxiliary proofs remain failed.
+
+The fresh native attempt at that clean head ran 13:39:22–13:39:42 UTC and
+passed all seven Core creation controls through the corrected selector, the
+rendered retry regression, source inventory and exact-head Tool projection
+check. The rendered screenshot was inspected. Earlier failed attempts remain
+retained; the Tool projection does not authenticate a producer or predecessor.
+
+The next correction requests private Git creation permissions explicitly and
+creates Jeryu metadata/directories with 0600/0700 modes. It leaves existing
+unsafe storage rejected and includes separate child-process tests with umasks
+0002 and 0000. This source still requires targeted and complete qualification.
+Git's explicit shared-permission initialization also enables its documented
+non-fast-forward receive refusal for newly created repositories; existing
+repositories are not reconfigured on completed replay.
+
+The retained [root report artifact](https://github.com/neverhuman/jeryu/actions/runs/34603566489/artifacts/10265902028)
+contains score 64/raw 83, six hard and 23 soft findings, and four caps. Exact
+cases were sent to the owning producer lifecycle: the thin score workflow,
+literal-array trigger SQL, the actual `legacy` CI lane name, Tool's
+`deprecated` wire values, and Web's rule forbidding localStorage/sessionStorage.
+Several appear to classify valid controls as unsafe; none is waived or hidden.
+Producer regression fixes and independent qualification remain required before
+any consumer repin. Census Bubblewrap execution and authentic proof admission
+remain distinct failures.
+
 At `dfac9be54308111eef2a09f51fa05ef50bfff612`,
 [run 34573986036](https://github.com/neverhuman/jeryu/actions/runs/34573986036)
 completed with eight successful lanes: source, public, web, runtime, product,
@@ -74,8 +107,8 @@ materialization tests, seven browser API recovery tests, warning-denied Core/API
 Clippy, both workflow linters, 45 matrix and 128 dispatch controls, the browser
 concurrency unit test and TypeScript checking. The first Core selector ran zero
 tests and supplies no evidence. The rendered retry fixture omitted the required
-Owner field and stopped before submission; that fixture is corrected, with a
-fresh Core/rendered run pending. Original failed artifacts remain retained.
+Owner field and stopped before submission; that fixture was corrected and
+the fresh Core/rendered run above passed. Original failed artifacts remain retained.
 Core/Work repair, browser reload recovery and repair-management UI remain open.
 
 PR 65 advanced during readback from `0152fe86` to
@@ -92,11 +125,29 @@ preserved in a verified bundle. Both changed files were reviewed. Its API test
 serialization is already provided by `RUST_TEST_THREADS=1` in the maintained
 command for every environment; no hosted-only command split is necessary.
 
+PR 65 then advanced to `b50dc1f1f447d602b5fc98fe6dc4fdc70914a19b`, preserved
+in a verified bundle. Its two changed files remove hosted environment variables
+from the Rust dispatch fixture and regenerate inventory. The maintained command
+already serializes every environment and passes its full hosted source tests;
+the environment-specific fixture workaround is unnecessary here.
+
 PR 66 was closed by another maintainer at 12:33 UTC and reopened at 13:03 UTC
 after confirming it remained unmerged at `dfac9be5`, against unchanged
 `main` `4c93436abdc6160885216c9ea71414501db2f54c`. No merged replacement for
-its unique changes was identified. Its review remains open and both branches
-and histories are preserved.
+its unique changes was identified. It was closed again at 13:40 UTC, still
+unmerged at `791bd393`. The coordinator requires explicit source and gate
+reconciliation; this closure is not accepted supersession. Both branches and
+histories remain preserved. The maintained full-contract branch is proposed
+as the normal linear successor, with independent review still required.
+
+Deploy PR 1 at `c8f43ede` requires original Core `d0952ff9` authenticated actor,
+review challenge, nonce/head preconditions, persisted history and dismissal
+interfaces absent from embedded Core. Original Core's held `a3d2a97b` successor
+contains additional required-attempt/publisher and commissioning barriers.
+This contribution is not already integrated or obsolete. Its owning source
+handoff, independent qualification and deliberate SQLite migration composition
+must preserve both its migrations and the monorepo's creation journal; replacing
+the component directory would lose accepted behavior.
 
 All ten component GitHub `main` protections now require strict,
 GitHub Actions app-bound `<component>/required` and `<component>/audit`, one
@@ -262,13 +313,13 @@ claim. Missing maintained commands remain explicit gaps.
 
 | ID | Requirement / owner | Maintained command or owning source | Current result / correction | PR |
 | --- | --- | --- | --- | --- |
-| R01 | Reviewed integrated candidate / monorepo | `scripts/ci.sh source` | Public ancestry retained; pending slice integrated. Inventory, generated consumers, manifest paths, monorepo check and 128 CI dispatch scenarios pass; complete hosted source lane pending. | [66](https://github.com/neverhuman/jeryu/pull/66) |
+| R01 | Reviewed integrated candidate / monorepo | `scripts/ci.sh source` | Public ancestry retained; pending slice integrated. Complete hosted source lane passes at 791bd393. Latest private-mode correction and Core/Deploy source intake require their own qualification. | [66](https://github.com/neverhuman/jeryu/pull/66) |
 | R02 | Exact complete CI inventory / Deploy | `jeryu-split ci-required-check`; `scripts/check-required-ci.sh` | Five validator tests pass, covering exact repository/source/workflow/run/attempt and missing, duplicate, substituted or unsuccessful jobs. Hosted final-head execution pending. | [66](https://github.com/neverhuman/jeryu/pull/66) |
 | R03 | Required audit work survives later pushes / CI | `.github/workflows/ci.yml`, `jankurai-score.yml` | Unique run/attempt concurrency groups and cancellation disabled. Service reconciliation remains separate. | [66](https://github.com/neverhuman/jeryu/pull/66) |
-| R04 | Full Rust product matrix / components | `scripts/ci.sh rust` | Public refactors failed formatting. Formatting corrected; complete test and Clippy union remains required. | 65 |
-| R05 | Browser journey, accessibility, performance / Web | `scripts/ci.sh web` | Public consolidation lost the effective keyboard-scroll lint setting. Restored original behavior; lint and full rendered matrix required. | 65; Web 1 |
+| R04 | Full Rust product matrix / components | `scripts/ci.sh rust` | At 791bd393, full Clippy passes but eight API creation tests fail storage permission checks. Explicit private creation correction awaits qualification; complete test union remains required. | 65; 66 |
+| R05 | Browser journey, accessibility, performance / Web | `scripts/ci.sh web` | Complete hosted Web lane passes at 791bd393, including 210 unit and 72 rendered tests. Subsequent source requires new evidence. | 65; Web 1 |
 | R06 | Bootstrap, credentials, Git, issues, Work, PRs, checks, merge, restart / Core+Deploy+Work | `scripts/ci.sh runtime`, `scripts/ci.sh product` | Bootstrap now prepares and syncs the one-time receipt before creating an account and resumes from that receipt after interruption. New restart/custody regressions and final-source complete journey remain pending. | 65 |
-| R07 | Interrupted repository/Core-Work repair / Core+Deploy+Work | API repository/Work modules and owning tests | Core journals the original request/UUID; Git publication and browser setup now resume that identity and planned commit. Five materializer and seven browser API tests pass, including restart and preservation of pushed history. Earlier 265-test Core result precedes the current family-identity regression; corrected Core selector and rendered retry test remain pending. CLI/reload recovery, pending-repair visibility, Core-Work repair and migration analysis remain open. | [66](https://github.com/neverhuman/jeryu/pull/66) |
+| R07 | Interrupted repository/Core-Work repair / Core+Deploy+Work | API repository/Work modules and owning tests | Core journals the original request/UUID; Git publication and browser setup resume that identity and planned commit. Seven Core and the rendered retry controls pass at 791bd393. Earlier five materializer/seven API passes remain retained, but full hosted API exposes eight permission failures. Private-mode correction, CLI/reload recovery, pending-repair visibility, Core-Work repair and migration composition remain open. | [66](https://github.com/neverhuman/jeryu/pull/66) |
 | R08 | Backup/restore, upgrade/rollback, permissions, TLS / Deploy | `scripts/test-source-install.sh`; `docs/recovery.md` | Dedicated-account hosted runtime passes at 7ca21a00 and 9be7395e with strict cleanup retained. Cross-version upgrade/rollback and remote TLS drills remain required. | [66](https://github.com/neverhuman/jeryu/pull/66) |
 | R09 | Anonymous source installation / Deploy | `scripts/build.sh`; `scripts/install.sh --from-source` | Build no longer reconstructs component source or adds a Python prerequisite for that operation. Final anonymous empty-cache source journey pending. | [66](https://github.com/neverhuman/jeryu/pull/66) |
 | R10 | Full dependency closure / Deploy | `jeryu-split dependency-inputs` | Version-aware inventory implemented. Exact revision/hash/license/capability closure and public acquisition evidence remain required. | 65 |
@@ -286,23 +337,23 @@ claim. Missing maintained commands remain explicit gaps.
 | R22 | Immutable JSON/Markdown/SVG/provenance and Pages / service | `docs/migration/AUDIT-PUBLICATION.md` | Trusted sanitized publisher, first-party renderer, Pages artifact workflow and public reachability unqualified. | New service work |
 | R23 | Race-safe live cards and README enrollment / service | `jeryu-split audit-readme` | Marker validator exists; pending publication, monotonic head pointers and separate maintained/pinned cards need service integration. | 65 |
 | R24 | Deterministic exports and mirror divergence / Deploy | `scripts/ci.sh splits`; `prepare-mirror-update` | Repeated export preparation exists; actual exported source must independently build/test/audit before protected forward publication. | Component followups |
-| R25 | All accepted PRs and consistent protections / maintainers | Public PR inventory below | Ten component policies strengthened and fully read back; root policy retained. PR 66 reopened because no merged replacement for its unique work exists. Complete accepted-change review, genuine required checks and independent reviewer/merger remain necessary. | All below |
+| R25 | All accepted PRs and consistent protections / maintainers | Public PR inventory below | Ten component policies strengthened and fully read back; root policy retained. PR 66 was closed again without an accepted merged replacement; explicit successor reconciliation is required. Complete accepted-change review, genuine required checks and independent reviewer/merger remain necessary. | All below |
 | R26 | Resulting-main qualification / maintainers | Complete `scripts/ci.sh all` at every maintained final head | Open. PR execution alone never qualifies merge output. Optional Redline remains separate from SQLite readiness. | All below |
 | R27 | Signed candidate archives and binary installation / Release Ops+Deploy | Central artifact/installer qualification | Signatures, checksums, SPDX/CycloneDX, provenance, install evidence and tampering/platform rejection remain open. Binary install stays closed. | Release followup |
 | R28 | Exact original-directory dispositions / family owners | `DISPOSITION.md`; preservation/restoration gates | Original checkouts, duplicate Redline and failed-build custody retained. No directory retirement or installed-service activation performed. | Separate custody work |
 
-## Open public PRs
+## Public PR dispositions
 
-The original eight have advanced, and Deploy 1 plus corrective PR 66 bring the
-current inventory to ten open PRs across all eleven repositories. Full
-accepted-change dispositions still require review and merged replacements.
+The inventory tracks nine open proposals and corrective PR 66, closed with
+unique work still unmerged. Full accepted-change dispositions require review
+and merged replacements across all eleven repositories.
 
 | Repository / PR | Exact observed head | Disposition |
 | --- | --- | --- |
-| [jeryu 65](https://github.com/neverhuman/jeryu/pull/65) | `e63ad9cac68b26c39ee01cbbfdcf74cff8d25e2a` | History preserved; Git compatibility and bounded SQLite lease-wait fixes retained; API serialization already maintained; hosted-only skips superseded |
-| [jeryu 66](https://github.com/neverhuman/jeryu/pull/66) | `dfac9be54308111eef2a09f51fa05ef50bfff612` | Reopened with unique changes unmerged; complete matrix remains failed; recovery correction awaits publication |
+| [jeryu 65](https://github.com/neverhuman/jeryu/pull/65) | `b50dc1f1f447d602b5fc98fe6dc4fdc70914a19b` | History preserved; Git compatibility and bounded SQLite lease-wait fixes retained; API serialization already maintained; full gates required in successor |
+| [jeryu 66](https://github.com/neverhuman/jeryu/pull/66) | `791bd3931a7a8cc8403602a8ce8869f73ef725f8` | Closed again with unique changes unmerged; explicit successor reconciliation pending; complete matrix remains failed |
 | [Cache 1](https://github.com/neverhuman/jeryu-cache/pull/1) | `a1571865b27ebce9b74154aedd265610df2eaae4` | Product/security/contract changes retained; root dependency graph and stronger source/score checks preserved; public tooling and merged replacement pending |
-| [Deploy 1](https://github.com/neverhuman/jeryu-deploy/pull/1) | `c8f43edead0b8d276e9e13ed517823a223f6807a` | Newly open; accepted work and standalone qualification require reconciliation |
+| [Deploy 1](https://github.com/neverhuman/jeryu-deploy/pull/1) | `c8f43edead0b8d276e9e13ed517823a223f6807a` | Authenticated review APIs require original Core interfaces/migrations/barriers still absent from embedded Core; source reconciliation and standalone qualification pending |
 | [Work 1](https://github.com/neverhuman/jeryu-jira/pull/1) | `9ad978a9fbd73c830e3ad0884eb74981d5e89460` | Changed files reconciled; product changes retained, complete proof/security/source admission preserved, lower-floor unbound badge not admitted; merged replacement pending |
 | [Intelligence 1](https://github.com/neverhuman/jeryu-intelligence/pull/1) | `ca6ae2934600c95e2471ea038877733472928681` | Storage and corrected generated contract integrated; dispositions recorded; protected replacement pending |
 | [Tool 1](https://github.com/neverhuman/jeryu-tool/pull/1) | `d904e09cb1f49b3dc0feb47da2cde6b97b5f4391` | Open; require full provenance and authentic predecessor |

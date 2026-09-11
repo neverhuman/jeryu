@@ -207,7 +207,10 @@ pub(crate) fn sync_tree(path: &Path) -> Result<()> {
     let metadata = fs::symlink_metadata(path)?;
     ensure!(
         metadata.uid() == fs::metadata("/proc/self")?.uid() && metadata.mode() & 0o022 == 0,
-        "unsafe creation tree ownership"
+        "unsafe creation tree ownership at {} (uid {}, mode {:o})",
+        path.display(),
+        metadata.uid(),
+        metadata.mode() & 0o7777
     );
     if metadata.is_dir() {
         for entry in fs::read_dir(path)? {
