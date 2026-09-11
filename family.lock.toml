@@ -19,8 +19,8 @@ required_check = "jeryu-cache/required"
 name = "jeryu-ci-runner"
 path = "components/jeryu-ci-runner"
 github = "https://github.com/neverhuman/jeryu-ci-runner.git"
-tag = "jeryu-ci-runner-family-osstr"
-tree = "bd368a2ab5c435ec668bf6ab0e21b51781b15ded"
+tag = "jeryu-ci-runner-family-gha-host"
+tree = "9569043980cb2e34f3bed4fd683853938061401e"
 required_check = "jeryu-ci-runner/required"
 
 [[repo]]
