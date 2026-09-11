@@ -39,11 +39,14 @@ const MIGRATION_0010: &str =
 const MIGRATION_0011: &str = include_str!("../../../../../db/migrations/0011_review_head_sha.sql");
 const MIGRATION_0012: &str =
     include_str!("../../../../../db/migrations/0012_review_dismissal_target.sql");
+const MIGRATION_0013: &str =
+    include_str!("../../../../../db/migrations/0013_repository_creation.sql");
 
 pub(super) fn apply_migrations(conn: &Connection) -> Result<()> {
     apply_migrations_through_0010(conn)?;
     apply_migration_0011(conn)?;
     add_column_if_missing(conn, "reviews", "dismissed_review_id", MIGRATION_0012)?;
+    conn.execute_batch(MIGRATION_0013).map_err(storage_error)?;
     Ok(())
 }
 

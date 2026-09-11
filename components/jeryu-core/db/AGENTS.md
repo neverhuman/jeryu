@@ -46,3 +46,9 @@ Migration 0012 review dismissal notes:
 - Exercise migration_0012_preserves_unbound_dismissals and
   review_dismissal_survives_sqlite_reopen_and_unrelated_write with two Cargo jobs
   in the allocated CI window, then run the migration analysis lane above.
+
+Migration 0013 creation journal:
+- Keep receipts after repository deletion; they prevent creation UUID reuse.
+- Thread the journal through State, load and every atomic full-state rewrite.
+- Never infer retry authority for legacy rows. Stop older writers after adoption.
+- Run the complete core::repository_creation::tests scope and migration analysis.

@@ -15,6 +15,7 @@ pub(super) fn delete_all(conn: &Connection) -> Result<()> {
         DELETE FROM commit_statuses;
         DELETE FROM repository_aliases;
         DELETE FROM repository_transfer_journal;
+        DELETE FROM repository_creation_journal;
         DELETE FROM codeowners;
         DELETE FROM repository_readmes;
         DELETE FROM labels;
@@ -46,6 +47,13 @@ pub(super) fn delete_all(conn: &Connection) -> Result<()> {
 }
 
 pub(super) fn persist_state(conn: &Connection, state: &State) -> Result<()> {
+    for journal in state.repository_creations.values() {
+        conn.execute(
+            "INSERT INTO repository_creation_journal (repository_id, receipt_json) VALUES (?1, ?2)",
+            params![journal.repository_id.to_string(), json(journal)?],
+        )
+        .map_err(storage_error)?;
+    }
     for user in state.users.values() {
         conn.execute(
             "INSERT INTO users (login, user_json) VALUES (?1, ?2)",

@@ -6,7 +6,7 @@ use std::hash::Hash;
 use chrono::{TimeDelta, Utc};
 use uuid::Uuid;
 
-use super::{Counters, ForgeCore, require_name};
+use super::{ForgeCore, require_name};
 use crate::errors::{ForgeError, Result};
 use crate::model::*;
 
@@ -97,47 +97,6 @@ fn drain_scoped_vecs<K: Eq + Hash + Clone, V>(
 }
 
 impl ForgeCore {
-    pub fn create_repository(
-        &self,
-        owner: &str,
-        request: CreateRepositoryRequest,
-    ) -> Result<Repository> {
-        require_name("repository name", &request.name)?;
-        let mut state = self.runtime.state.write();
-        let key = (owner.to_string(), request.name.clone());
-        if state.repos.contains_key(&key) {
-            return Err(ForgeError::Conflict(format!(
-                "repository {owner}/{}",
-                request.name
-            )));
-        }
-        let previous = state.clone();
-        let now = Utc::now();
-        let repo = Repository {
-            id: Uuid::new_v4(),
-            owner: owner.to_string(),
-            name: request.name.clone(),
-            full_name: format!("{owner}/{}", request.name),
-            private: request.private,
-            description: request.description,
-            default_branch: request.default_branch.unwrap_or_else(|| "main".to_string()),
-            family: None,
-            archived: false,
-            disabled: false,
-            created_at: now,
-            updated_at: now,
-        };
-        state.counters.insert(key.clone(), Counters::default());
-        state.repos.insert(key, repo.clone());
-        super::ensure_default_branch_protection(&mut state, &repo);
-        self.persist_after_mutation(&mut state, previous)?;
-        drop(state);
-        if let Some(materializer) = &self.repo_materializer {
-            materializer.materialize(owner, &repo.name, &repo.default_branch)?;
-        }
-        Ok(repo)
-    }
-
     pub fn list_repositories(&self, owner: Option<&str>) -> Vec<Repository> {
         let mut repos: Vec<_> = self
             .runtime

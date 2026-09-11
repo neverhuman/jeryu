@@ -282,3 +282,26 @@ data backfill. Do not start an older writer against the migrated database: its
 full-state rewrite erases target bindings. The rollback notice retains all audit
 rows; after accepted mutations, recover forward. Full state rollback is available
 only when it would lose no accepted mutation.
+
+## 0013 Repository creation journal
+
+Core commits the immutable creation UUID, owner and complete original request
+with repository metadata in the same SQLite transaction. Git materialization
+and the durable completion write must both succeed before creation returns
+success. A failed operation remains marked `materialized=false` and can be
+retried using the same UUID and request. `repository_creations()` exposes these
+records to the owning transport; it does not authenticate its caller.
+
+The journal has no repository foreign key. Deletion retains its receipt so an
+old request cannot recreate a removed identity or adopt a replacement at the
+same name. Loading validates the JSON receipt and matching UUID. Every full-state
+rewrite includes the journal, including unrelated mutations. Existing rows have
+no backfill: their creation identities cannot be inferred. Core completion does
+not claim completion of the browser's README/family setup or Core/Work linking.
+
+Before activation, stop writers, hold the migration lock and preserve a verified
+consistent backup. The additive table needs a schema write lock; use the bounded
+lock/statement budgets in its metadata. Do not start an older application against
+the adopted store: it can leave creation receipts inconsistent with its writes.
+Keep the table and recover forward after accepted mutations. Restore a verified
+pre-migration package only when it loses no accepted mutation.

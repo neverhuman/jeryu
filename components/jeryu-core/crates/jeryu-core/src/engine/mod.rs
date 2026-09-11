@@ -32,6 +32,7 @@ mod jankurai;
 mod pull_requests;
 mod readmes;
 mod repositories;
+mod repository_creation;
 mod repository_transfer;
 mod repository_transfer_state;
 mod reviews;
@@ -47,6 +48,7 @@ pub use audit::AuditEntry;
 pub use coordinator::MutationCoordinator;
 pub use pull_requests::MergeReadiness;
 pub use repositories::RepositoryDeletion;
+pub use repository_creation::RepositoryCreation;
 
 #[derive(Debug, Clone, Default)]
 struct Counters {
@@ -67,6 +69,7 @@ struct State {
     organizations: HashMap<String, Organization>,
     teams: HashMap<(String, String), Team>,
     repos: HashMap<(String, String), Repository>,
+    repository_creations: HashMap<Uuid, RepositoryCreation>,
     labels: HashMap<(String, String, String), Label>,
     issues: HashMap<(String, String, u64), Issue>,
     issue_comments: HashMap<(String, String, u64), Vec<IssueComment>>,

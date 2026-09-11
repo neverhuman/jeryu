@@ -53,13 +53,6 @@ jobs:
           sudo -n chmod 0700 /home/jeryu-runtime
           sudo -n mv "$HOME/.cargo" "$HOME/.rustup" /home/jeryu-runtime/
           sudo -n chown -R jeryu-runtime:jeryu-runtime "$GITHUB_WORKSPACE" /home/jeryu-runtime
-          # The checkout is owned by the test account, but its runner-owned
-          # ancestors still need traversal for absolute-path child commands.
-          parent=$(dirname "$GITHUB_WORKSPACE")
-          while [ "$parent" != / ]; do
-            sudo -n setfacl -m u:45165:--x "$parent"
-            parent=$(dirname "$parent")
-          done
           if [ "$JERYU_CI_LANE" = rust ]; then
             sudo -n usermod --append --groups docker jeryu-runtime
           fi
@@ -74,10 +67,32 @@ jobs:
             # Process-custody checks require visibility of every process with
             # the fixture UID. The hosted runner's own UID includes private
             # supervisor processes; keep their identity outside this proof.
+            # Auditor custody also checks every source ancestor's owner.
+            # Move this checkout beneath the private identity for the command,
+            # then restore it for the runner's normal post-job cleanup.
+            isolated_source=/home/jeryu-runtime/source
+            test -d "$GITHUB_WORKSPACE/.git" && test ! -L "$GITHUB_WORKSPACE/.git"
+            checkout_identity=$(sudo -n stat -c '%d:%i' "$GITHUB_WORKSPACE")
+            sudo -n test ! -e "$isolated_source"
+            sudo -n test ! -L "$isolated_source"
+            restore_source() {
+              result=$?
+              trap - EXIT
+              if ! sudo -n mv --no-copy --no-clobber --no-target-directory "$isolated_source" "$GITHUB_WORKSPACE" ||
+                sudo -n test -e "$isolated_source" ||
+                test "$(sudo -n stat -c '%d:%i' "$GITHUB_WORKSPACE")" != "$checkout_identity"; then
+                echo 'isolated checkout restoration failed; retain source at its private path' >&2
+                exit 1
+              fi
+              exit "$result"
+            }
+            sudo -n mv --no-copy --no-clobber --no-target-directory "$GITHUB_WORKSPACE" "$isolated_source"
+            test "$(sudo -n stat -c '%d:%i' "$isolated_source")" = "$checkout_identity"
+            trap restore_source EXIT
             sudo -n -u jeryu-runtime env -i HOME=/home/jeryu-runtime \
               PATH="/home/jeryu-runtime/.cargo/bin:$PATH" \
               CARGO_HOME=/home/jeryu-runtime/.cargo RUSTUP_HOME=/home/jeryu-runtime/.rustup \
-              CARGO_BUILD_JOBS=2 CI=true bash ops/ci/monorepo.sh "$JERYU_CI_LANE"
+              CARGO_BUILD_JOBS=2 CI=true bash "$isolated_source/ops/ci/monorepo.sh" "$JERYU_CI_LANE"
           else
             bash ops/ci/monorepo.sh "$JERYU_CI_LANE"
           fi

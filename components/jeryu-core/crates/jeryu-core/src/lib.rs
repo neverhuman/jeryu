@@ -23,7 +23,7 @@ pub use crate::branch_protection::{
 };
 pub use crate::core::{
     AuditEntry, ForgeCore, MergeReadiness, MutationCoordinator, RepoMaterializer,
-    RepositoryDeletion,
+    RepositoryCreation, RepositoryDeletion,
 };
 pub use crate::error::{AgentRepairHint, JeryuError, JeryuResult};
 pub use crate::errors::{ForgeError, Result};

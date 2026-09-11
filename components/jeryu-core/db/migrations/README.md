@@ -1,3 +1,5 @@
 # Migrations
 
-No SQL migrations are owned by this split today. Add numbered migrations here only with rollback, backfill, and lock-safety notes in the same change.
+Core owns the numbered SQLite migrations in this directory. Each stored-shape
+change needs rollback, backfill and lock-safety notes. Migration 0013 adds retained
+repository creation receipts; see `../constraints.md` before adoption or rollback.

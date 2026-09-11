@@ -18,7 +18,7 @@
       "kind": "workflow",
       "path": ".github/workflows/ci.yml",
       "port_status": "pending-equivalence-proof",
-      "sha256": "b3667439c263a958fa307d5531dae33b9bec10b86bcdde06a36638c0479f32af"
+      "sha256": "ee37fcce2bae936591104af71295c35a37f1c23eb8528bdbfbc32ba7e5a4c8f5"
     },
     {
       "component": "jeryu",
@@ -1795,6 +1795,14 @@
       "path": "components/jeryu-core/crates/jeryu-bugtracker/tests/store_crud.rs",
       "port_status": "pending-equivalence-proof",
       "sha256": "59f74cf60cb008a7419f2665a0074c4c50232d4e2988aadd074f47dd8757e6c7"
+    },
+    {
+      "component": "jeryu-core",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-core/crates/jeryu-core/src/engine/repository_creation/tests.rs",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "9b19ccdb9241a43e558d067b07a2d73cf449ef37b0555131da79a1b1da1f3a2e"
     },
     {
       "component": "jeryu-core",
