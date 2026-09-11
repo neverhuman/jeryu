@@ -50,6 +50,19 @@ the required source, build and provenance checks remain intact.
 
 ## Current public evidence
 
+At `ac800340532341ddcfd6829ae9ca69b152a81b74`,
+[run 34607121494, attempt 1](https://github.com/neverhuman/jeryu/actions/runs/34607121494)
+passes source, public, web, runtime, product, security, sandbox and OCI. Rust
+passes all 259 API unit tests, including the new real child-process umask
+0002/0000 controls and all eight previously failing creation cases. It then
+fails four of five live-HTTP tests before readiness: their PID-only temporary
+parent directories inherit group-write permission. The fixture correction uses
+owned private temporary directories, checks server cancellation and cleanup,
+and refuses missing Git/LFS capabilities instead of returning success. That
+correction and the complete Rust union require a new source-bound run. Audit,
+auditor and auxiliary proofs fail; splits and legacy were still running at
+this readback. No complete CI pass is implied.
+
 At `791bd3931a7a8cc8403602a8ce8869f73ef725f8`,
 [run 34603566489, attempt 1](https://github.com/neverhuman/jeryu/actions/runs/34603566489)
 passes source, public, web, runtime, product, security, sandbox and OCI. Web
@@ -68,7 +81,8 @@ retained; the Tool projection does not authenticate a producer or predecessor.
 The next correction requests private Git creation permissions explicitly and
 creates Jeryu metadata/directories with 0600/0700 modes. It leaves existing
 unsafe storage rejected and includes separate child-process tests with umasks
-0002 and 0000. This source still requires targeted and complete qualification.
+0002 and 0000. These targeted controls pass at `ac800340` above; complete
+qualification remains required.
 Git's explicit shared-permission initialization also enables its documented
 non-fast-forward receive refusal for newly created repositories; existing
 repositories are not reconfigured on completed replay.
@@ -148,6 +162,27 @@ This contribution is not already integrated or obsolete. Its owning source
 handoff, independent qualification and deliberate SQLite migration composition
 must preserve both its migrations and the monorepo's creation journal; replacing
 the component directory would lose accepted behavior.
+
+The received original Core intake packet binds `a3d2a97b3d1fb012a1a5d52cb8b83965b1d2559d`
+and its preserved ancestry. The first integrated slice is stable SQLite
+persistence from `cd14941dffa184763dc51ddb8917e20fc74e88ba`: serialize desired
+State into connection-local temporary tables, then delete only explicitly
+absent rows, update changed owned columns, and insert new keys transactionally.
+Existing parent rowids, independently owned columns and foreign-key children
+survive ordinary saves. Database constraints remain active, and rejected writes
+roll back both durable and shared state.
+
+The monorepo retains its modular serializer and UUID creation journal. The
+upstream mutation-block table is excluded from this slice because its owning
+State and migration have not yet been integrated. All four upstream storage
+regressions and six stable-persistence integration cases are retained; the
+latter also exercise independently owned creation receipts and opaque journal
+columns, including preservation after repository deletion. Two fixture calls
+are adapted to the existing fallible `create_user` and coordinator interfaces.
+Formatting and source checks are preparation only: these imported tests still
+require execution at the new candidate. Ordinary mutation guards, opaque actors,
+bound reviews, Git intents/outbox, required attempts, publisher enrollment and
+commissioning barriers remain separate required intake and qualification work.
 
 All ten component GitHub `main` protections now require strict,
 GitHub Actions app-bound `<component>/required` and `<component>/audit`, one

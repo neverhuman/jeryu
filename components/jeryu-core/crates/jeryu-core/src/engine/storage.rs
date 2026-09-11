@@ -13,9 +13,13 @@ mod codec;
 mod load;
 mod migrations;
 mod persist;
+mod snapshot;
+
+#[cfg(test)]
+mod tests;
 
 use self::load::{backfill_missing_counters, load_state};
-use self::persist::{delete_all, persist_state};
+use self::persist::stage_state;
 
 use self::codec::*;
 use self::migrations::apply_migrations;
@@ -44,18 +48,21 @@ impl SqliteStore {
 
     pub(super) fn persist(&self, state: &State) -> Result<()> {
         let mut conn = self.connect()?;
+        conn.execute_batch("PRAGMA temp_store = MEMORY;")
+            .map_err(storage_error)?;
         let tx = conn.transaction().map_err(storage_error)?;
-        delete_all(&tx)?;
-        persist_state(&tx, state)?;
+        snapshot::create_tables(&tx)?;
+        stage_state(&tx, state)?;
+        snapshot::apply(&tx)?;
         tx.commit().map_err(storage_error)?;
         Ok(())
     }
 
     /// Append one audit receipt through a fresh connection.
     ///
-    /// `forge_audit_log` is intentionally NOT part of `persist`/`delete_all`:
-    /// the full-state rewrite must never wipe the trail, so audit writes take
-    /// this dedicated path instead of riding the state snapshot.
+    /// `forge_audit_log` is independently owned and outside the State snapshot.
+    /// Its append-only trail uses this dedicated path; ordinary State saves
+    /// never delete or rewrite audit receipts.
     pub(super) fn append_audit(&self, entry: &AuditEntry) -> Result<()> {
         let conn = self.connect()?;
         conn.execute(
