@@ -1161,7 +1161,7 @@
       "kind": "proof-implementation-or-input",
       "path": "components/jeryu-ci-runner/crates/jeryu-runnerd/tests/hosted_dependency_transport.rs",
       "port_status": "pending-equivalence-proof",
-      "sha256": "b56a6a557c08aeee61d13e18263dce893ab97dd17b6cfe84b1b2da8ad2916d2d"
+      "sha256": "01d7a2498329bc26b6c431c685369430e98e779b8150fd68965f91c0e1384f38"
     },
     {
       "component": "jeryu-ci-runner",
