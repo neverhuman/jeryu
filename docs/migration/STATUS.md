@@ -128,7 +128,11 @@ gap remains documented in the historical record.
 GitHub `main` may lag this source candidate. Until `main` fast-forwards,
 clone by tag:
 
-`git clone --branch jeryu-public-candidate-lock-72035eaf https://github.com/neverhuman/jeryu.git`
+`git clone --branch jeryu-public-candidate-20260911t035111z https://github.com/neverhuman/jeryu.git`
+
+The earlier lock tag `jeryu-public-candidate-lock-72035eaf` remains published
+and is not moved. It proved build/install/serve and family reconstruct.
+Hosted required CI repairs land on the newer candidate tag.
 
 Published 2026-09-11:
 - Close-out commit `72035eaf281f0b2cf459ac8d271b162c046a6d29` (tree `dcd977b23ee5a223eb5635a2b068a6a25e4fc965`), tag `jeryu-public-candidate-20260911t021229z`
