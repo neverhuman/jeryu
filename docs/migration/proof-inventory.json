@@ -2951,7 +2951,7 @@
       "kind": "proof-implementation-or-input",
       "path": "components/jeryu-deploy/crates/jeryu-cli/tests/support/recovery.rs",
       "port_status": "pending-equivalence-proof",
-      "sha256": "2199f8779eb711d82392cc936156b6bc2bd7a3631992e92db0b4760f96e7e224"
+      "sha256": "fd3cb43934db3ff030b492373cc415dccd7ec617277dde6862f80ecbaaa426fd"
     },
     {
       "component": "jeryu-deploy",

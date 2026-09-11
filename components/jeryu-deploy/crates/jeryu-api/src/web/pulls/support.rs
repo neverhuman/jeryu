@@ -76,7 +76,7 @@ pub(super) fn detail_for_pr(
 }
 
 #[cfg(test)]
-pub(super) fn detail_for_pr_with_audit_enforcement(
+pub(in crate::web) fn detail_for_pr_with_audit_enforcement(
     state: &WebState,
     pr: &PullRequest,
     audit_enforce_merge: bool,

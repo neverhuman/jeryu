@@ -106,6 +106,9 @@ struct PullRequestCheck {
 }
 
 pub(super) mod posture;
+pub(super) use posture::audit_merge_enforced_value;
+#[cfg(test)]
+pub(super) use support::detail_for_pr_with_audit_enforcement;
 
 use posture::{checks_for_pr, comment_input, review_state, threads_for_pr};
 
