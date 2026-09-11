@@ -1,6 +1,8 @@
 # Accepted component work
 
-These are source dispositions for draft [PR 66](https://github.com/neverhuman/jeryu/pull/66).
+These are source dispositions for the continuing public candidate on
+`codex/public-release-gates-20260911t034104z`. [PR 66](https://github.com/neverhuman/jeryu/pull/66)
+was closed without a merged replacement; its unique work remains required.
 The original PRs stay open until accepted work has a protected merged replacement.
 Preserved public commits and verified bundles retain every proposed change,
 including changes whose behavior is superseded. A source disposition is not an
@@ -51,3 +53,32 @@ Reviewed source: `ee0e0ca335ad1f7c4adaa4ffd7d15e387160dffa`, from
 Owning validation remains `bash scripts/ci-local.sh required`, including check,
 score, security, contract and artifact lanes. Source equality and root Rust
 tests do not replace the complete owning proof or exported-source qualification.
+
+## Deploy PR 1: reviewed product and dependency boundaries
+
+Reviewed preserved source: `c8f43edead0b8d276e9e13ed517823a223f6807a`,
+from [Deploy PR 1](https://github.com/neverhuman/jeryu-deploy/pull/1).
+The following dispositions cover the reviewed subset of its 143 changed paths.
+Remaining workflow, security, manifest and proof changes still need individual
+inclusion decisions; this table does not close or approve the original PR.
+
+| Proposed files/work | Maintained disposition and evidence |
+| --- | --- |
+| Authenticated review handlers, their six real-Git/router controls and current actor adapters | Integrated in `50eb49f9` with original Core `d0952ff9`; all six controls pass in full hosted Rust. Current browser request/response contracts are being checked against those same handlers. |
+| Review posture, observer attachment and HTTP helpers | Current modular HTTP/posture implementation retains the original authenticated behavior, management-root observer and current actor errors. |
+| `auth.rs` logout and read authentication | Current session/PAT read resolution is equivalent. The separate original `ef60ce5f` logout correction propagates durable revocation failures; all eight owning route tests pass at `50eb49f9`. |
+| `git_transport.rs` | Preserve resolver-bound repository authorization, anonymous public reads and refusal of supplied invalid tokens. Independently stripping a suffix could authorize metadata belonging to a different repository. |
+| `ci_bridge.rs` | The sole remaining difference is the Tool-owned public auditor source URL; source/build/executable/receipt verification remains required. |
+| `bootstrap.rs` | Preserve administrator-only bootstrap and the durable receipt-before-account recovery flow. Original automatic creation of two named user accounts and account-before-receipt ordering are superseded. |
+| `sessions.rs`, `sessions/runtime.rs`, session tests | Preserve owned test credential input, validation of existing onboarding state and the actual denied-network policy. Original implicit bridge networking is superseded; current product-image and credential-isolation qualification remain required. |
+| `surface.rs`, README/workcell error adapters and MCP test diagnostics | Preserve embedded assets when no SPA directory is configured, existing typed errors/statuses, and the same terminal MCP assertion. |
+| `github/pulls.rs`, catalog fork fixture | Restore explicit default branch and distinct source/destination repository UUID assertions alongside existing fork admission tests. |
+| `merge_gating.rs` | Restore required Git availability in all twelve original cases. Four separate controls retain original legacy refusal, complete PR/check preservation, fast-forward/diverged/already-landed source and no mirror effect. Every existing positive merge requirement remains mandatory and currently fails until the authenticated durable executor is completed. |
+| CI-bridge, GitHub lifecycle and live HTTP tests | Preserve actual positive merge requirements rather than replace them with refusal-only success. Preserve current live HTTP health-body validation, private fixtures, real Git/LFS requirements and awaited server shutdown. Original advisory-roundtrip/closed-state and other negative assertions still need their final inclusion disposition. |
+| `dependency_sources.rs` | Preserve generic path-alias confinement through `monorepo_paths.rs` before Cargo metadata, covering all active root/member dependency sections, plus complete metadata rejection of every unowned local package. Its historical fixed `d0952ff9` Core coordinates and split source unifiers are provenance; root workspace/lock and deterministic exports select current build inputs. Exact public source, complete identity and source-denial gates remain required. |
+
+Current path/merge/fork corrections have formatting and source review only.
+Required execution includes the five owning path/metadata regression groups,
+full split-tool and API suites, real-Git refusals and positive merge journey,
+warning-denied Clippy, source inventory, standalone exports and full audits.
+These source checks do not establish protected-main or installed authority.

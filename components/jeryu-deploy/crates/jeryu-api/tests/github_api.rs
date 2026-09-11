@@ -25,12 +25,19 @@ fn router_with_repo() -> GithubRouter {
 }
 
 fn register_fork_source(router: &GithubRouter) {
-    let response = router.post("/repos", r#"{"owner":"fork-owner","name":"jeryu"}"#);
+    let response = router.post(
+        "/repos",
+        r#"{"owner":"fork-owner","name":"jeryu","private":false,"default_branch":"main"}"#,
+    );
     assert_eq!(
         response.status, 201,
         "create fork source: {}",
         response.body
     );
+    let source = router.core().get_repository("fork-owner", "jeryu").unwrap();
+    let destination = router.core().get_repository("alice", "jeryu").unwrap();
+    assert_ne!(source.id, destination.id);
+    assert_eq!(source.full_name, "fork-owner/jeryu");
 }
 
 #[test]

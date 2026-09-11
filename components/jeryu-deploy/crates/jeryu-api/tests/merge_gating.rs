@@ -194,9 +194,7 @@ fn router_with_pr(fixture: &GitFixture) -> (GithubRouter, u64) {
 
 #[test]
 fn commit_check_runs_resolve_and_filter_one_exact_head() {
-    if !git_available() {
-        return;
-    }
+    assert!(git_available(), "real Git is required for this regression");
     let fixture = seed_fixture("jeryu-check-runs-exact-head");
     let router = GithubRouter::new().with_repo_manager(fixture.manager.clone());
     let created = router.post(
@@ -253,9 +251,7 @@ fn commit_check_runs_resolve_and_filter_one_exact_head() {
 
 #[test]
 fn gated_merge_moves_main_in_bare_repo() {
-    if !git_available() {
-        return;
-    }
+    assert!(git_available(), "real Git is required for this regression");
     let fixture = seed_fixture("jeryu-merge-gate-pass");
     let (router, number) = router_with_pr(&fixture);
 
@@ -387,9 +383,7 @@ fn parents_of(manager: &RepoManager, oid: &str) -> Vec<String> {
 
 #[test]
 fn gated_true_merge_creates_merge_commit_and_moves_main() {
-    if !git_available() {
-        return;
-    }
+    assert!(git_available(), "real Git is required for this regression");
     // PRIMARY B2 PROOF for the non-fast-forward path: a gated+approved PR with a
     // diverged head merges into a real TWO-PARENT merge commit that advances main.
     let fixture = seed_diverged_fixture("jeryu-merge-true");
@@ -468,9 +462,7 @@ fn gated_true_merge_creates_merge_commit_and_moves_main() {
 
 #[test]
 fn blocked_pr_does_not_move_main() {
-    if !git_available() {
-        return;
-    }
+    assert!(git_available(), "real Git is required for this regression");
     let fixture = seed_fixture("jeryu-merge-gate-block");
     let (router, number) = router_with_pr(&fixture);
 
@@ -498,9 +490,7 @@ fn blocked_pr_does_not_move_main() {
 
 #[test]
 fn linear_history_base_refuses_true_merge_and_main_unchanged() {
-    if !git_available() {
-        return;
-    }
+    assert!(git_available(), "real Git is required for this regression");
     // Diverged head + required_linear_history=true => the real merge primitive
     // refuses the non-fast-forward merge (409) and main must not move.
     let root = temp_dir("jeryu-merge-linear-root");
@@ -632,9 +622,7 @@ fn open_pr_by_branch(router: &GithubRouter, head: &str, base: &str) -> u64 {
 
 #[test]
 fn open_pr_persists_real_resolved_oids_not_placeholders() {
-    if !git_available() {
-        return;
-    }
+    assert!(git_available(), "real Git is required for this regression");
     // A create request that names only branches (no shas) must persist the REAL
     // commit oids of those refs, never the "base"/"head-<n>" placeholders that
     // wedged `PUT /merge` with "oid is not a commit in this repository: base".
@@ -670,9 +658,7 @@ fn open_pr_persists_real_resolved_oids_not_placeholders() {
 
 #[test]
 fn normal_pr_merges_via_live_resolve_and_advances_main() {
-    if !git_available() {
-        return;
-    }
+    assert!(git_available(), "real Git is required for this regression");
     // A not-yet-merged PR opened by branch name (no stored shas) merges through
     // the REAL git path and fast-forwards main to the head — proving the merge
     // no longer depends on stored shas.
@@ -752,9 +738,7 @@ fn seed_landed_fixture(prefix: &str) -> GitFixture {
 
 #[test]
 fn merging_already_landed_pr_marks_merged_idempotently() {
-    if !git_available() {
-        return;
-    }
+    assert!(git_available(), "real Git is required for this regression");
     // The core stale-record bug: a PR whose head is already an ANCESTOR of base
     // (its code fast-forwarded into main server-side) must merge with
     // {merged:true} and flip the record to merged WITHOUT moving any ref — and
@@ -797,9 +781,7 @@ fn merging_already_landed_pr_marks_merged_idempotently() {
 
 #[test]
 fn merge_with_unresolvable_head_returns_4xx_not_500() {
-    if !git_available() {
-        return;
-    }
+    assert!(git_available(), "real Git is required for this regression");
     // A PR whose head names a branch that does not exist (and carries no real
     // stored head sha) must yield a clean typed 4xx, never a 500.
     let fixture = seed_fixture("jeryu-unresolvable-head");
@@ -887,9 +869,7 @@ fn mirror_check_runs(router: &GithubRouter, sha: &str) -> Vec<(String, Option<St
 
 #[test]
 fn merged_pr_pushes_main_to_configured_github_destination() {
-    if !git_available() {
-        return;
-    }
+    assert!(git_available(), "real Git is required for this regression");
     let fixture = seed_fixture("jeryu-merge-mirror-pass");
     let (router, number) = router_with_pr(&fixture);
 
@@ -927,9 +907,7 @@ fn merged_pr_pushes_main_to_configured_github_destination() {
 
 #[test]
 fn merge_succeeds_when_github_push_fails() {
-    if !git_available() {
-        return;
-    }
+    assert!(git_available(), "real Git is required for this regression");
     let fixture = seed_fixture("jeryu-merge-mirror-fail");
     let (router, number) = router_with_pr(&fixture);
 
@@ -956,9 +934,7 @@ fn merge_succeeds_when_github_push_fails() {
 
 #[test]
 fn unconfigured_repo_pushes_nothing() {
-    if !git_available() {
-        return;
-    }
+    assert!(git_available(), "real Git is required for this regression");
     let fixture = seed_fixture("jeryu-merge-mirror-skip");
     let (router, number) = router_with_pr(&fixture);
 
@@ -983,5 +959,91 @@ fn unconfigured_repo_pushes_nothing() {
     let runs = mirror_check_runs(&router, &fixture.head_oid);
     assert!(runs.is_empty(), "no push, no check-run: {runs:?}");
 
+    fixture.cleanup();
+}
+
+// Preserved from Deploy PR 1 alongside the still-required positive journey.
+// Advisory review rows and existing ancestry cannot supply operation authority.
+fn assert_legacy_merge_unavailable(router: &GithubRouter, number: u64, fixture: &GitFixture) {
+    let path = format!("/repos/acme/demo/pulls/{number}");
+    let before = body(&router.get(&path));
+    let checks_before = router.core().list_check_runs("acme", "demo", None).unwrap();
+    for _ in 0..2 {
+        let response = router.put(
+            &format!("{path}/merge"),
+            &serde_json::json!({"sha": fixture.head_oid, "merge_method": "merge"}).to_string(),
+        );
+        assert_eq!(response.status, 503, "{}", response.body);
+        assert!(body(&response)["documentation_url"].is_string());
+        assert_eq!(fixture.main_ref(), fixture.base_oid);
+        assert_eq!(body(&router.get(&path)), before);
+    }
+    assert_eq!(
+        router.core().list_check_runs("acme", "demo", None).unwrap(),
+        checks_before
+    );
+}
+
+#[test]
+fn legacy_advisory_approval_cannot_advance_real_main() {
+    assert!(git_available(), "real Git is required for this regression");
+    let fixture = seed_fixture("jeryu-legacy-refused-ff");
+    let (router, number) = router_with_pr(&fixture);
+    approve(&router, number);
+    assert_legacy_merge_unavailable(&router, number, &fixture);
+    fixture.cleanup();
+}
+
+#[test]
+fn legacy_diverged_merge_cannot_create_a_merge_commit() {
+    assert!(git_available(), "real Git is required for this regression");
+    let fixture = seed_diverged_fixture("jeryu-legacy-refused-diverged");
+    let (router, number) = router_with_pr(&fixture);
+    approve(&router, number);
+    assert_ne!(fixture.base_oid, fixture.head_oid);
+    assert_eq!(parents_of(&fixture.manager, &fixture.base_oid).len(), 1);
+    assert_legacy_merge_unavailable(&router, number, &fixture);
+    fixture.cleanup();
+}
+
+#[test]
+fn already_landed_ancestry_cannot_invent_an_authorized_merge_receipt() {
+    assert!(git_available(), "real Git is required for this regression");
+    let fixture = seed_landed_fixture("jeryu-legacy-refused-landed");
+    let router = router_over(&fixture);
+    let number = open_pr_by_branch(&router, "feature", "main");
+    assert_eq!(
+        parents_of(&fixture.manager, &fixture.base_oid),
+        vec![fixture.head_oid.clone()]
+    );
+    assert_legacy_merge_unavailable(&router, number, &fixture);
+    fixture.cleanup();
+}
+
+#[test]
+fn refused_legacy_merge_does_not_push_to_a_configured_mirror() {
+    assert!(git_available(), "real Git is required for this regression");
+    let fixture = seed_fixture("jeryu-legacy-refused-mirror");
+    let (router, number) = router_with_pr(&fixture);
+    let destination = fixture.work.join("mirror.git");
+    run_git(
+        &fixture.work,
+        &["init", "--bare", destination.to_str().unwrap()],
+        "init mirror",
+    );
+    let router = router.with_github_mirror(mirror_for(Some(&destination)));
+    approve(&router, number);
+    assert_legacy_merge_unavailable(&router, number, &fixture);
+    let output = Command::new("git")
+        .args(["for-each-ref", "--format=%(refname)"])
+        .current_dir(&destination)
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    assert!(
+        output.stdout.is_empty(),
+        "refused merge must not create mirror refs"
+    );
+    assert!(mirror_check_runs(&router, &fixture.head_oid).is_empty());
     fixture.cleanup();
 }

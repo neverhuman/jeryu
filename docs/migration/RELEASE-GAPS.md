@@ -4,13 +4,35 @@ Release readiness is **PENDING**. A source correction, diagnostic score, PR
 success, or published historical tag does not qualify protected `main`.
 Stable version assignment and release-tag publication follow qualification.
 
+The complete restoration campaign at `4d09c169`,
+[run 34618083215, attempt 1](https://github.com/neverhuman/jeryu/actions/runs/34618083215),
+finished with seven successful and seven failed verification lanes; the required
+aggregate also fails. All 29 canonical/restoration/barrier tests and four
+publisher-custody tests pass in the full Rust execution, including the separate
+read-only barrier correction. The full merge journey, auditor, auxiliary proofs,
+complete audit, runtime, legacy and export lanes remain failed. Eight component
+export build/test sequences finish; Runner still selects an unavailable installed
+auditor path and Deploy still lacks successful protected merge. These are
+predecessor results, not qualification of later source.
+
+Local browser preparation at `0c067afd` still needs its 14 genuine Rust-generated
+Core/Web contracts and current-source verification. While its generator awaits
+shared execution capacity, Deploy inclusion restores required Git availability,
+separate real-Git legacy refusal and distinct fork identities, and adds complete
+active-manifest path confinement plus rejection of non-Jeryu local dependencies.
+Five path/metadata regression groups and four refusal regressions are source-only
+until executed. Every positive protected-merge requirement remains in place.
+See [reviewed Deploy dispositions](PR-RECONCILIATION.md#deploy-pr-1-reviewed-product-and-dependency-boundaries).
+
 This register reconciles the public candidate at
 `da8868da9d7f4547321738d2a97bc4e1d98661d2` with the local pending work based on
 `752f8ce680f549794d70a57d52d7f3c5791b5d35`. Public observations below were read
 from GitHub on 2026-09-11. Subsequent executions must record their actual source,
 workflow run and attempt; results for either predecessor are historical.
 
-The corrective source is in [draft PR 66](https://github.com/neverhuman/jeryu/pull/66).
+The corrective source continues on `codex/public-release-gates-20260911t034104z`.
+[PR 66](https://github.com/neverhuman/jeryu/pull/66) was closed without a merged
+replacement; its accepted work and independent review remain required.
 PR 65's later `a350a5e8` Runner family reference is also retained; its public
 commit and tree were read back against the named immutable tag. This historical
 reference does not qualify the Runner mirror or change tracked build inputs.

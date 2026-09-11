@@ -788,14 +788,17 @@ mod tests {
             "alice/jeryu"
         );
 
-        core.create_repository(
-            "fork-owner",
-            CreateRepositoryRequest {
-                name: "jeryu".to_string(),
-                ..Default::default()
-            },
-        )
-        .unwrap();
+        let fork = core
+            .create_repository(
+                "fork-owner",
+                CreateRepositoryRequest {
+                    name: "jeryu".to_string(),
+                    default_branch: Some("main".to_string()),
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+        assert_ne!(fork.id, core.get_repository("alice", "jeryu").unwrap().id);
         let explicit_pr = core
             .create_pull_request(
                 "alice",
