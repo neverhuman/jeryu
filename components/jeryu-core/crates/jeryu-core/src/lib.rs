@@ -34,6 +34,13 @@ pub use crate::core::{
     SubmitBoundReviewRequest,
 };
 pub use crate::core::{
+    COMMISSIONING_TARGETS, CommissioningAction, CommissioningAdmittedStep, CommissioningAuthority,
+    CommissioningCompletionRequest, CommissioningEffectOutcome, CommissioningOperationAddress,
+    CommissioningRecordingAuthority, CommissioningRestoreKind, CommissioningRestoreOperation,
+    CommissioningRestoreRequest, CommissioningRestoreScope, CommissioningRevision,
+    CommissioningSource, CommissioningStep, CommissioningStepCompletion, CommissioningStepRequest,
+};
+pub use crate::core::{
     CompleteRequiredAttemptRequest, DurableRequiredPublisher, PublisherHeldFileIdentity,
     PublisherResourceIdentity, RequiredArtifactUpload, RequiredAttemptSnapshot,
     RequiredContextSnapshot, RequiredPublisherAction, RequiredPublisherAuthority,

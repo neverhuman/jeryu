@@ -32,8 +32,31 @@ impl ForgeCore {
         &self,
         operation: impl FnOnce() -> Result<T>,
     ) -> Result<T> {
+        self.with_installation_custody(|| {
+            self.require_ordinary_mutation()?;
+            operation()
+        })
+    }
+
+    /// Process-local installation hooks and custody readback must remain usable
+    /// when reopening an interrupted commissioning operation. This guard alone
+    /// never admits an ordinary durable or external mutation.
+    pub(super) fn with_installation_custody<T>(
+        &self,
+        operation: impl FnOnce() -> Result<T>,
+    ) -> Result<T> {
         self.validate_mutation_process()?;
         self.runtime.coordinator.with_authority(&[], operation)
+    }
+
+    /// Call only inside the authority/repository guards, before State or any
+    /// external effect. Reservation needs authority-write, so the barrier cannot
+    /// appear between this check and the guarded callback's completion.
+    pub(super) fn require_ordinary_mutation(&self) -> Result<()> {
+        if let Some(storage) = &self.runtime.storage {
+            storage.require_ordinary_mutation()?;
+        }
+        Ok(())
     }
 
     pub(super) fn with_repository_mutation<T>(
@@ -158,6 +181,7 @@ impl ForgeCore {
         };
         let ids = hints.iter().map(|hint| hint.id).collect::<Vec<_>>();
         let admitted = || {
+            self.require_ordinary_mutation()?;
             let state = self.runtime.state.read();
             for hint in &hints {
                 if state
@@ -189,6 +213,7 @@ impl ForgeCore {
     ) -> Result<T> {
         self.validate_mutation_process()?;
         self.runtime.coordinator.with_authority(&[id], || {
+            self.require_ordinary_mutation()?;
             require_repository_writable(&self.runtime.state.read(), id)?;
             operation()
         })
@@ -223,6 +248,7 @@ impl ForgeCore {
         self.runtime
             .coordinator
             .with_authority(&[repository_id], || {
+                self.require_ordinary_mutation()?;
                 let state = self.runtime.state.read();
                 // A bound key cannot be substituted, even with an unknown UUID.
                 // The exclusive authority gate stabilizes this conflict lookup;
@@ -300,6 +326,7 @@ impl ForgeCore {
         let hint = resolve(&self.runtime.state.read());
         let ids = hint.into_iter().collect::<Vec<_>>();
         self.runtime.coordinator.with_authority(&ids, || {
+            self.require_ordinary_mutation()?;
             let state = self.runtime.state.read();
             if resolve(&state) != hint {
                 return Err(ForgeError::Conflict(
@@ -344,6 +371,7 @@ impl ForgeCore {
         self.runtime
             .coordinator
             .with_authority(&[repository_id], || {
+                self.require_ordinary_mutation()?;
                 let mut state = self.runtime.state.write();
                 if !state.repos.values().any(|repo| repo.id == repository_id) {
                     return Err(ForgeError::NotFound(format!(

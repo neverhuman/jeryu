@@ -108,3 +108,17 @@ by `ops/ci/security.sh`.
 - `just score`
 - `just security`
 - `just artifact-support`
+
+## Restoration admission
+
+Core retains commissioning restoration as a durable operation with immutable
+step and outcome history. Ordinary writes remain unavailable until the complete
+operation is verified and closed; restart does not clear the barrier. Current
+credentials can read recovery state through the typed controller when its
+separately installed authority is present. Missing authority refuses operation.
+
+The source includes custody, replay, corruption, expiry and read-only no-op
+regressions. Production signing, effect dispatch, protected merge and installed
+recovery qualification remain pending. These library hooks do not activate a
+service or authorize installed changes. See [database constraints](db/constraints.md)
+for recovery and migration custody.

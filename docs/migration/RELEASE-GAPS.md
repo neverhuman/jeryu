@@ -104,8 +104,29 @@ Standalone tooling acquisition binds the exact public source. No duplicate CLI,
 weaker advisory parser or unrelated original lockfile changes are imported.
 Full producer and governing-policy decisions remain separately required.
 
-Commissioning barriers, signing provider, dispatch, actual protected merge and
-complete composed-migration/recovery qualification remain required.
+Public `962bf57bb8795f0853547f48100a98a6725a3759` contains that custody
+contribution. Full [run 34617459064, attempt 1](https://github.com/neverhuman/jeryu/actions/runs/34617459064)
+and score run 34617461121 remain in progress.
+
+The next source intake preserves original `a3d2a97b3d1fb012a1a5d52cb8b83965b1d2559d`:
+strict bounded canonical contracts, immutable restoration scope/revisions and
+receiving outcome bytes, exact-step replay, durable operation-wide writer
+barriers and startup migration/backfill refusal. All 28 original canonical,
+controller and barrier regressions are retained with explicitly private fixtures.
+Migration 0018 carries owner metadata, retained rollback and invariant guidance.
+
+The separate three-file readonly-barrier-r1 correction is also integrated,
+with original patch SHA-256
+`b8269ac57914a145865cebb6ed18c191ebca7523885de28cee74bdd871949af5`.
+It addresses the original actually failed unchanged-visibility no-op: inspect
+barriers through a custody-checked read-only connection, while the added active
+barrier regression still refuses under 0400 without changing database bytes.
+This correction is not attributed to the original a3 commit. Composed execution
+and independent review remain pending.
+
+Signing provider, dispatch, actual protected merge and complete composed
+migration/recovery qualification remain required. These source hooks do not
+install a trust provider, filesystem dispatcher or production service.
 
 The retained census artifact for `324a4faf`
 [10268586956](https://github.com/neverhuman/jeryu/actions/runs/34610898798/artifacts/10268586956)

@@ -98,7 +98,7 @@ impl ForgeCore {
         self,
         authority: Arc<dyn RequiredPublisherAuthority>,
     ) -> Result<Self> {
-        self.with_global_mutation(|| {
+        self.with_installation_custody(|| {
             self.compare_required_custody(authority.as_ref())?;
             let mut slot = self.runtime.required_publisher_authority.write();
             match slot.as_ref() {
@@ -138,6 +138,7 @@ impl ForgeCore {
         }
         self.validate_mutation_process()?;
         self.runtime.coordinator.with_repositories(&[repository_id], || {
+            self.require_ordinary_mutation()?;
             let (repository, binding) = self.required_actor_context(actor, repository_id, true)?;
             let storage = self.runtime.storage.as_ref().ok_or_else(unavailable)?;
             let publisher = storage.latest_required_publisher(request.publisher_id)?.ok_or_else(|| ForgeError::Forbidden("publisher is not enrolled".into()))?;
@@ -233,6 +234,9 @@ impl ForgeCore {
                 } else {
                     RequiredPublisherAction::Complete
                 };
+                if action == RequiredPublisherAction::Complete {
+                    self.require_ordinary_mutation()?;
+                }
                 let authority = self.required_authority()?;
                 self.validate_required_authority(
                     authority.as_ref(),
@@ -435,7 +439,7 @@ impl ForgeCore {
             .ok_or_else(unavailable)
     }
 
-    fn required_actor_context(
+    pub(super) fn required_actor_context(
         &self,
         actor: &AuthenticatedActor,
         repository_id: Uuid,

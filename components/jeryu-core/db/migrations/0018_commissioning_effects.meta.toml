@@ -1,0 +1,18 @@
+# jankurai:migration v1
+id = "0018_commissioning_effects"
+owner = "jeryu-core"
+reviewer = "independent-review-required"
+change_type = "expand"
+safety = "online"
+transaction = "required"
+lock_timeout = "5s"
+statement_timeout = "60s"
+estimated_rows = 0
+deploy_phase = "expand"
+app_compatibility = "new_app_old_db"
+requires = ["0017_required_publishers"]
+rollback = "db/rollbacks/0018_commissioning_effects.sql"
+backfill = "none; historical receipts cannot authorize restoration or clear its barrier"
+data_classification = "internal"
+tenant_impact = "none"
+tests = ["db-migration-analyze", "core::commissioning_controller::tests", "core::commissioning_canonical::tests", "sqlite_persistence", "stable_persistence"]

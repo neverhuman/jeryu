@@ -45,7 +45,7 @@ impl ForgeCore {
     /// coordinator operation; internal callers measure through private storage
     /// while retaining their already held authority/repository guards.
     pub fn required_publisher_custody(&self) -> Result<RequiredPublisherCustody> {
-        self.with_global_mutation(|| {
+        self.with_installation_custody(|| {
             self.runtime
                 .storage
                 .as_ref()

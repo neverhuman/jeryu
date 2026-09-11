@@ -401,6 +401,7 @@ impl ForgeCore {
                         ))
                     };
                 }
+                self.require_ordinary_mutation()?;
                 let state = self.runtime.state.read();
                 require_repository_admissible(&state, intent.repository_id, true)?;
                 for id in intent.repositories() {
@@ -435,6 +436,7 @@ impl ForgeCore {
         self.runtime
             .coordinator
             .with_repositories(&hint.intent.repositories(), || {
+                self.require_ordinary_mutation()?;
                 let mut state = self.runtime.state.write();
                 let (operation, proposed) = storage.reconcile_ref_operation(
                     repository_id,
@@ -474,6 +476,7 @@ impl ForgeCore {
         self.runtime
             .coordinator
             .with_repositories(&[repository_id], || {
+                self.require_ordinary_mutation()?;
                 self.operation_storage()?.acknowledge_ref_operation_event(
                     repository_id,
                     event_id,

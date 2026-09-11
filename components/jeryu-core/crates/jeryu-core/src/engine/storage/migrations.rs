@@ -54,7 +54,15 @@ const MIGRATION_0016: &str =
 const MIGRATION_0017: &str =
     include_str!("../../../../../db/migrations/0017_required_publishers.sql");
 
+const MIGRATION_0018: &str =
+    include_str!("../../../../../db/migrations/0018_commissioning_effects.sql");
+
 pub(super) fn apply_migrations(conn: &Connection) -> Result<()> {
+    if super::commissioning_effects::startup_barrier(conn)? {
+        return Err(crate::ForgeError::WriterUnavailable(
+            "active commissioning operation forbids schema migrations and backfills".into(),
+        ));
+    }
     apply_migrations_through_0010(conn)?;
     apply_migration_0011(conn)?;
     add_column_if_missing(conn, "reviews", "dismissed_review_id", MIGRATION_0012)?;
@@ -65,6 +73,7 @@ pub(super) fn apply_migrations(conn: &Connection) -> Result<()> {
     conn.execute_batch(MIGRATION_0015).map_err(storage_error)?;
     conn.execute_batch(MIGRATION_0016).map_err(storage_error)?;
     conn.execute_batch(MIGRATION_0017).map_err(storage_error)?;
+    conn.execute_batch(MIGRATION_0018).map_err(storage_error)?;
     Ok(())
 }
 

@@ -136,3 +136,23 @@ Migration 0017 required-publisher notes:
 - Run required-publisher controller, required-attempt persistence, actor/review
   and migration analysis lanes in an admitted two-job allocation. Real signing,
   transport, managed Git and installed recovery campaigns remain mandatory.
+
+Migration 0018 commissioning notes:
+- Operations and hash-chained immutable records are independently persisted,
+  outside State ownership. A completed step never releases the operation barrier.
+- Retain original UUIDs/revisions/receiving bytes on identical retries; reject
+  changed requests, incomplete/corrupt chains and forged terminal projections.
+- Reserve under exclusive authority, after existing ordinary effects drain.
+  Active operations block ordinary State/Git callbacks, audit writes, schema
+  migrations and startup backfills. Installation attachment and authenticated
+  recovery readback remain available without granting effect authority.
+- Observe ordinary admission with a custody-checked read-only connection, even
+  for no-op writes. Late/failed/unknown or recovery-recorder outcomes are retained
+  without authorizing progress. Closure requires the complete verified sequence.
+- This additive migration backfills no trust or restoration history. Preserve a
+  consistent restore-tested package, keep incompatible writers stopped, retain
+  every record and recover forward after accepted effects. Never remove a barrier
+  to make an older writer run. Signing/dispatcher installation is separate.
+- Run commissioning/controller/canonical, mutation, review, required-attempt,
+  SQLite/stable persistence and migration analysis in an admitted two-job window;
+  source or fixture success cannot qualify installed recovery.

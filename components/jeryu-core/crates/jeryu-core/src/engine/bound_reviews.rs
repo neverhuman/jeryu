@@ -222,7 +222,7 @@ impl ForgeCore {
     /// Attach once to the shared managed runtime. Reopening/cloning the same
     /// backing pair cannot create a competing observer configuration.
     pub fn with_review_git_observer(self, observer: Arc<dyn ReviewGitObserver>) -> Result<Self> {
-        self.with_global_mutation(|| {
+        self.with_installation_custody(|| {
             let root = self.runtime.storage_root.as_deref().ok_or_else(|| {
                 ForgeError::WriterUnavailable(
                     "review observation requires open_managed custody".into(),
@@ -502,6 +502,9 @@ impl ForgeCore {
         self.runtime
             .coordinator
             .with_repositories(&[hint.source.id, hint.destination.id], || {
+                if mutation {
+                    self.require_ordinary_mutation()?;
+                }
                 let (target, pr, binding) = {
                     let state = self.runtime.state.read();
                     let binding = self.validate_actor_locked(&state, actor, mutation)?;

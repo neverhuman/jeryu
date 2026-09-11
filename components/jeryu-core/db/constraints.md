@@ -496,3 +496,38 @@ keep incompatible writers stopped and preserve all enrollment/audit history.
 After accepted effects, recover forward instead of removing rows or restoring an
 older writer. Eleven new owning fixtures are prepared but unexecuted; actual
 signing, installed custody and receiving transport qualification remain open.
+
+## Commissioning restoration journal and admission barrier (0018)
+
+`forge_commissioning_operations` retains exact contract, repository and backing
+pair identities with one active operation per actual storage runtime. Independent
+`forge_commissioning_records` preserve the complete immutable revision/hash chain,
+step admissions, received outcome bytes and final closure. SQL constraints refuse
+record replacement/deletion, scope rewriting and closure without a terminal
+record. Readback reconstructs the entire chain, including purportedly closed
+operations; a damaged header, orphan or partial schema cannot grant admission.
+
+Reservation drains ordinary guarded effects before recording the barrier. The
+barrier survives completed steps and restart; State persistence, ordinary Git
+callbacks, audit writes, migrations and backfills remain blocked until a verified
+complete operation closes atomically. Identical retries return their original
+recorded responses only after validating the full current chain. A lost terminal
+write rolls back the terminal record and barrier transition together.
+
+The ordered target plan, exact revision/hash, fixed window and current operator
+scope govern each new step. Received late/failed/unknown outcomes and separately
+authenticated recovery-recorder evidence remain durable without granting further
+effects or closure. Strict duplicate-free, bounded canonical JSON is a content
+contract; it supplies no signature, enrollment or installation authority.
+
+Ordinary barrier inspection uses an actual custody-checked read-only SQLite
+connection so an unchanged-visibility no-op does not require database writes.
+Active barriers still refuse that no-op. Installation-only authority attachment
+and authenticated recovery readback can resume without issuing new credentials
+or allowing ordinary writes. Production signing, recovery dispatch and full
+installed campaigns remain unqualified; test fixtures cannot grant that trust.
+
+Migration is additive and has no historical backfill. Preserve and restore-test
+a complete consistent state package before adoption, stop incompatible writers,
+retain all recovery records and recover forward after accepted effects. Dropping
+these tables, forging closure or rolling accepted Git backward is prohibited.

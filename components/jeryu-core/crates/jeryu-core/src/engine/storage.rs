@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use rusqlite::{Connection, DatabaseName, OpenFlags, params};
+use rusqlite::{Connection, DatabaseName, OpenFlags, TransactionBehavior, params};
 
 use super::State;
 use super::audit::AuditEntry;
@@ -11,6 +11,7 @@ use crate::errors::{ForgeError, Result};
 
 mod bound_reviews;
 mod codec;
+mod commissioning_effects;
 mod load;
 mod migrations;
 mod persist;
@@ -39,10 +40,17 @@ impl SqliteStore {
         let path = path.as_ref().to_path_buf();
         let store = Self { path, writer };
         let conn = store.connect()?;
-        apply_migrations(&conn)?;
+        let recovery = commissioning_effects::startup_barrier(&conn)?;
+        if !recovery {
+            apply_migrations(&conn)?;
+        }
         let mut state = load_state(&conn)?;
-        let mut backfilled = backfill_missing_counters(&mut state);
-        backfilled += super::backfill_default_branch_protections(&mut state);
+        let backfilled = if recovery {
+            0
+        } else {
+            backfill_missing_counters(&mut state)
+                + super::backfill_default_branch_protections(&mut state)
+        };
         drop(conn);
         if backfilled > 0 {
             store.persist(&state)?;
@@ -66,8 +74,13 @@ impl SqliteStore {
     /// Its append-only trail uses this dedicated path; ordinary State saves
     /// never delete or rewrite audit receipts.
     pub(super) fn append_audit(&self, entry: &AuditEntry) -> Result<()> {
-        let conn = self.connect()?;
-        insert_audit(&conn, entry)
+        let mut conn = self.connect()?;
+        let tx = conn
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(storage_error)?;
+        commissioning_effects::require_ordinary_admission(&tx)?;
+        insert_audit(&tx, entry)?;
+        tx.commit().map_err(storage_error)
     }
 
     /// All audit entries for one subject, oldest first.
@@ -97,6 +110,19 @@ impl SqliteStore {
             });
         }
         Ok(entries)
+    }
+
+    /// Barrier observation must not require a write when the guarded operation
+    /// is a no-op. This connection cannot be used to persist an admitted effect.
+    fn connect_observation(&self) -> Result<Connection> {
+        self.writer.validate()?;
+        let conn = Connection::open_with_flags(
+            &self.path,
+            OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NOFOLLOW,
+        )
+        .map_err(storage_error)?;
+        self.writer.validate()?;
+        Ok(conn)
     }
 
     fn connect(&self) -> Result<Connection> {
@@ -135,6 +161,7 @@ impl SqliteStore {
 }
 
 fn persist_snapshot(conn: &Connection, state: &State) -> Result<()> {
+    commissioning_effects::require_ordinary_admission(conn)?;
     snapshot::create_tables(conn)?;
     stage_state(conn, state)?;
     snapshot::apply(conn)
