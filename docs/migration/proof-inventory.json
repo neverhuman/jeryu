@@ -6873,7 +6873,7 @@
       "kind": "proof-implementation-or-input",
       "path": "components/jeryu-tool/crates/jeryu-tool-control/tests/hermetic_builder.rs",
       "port_status": "pending-equivalence-proof",
-      "sha256": "66ae7ad8776ae18802fd0e7decb579d2d1f93975d34718bf1eeda954f437fe75"
+      "sha256": "fb32dc0bb1913c3cdf8e8b3a41e0c4dd56e6396b9a99e81fe4e3b3914dd927f8"
     },
     {
       "component": "jeryu-tool",
@@ -8791,7 +8791,7 @@
       "kind": "proof-implementation-or-input",
       "path": "scripts/test-split-exports.sh",
       "port_status": "pending-equivalence-proof",
-      "sha256": "05b0a256a82c7e23df635771e0f5a35e290551dd4b6b5479467bff3f3c0232c9"
+      "sha256": "5c6f3a07eccdf3f9c0e36fca8a3ed6254f8603bcc5b8e747881e23acb61ab0ba"
     },
     {
       "component": "jeryu",
