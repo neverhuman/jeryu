@@ -482,10 +482,14 @@ test "$(cat "${test_root}/cleanup.calls")" = removed
 candidate_state="${test_root}/candidate-state"
 mkdir -m 700 "${candidate_state}"
 printf 'hermetic container custody: id=%064d name=fixture removed=true\n' 0 >"${candidate_state}/build.log"
-line=$(sed -n '/^    tail -n 20 "${candidate_state}\/build.log"/p' "${tool_root}/ops/install-jankurai-lib.sh")
+line=$(sed -n '/^      tail -n 20 "\/proc\/${installer_pid}\/fd\/${log_fd}"/p' \
+  "${tool_root}/ops/install-jankurai-lib.sh")
 test "$(printf '%s\n' "${line}" | wc -l)" = 1 && test -n "${line}"
+installer_pid=$$
+exec {log_fd}<"${candidate_state}/build.log"
 emit_installer_result() { eval "${line}"; printf '{"receipt":"synthetic-fixture"}\n'; }
 { output=$(emit_installer_result); } 2>"${test_root}/transport.stderr"
+exec {log_fd}<&-
 test "${output}" = '{"receipt":"synthetic-fixture"}'
 cmp "${test_root}/transport.stderr" "${candidate_state}/build.log"
 "#);
