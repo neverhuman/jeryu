@@ -308,7 +308,10 @@ for scenario in fresh unavailable-db advisory-finding unavailable-tool; do
     advisory-finding) audit_status=44; expected=44 ;;
     unavailable-tool) tools_status=45; expected=45 ;;
   esac
-  (cd "$case_root" && bash "$fixture/legacy-dispatch.sh" "$audit_status" "$tools_status") >"$case_root/output" 2>&1 || result=$?
+  # Prove the host pr-ci union. Public GITHUB_ACTIONS skip is a real hosted
+  # lane choice and must not hide this dispatch coverage.
+  (cd "$case_root" && env -u GITHUB_ACTIONS -u JAIN_RELEASE_CI \
+    bash "$fixture/legacy-dispatch.sh" "$audit_status" "$tools_status") >"$case_root/output" 2>&1 || result=$?
   [[ $result == "$expected" ]]
   if [[ $expected == 0 ]]; then
     [[ -f "$case_root/advisory-ready" &&
