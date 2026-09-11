@@ -105,7 +105,14 @@ case $lane in
       split_cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
       excluded=()
       if [[ $component == jeryu-ci-runner ]]; then excluded=(--exclude jeryu-sandbox-linux); fi
-      split_cargo test --locked --workspace --all-features "${excluded[@]}"
+      if [[ $component == jeryu-deploy && ${GITHUB_ACTIONS:-} == true && ${JAIN_RELEASE_CI:-0} != 1 ]]; then
+        # Public Actions shares one VM across the deploy web suite. Workcell
+        # stdout capture and writer leases flake under default libtest fan-out.
+        # Host and governed-legacy lanes keep full parallelism.
+        split_cargo test --locked --workspace --all-features -- --test-threads=1
+      else
+        split_cargo test --locked --workspace --all-features "${excluded[@]}"
+      fi
       split_cargo build --locked --workspace
       if [[ $component == jeryu-deploy ]]; then
         jeryu_web_finish 0
