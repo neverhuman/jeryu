@@ -3319,7 +3319,7 @@
       "kind": "proof-implementation-or-input",
       "path": "components/jeryu-deploy/crates/jeryu-split-tool/src/split_ci.sh",
       "port_status": "pending-equivalence-proof",
-      "sha256": "544df3d5b76b0943f08eb48ead0528539cdf69013b31218a12c4f869f9d28b20"
+      "sha256": "3064ccdaa1ae5dc5a4299f0543e6fdcd4683e9f681f1135e8b0b1aaa2af0c6c2"
     },
     {
       "component": "jeryu-deploy",
