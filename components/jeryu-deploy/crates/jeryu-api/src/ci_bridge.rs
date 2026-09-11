@@ -272,7 +272,7 @@ const GOVERNED_JANKURAI_RECEIPT_DIR: &str = "/home/ubuntu/.jeryu/receipts/jankur
 const GOVERNED_JANKURAI_VERSION: &str = "jankurai 1.6.11";
 const GOVERNED_JANKURAI_SHA256: &str =
     "9e6b8857a26f6004d4c74e510e13b06d880f2e2ae0c89502698889ed690c5d6c";
-const GOVERNED_JANKURAI_SOURCE_REPO: &str = "http://127.0.0.1:8787/git/jeryu/jankurai.git";
+const GOVERNED_JANKURAI_SOURCE_REPO: &str = "https://github.com/neverhuman/jankurai.git";
 const GOVERNED_JANKURAI_SOURCE_TAG: &str = "v1.6.11-deadlang-precision-split.3";
 const GOVERNED_JANKURAI_SOURCE_REV: &str = "b88562fdb124aa86dedd70ab972e7d0d87e58be1";
 const GOVERNED_JANKURAI_SOURCE_TREE: &str = "611229e54938c0e8808896e369fd54d095d258f7";

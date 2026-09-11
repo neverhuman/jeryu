@@ -138,7 +138,7 @@ pub(super) fn run(root: &Path, check: bool) -> Result<()> {
         "schema_version": "jeryu.proof-inventory/v2",
         "portable_parity_qualified": false,
         "retirement_allowed": false,
-        "note": "Implementation/input hashes include root commands, transitive shell tools, hostile tests, policies and release validators. See CI-COVERAGE.md for explicit command mappings and unported gates. Hash agreement is not execution or equivalence evidence; the legacy wrapper does not execute every auxiliary workflow.",
+        "note": "Implementation/input hashes include root commands, transitive shell tools, hostile tests, policies and release validators. See CI-COVERAGE.md for explicit command mappings and unported gates. Hash agreement is not execution or equivalence evidence; the predecessor wrapper does not execute every auxiliary workflow.",
         "sources": inventory,
     });
     let rendered = format!("{}\n", crate::canonical_json::pretty(report)?);

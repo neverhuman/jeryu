@@ -123,13 +123,13 @@ pub(super) fn resolve_lock(
     let root = root.canonicalize()?;
     // Keeping the directory immediately prevents error paths from discarding
     // a failed clone or resolver output. The supervising caller owns retirement.
-    let temporary = tempfile::Builder::new()
+    let scratch = tempfile::Builder::new()
         .prefix("jeryu-split-lock.")
         .permissions(fs::Permissions::from_mode(0o700))
         .tempdir()?
         .keep();
-    eprintln!("retained split lock scratch: {}", temporary.display());
-    let helper = temporary.join("source-build.sh");
+    eprintln!("retained split lock scratch: {}", scratch.display());
+    let helper = scratch.join("source-build.sh");
     fs::write(
         &helper,
         git(
@@ -149,17 +149,17 @@ pub(super) fn resolve_lock(
         .with_context(|| {
             format!(
                 "local source refused; retained resolver scratch {}",
-                temporary.display()
+                scratch.display()
             )
         })?;
     if let (Some(local), Some(snapshot)) = (prepare_local, before.as_ref()) {
         fs::write(
-            temporary.join("local-source.path"),
+            scratch.join("local-source.path"),
             local.as_os_str().as_encoded_bytes(),
         )?;
-        fs::write(temporary.join("local-source.before"), snapshot)?;
+        fs::write(scratch.join("local-source.before"), snapshot)?;
         fs::write(
-            temporary.join("transport.txt"),
+            scratch.join("transport.txt"),
             "local-source-preparation; public origin unproven\n",
         )?;
     }
@@ -186,7 +186,7 @@ pub(super) fn resolve_lock(
             "cannot create disposable export commit"
         );
         let commit = String::from_utf8(output.stdout)?;
-        let checkout = temporary.join("checkout");
+        let checkout = scratch.join("checkout");
         checked(
             crate::split_tree::source_git_command(&root)
                 .args(["clone", "--no-local", "--no-checkout", "--quiet"])
@@ -242,8 +242,8 @@ pub(super) fn resolve_lock(
                 command
             };
             let output = command.current_dir(&checkout).output()?;
-            fs::write(temporary.join("metadata.stdout"), &output.stdout)?;
-            fs::write(temporary.join("metadata.stderr"), &output.stderr)?;
+            fs::write(scratch.join("metadata.stdout"), &output.stdout)?;
+            fs::write(scratch.join("metadata.stderr"), &output.stderr)?;
             ensure!(
                 output.status.success(),
                 "standalone Cargo resolution failed: {}",
@@ -259,7 +259,7 @@ pub(super) fn resolve_lock(
     })();
     if let Some(local) = prepare_local {
         let after = local_snapshot(&helper, local, source, component, component_tree.trim())?;
-        fs::write(temporary.join("local-source.after"), &after)?;
+        fs::write(scratch.join("local-source.after"), &after)?;
         ensure!(
             Some(after) == before,
             "local split source changed during resolution"
@@ -496,8 +496,8 @@ mod tests {
     #[test]
     fn refused_local_admission_retains_the_exact_resolver_scratch() {
         use std::os::unix::fs::MetadataExt;
-        let temporary = tempfile::tempdir().unwrap();
-        let root = temporary.path();
+        let scratch = tempfile::tempdir().unwrap();
+        let root = scratch.path();
         fs::create_dir_all(root.join("scripts")).unwrap();
         fs::create_dir_all(root.join("components/jeryu-cache")).unwrap();
         let helper = "split_source_snapshot() { return 79; }\n";

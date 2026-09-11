@@ -39,3 +39,5 @@ install -m 0755 -- "$artifact" "$staged"
 }
 mv -f -- "$staged" "$install_dir/jeryu"
 printf 'Installed %s\n' "$install_dir/jeryu"
+printf 'Add that directory to PATH if `jeryu` is not found: export PATH=%q:$PATH\n' \
+  "$install_dir"

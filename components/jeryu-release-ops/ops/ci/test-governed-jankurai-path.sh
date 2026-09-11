@@ -83,7 +83,7 @@ jq -n \
   '{
     schema: "jeryu.jankurai-installation/v2",
     source: {
-      remote: "http://127.0.0.1:8787/git/jeryu/jankurai.git",
+      remote: "https://github.com/neverhuman/jankurai.git",
       commit: "b88562fdb124aa86dedd70ab972e7d0d87e58be1",
       tag: "v1.6.11-deadlang-precision-split.3",
       tree: "611229e54938c0e8808896e369fd54d095d258f7",

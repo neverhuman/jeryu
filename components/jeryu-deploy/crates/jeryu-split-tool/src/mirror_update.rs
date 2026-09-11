@@ -317,7 +317,7 @@ pub(super) fn prepare(request: Request<'_>) -> Result<()> {
         None => {
             ensure!(
                 initial_tip == Some(expected_tip),
-                "legacy mirror requires explicit matching --initial-tip; new mirrors are unsupported"
+                "predecessor mirror requires explicit matching --initial-tip; new mirrors are unsupported"
             );
             false
         }

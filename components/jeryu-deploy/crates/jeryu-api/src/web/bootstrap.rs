@@ -1,5 +1,6 @@
 //! Create-once bootstrap account and credential-receipt handling.
 
+use super::http::chrono_like_now;
 use super::*;
 
 #[derive(Debug, Serialize)]
@@ -79,6 +80,10 @@ pub(super) fn bootstrap_public_accounts_with_admin_password(
     let mut file = secure_create(&path)?;
     file.write_all(&json)?;
     file.write_all(b"\n")?;
+    eprintln!(
+        "jeryu: first-login receipt for {BOOTSTRAP_ADMIN_LOGIN} written to {} (owner-only; the password is not logged)",
+        path.display()
+    );
     Ok(())
 }
 

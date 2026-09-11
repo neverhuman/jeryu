@@ -72,7 +72,7 @@ fn public_distribution_preserves_legacy_pin_and_generated_identity() {
     assert_eq!(public_pin.shell_block(), legacy_pin.shell_block());
     assert_eq!(
         public_pin.get("repo"),
-        "http://127.0.0.1:8787/git/jeryu/jankurai.git"
+        "https://github.com/neverhuman/jankurai.git"
     );
 }
 
@@ -139,7 +139,7 @@ fn public_distribution_rejects_transport_substitution_and_producer_changes() {
 
     let mut replaced_producer = parsed_canonical();
     replaced_producer["jankurai"]["repo"] =
-        toml::Value::String(PUBLIC_SOURCE_REPOSITORY.to_owned());
+        toml::Value::String("http://127.0.0.1:8787/git/jeryu/jankurai.git".to_owned());
     assert!(parse_value(&replaced_producer).is_err());
 }
 

@@ -17,6 +17,12 @@ purpose = "pinned Jankurai repository score and hard-finding gate"
 requires_network = false
 
 [[lane]]
+name = "catalog"
+command = "just catalog"
+purpose = "catalog tool CI evidence for agent/tool-adoption.toml"
+requires_network = false
+
+[[lane]]
 name = "security"
 command = "just security"
 purpose = "required secret, workflow, tool-custody, advisory, and SBOM checks"
@@ -147,3 +153,15 @@ name = "web-audit-ci"
 command = "bash scripts/ci.sh web && npm audit --audit-level=high"
 purpose = "locked web workspace and audited performance tool compatibility"
 requires_network = true
+
+[[lane]]
+name = "jankurai-badge"
+command = "jankurai badge --check"
+purpose = "generated README badge matches the current audit report"
+requires_network = false
+
+[[lane]]
+name = "family-fetch"
+command = "bash scripts/fetch-family.sh --plan"
+purpose = "family.lock.toml trees match the current monorepo index"
+requires_network = false

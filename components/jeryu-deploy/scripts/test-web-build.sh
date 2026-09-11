@@ -11,31 +11,31 @@ source "$helper"
 # Observations populated by the sourced helper; empty values cannot satisfy tests.
 jeryu_web_scratch='' jeryu_web_mode='' jeryu_web_source=''
 umask 077
-temporary=$(mktemp -d -t jeryu-web-build-tests.XXXXXXXX)
-identity=$(stat -c '%d:%i:%u:%g:%a' "$temporary")
+scratch=$(mktemp -d -t jeryu-web-build-tests.XXXXXXXX)
+identity=$(stat -c '%d:%i:%u:%g:%a' "$scratch")
 cleanup() {
   local result=$? links link target unexpected
-  (( result == 0 )) || { printf 'retaining failed synthetic web fixtures: %s\n' "$temporary" >&2; return "$result"; }
-  jeryu_web_physical_directory "$temporary" || return 1
-  [[ $(stat -c '%d:%i:%u:%g:%a' "$temporary") == "$identity" ]] || return 1
-  jeryu_web_no_mounts "$temporary" || return 1
-  links=$(find -P "$temporary" -xdev -type l -print) || return 1
+  (( result == 0 )) || { printf 'retaining failed synthetic web fixtures: %s\n' "$scratch" >&2; return "$result"; }
+  jeryu_web_physical_directory "$scratch" || return 1
+  [[ $(stat -c '%d:%i:%u:%g:%a' "$scratch") == "$identity" ]] || return 1
+  jeryu_web_no_mounts "$scratch" || return 1
+  links=$(find -P "$scratch" -xdev -type l -print) || return 1
   while IFS= read -r link; do
     [[ -n $link ]] || continue
     target=$(realpath -m -- "$link") || return 1
-    [[ $target == "$temporary/"* ]] || return 1
+    [[ $target == "$scratch/"* ]] || return 1
   done <<< "$links"
-  unexpected=$(find -P "$temporary" -xdev \( \( -type f ! -links 1 \) -o \( ! -type f ! -type d ! -type l \) \) -print -quit) || return 1
+  unexpected=$(find -P "$scratch" -xdev \( \( -type f ! -links 1 \) -o \( ! -type f ! -type d ! -type l \) \) -print -quit) || return 1
   [[ -z $unexpected ]] || return 1
-  rm -rf --one-file-system --preserve-root=all -- "$temporary"
+  rm -rf --one-file-system --preserve-root=all -- "$scratch"
 }
 trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
-mkdir "$temporary/bin" "$temporary/runtime"
-export TMPDIR="$temporary/runtime" TRACE="$temporary/npm.trace"
-export PATH="$temporary/bin:$PATH"
-cat > "$temporary/bin/npm" <<'MOCK'
+mkdir "$scratch/bin" "$scratch/runtime"
+export TMPDIR="$scratch/runtime" TRACE="$scratch/npm.trace"
+export PATH="$scratch/bin:$PATH"
+cat > "$scratch/bin/npm" <<'MOCK'
 #!/bin/bash
 set -euo pipefail
 printf '%s\n' "$*" >> "$TRACE"
@@ -57,7 +57,7 @@ case "$*" in
   *) exit 97 ;;
 esac
 MOCK
-chmod 0700 "$temporary/bin/npm"
+chmod 0700 "$scratch/bin/npm"
 real_git() {
   local directory=$1
   shift
@@ -68,11 +68,11 @@ real_git() {
 commit_fixture() {
   real_git "$1" add -A
   real_git "$1" -c user.name=Synthetic -c user.email=fixture@jeryu.invalid \
-    -c commit.gpgsign=false commit --quiet --no-verify -m 'Synthetic web lifecycle fixture'
+    -c commit.gpgsign=false commit --quiet -m 'Synthetic web lifecycle fixture'
 }
 seed() {
   local mode=$1
-  repository="$temporary/$label"
+  repository="$scratch/$label"
   component=$repository
   [[ $mode != monorepo ]] || component=$repository/components/jeryu-deploy
   mkdir -p "$component/crates/jeryu-api"
@@ -96,7 +96,7 @@ seed() {
 expect() {
   local expected=$1 observed=0
   shift
-  "$@" > "$temporary/command.stdout" 2> "$temporary/command.stderr" || observed=$?
+  "$@" > "$scratch/command.stdout" 2> "$scratch/command.stderr" || observed=$?
   [[ $observed == "$expected" ]] || { printf 'case %s: expected %s, observed %s\n' "$label" "$expected" "$observed" >&2; return 1; }
 }
 retained() { [[ -d $jeryu_web_scratch && ! -L $jeryu_web_scratch ]]; }
@@ -136,14 +136,14 @@ run_case() (
       expect 1 jeryu_web_begin "$component"
       [[ ! -s $TRACE ]] ;;
     scratch_parent_link)
-      mkdir "$temporary/synthetic-tmp-target"
-      ln -s "$temporary/synthetic-tmp-target" "$temporary/synthetic-tmp-link"
-      export TMPDIR="$temporary/synthetic-tmp-link"
+      mkdir "$scratch/synthetic-tmp-target"
+      ln -s "$scratch/synthetic-tmp-target" "$scratch/synthetic-tmp-link"
+      export TMPDIR="$scratch/synthetic-tmp-link"
       expect 1 jeryu_web_begin "$component"
       [[ ! -s $TRACE ]] ;;
     dist_link)
-      mkdir "$temporary/link-target"
-      ln -s "$temporary/link-target" "$dist"
+      mkdir "$scratch/link-target"
+      ln -s "$scratch/link-target" "$dist"
       expect 1 jeryu_web_begin "$component"
       [[ ! -s $TRACE && -L $dist ]] ;;
     preexisting_git)
@@ -157,13 +157,13 @@ run_case() (
       if [[ $label == nested_link ]]; then
         ln -s "$repository/README.md" "$dist/assets/linked"
       else
-        ln "$dist/assets/preexisting" "$temporary/hardlink"
+        ln "$dist/assets/preexisting" "$scratch/hardlink"
       fi
       expect 1 jeryu_web_begin "$component"
       [[ ! -s $TRACE ]]
       if [[ $label == preexisting_hardlink ]]; then
-        [[ ! -L $temporary/hardlink && $temporary/hardlink -ef $dist/assets/preexisting ]]
-        rm -- "$temporary/hardlink"
+        [[ ! -L $scratch/hardlink && $scratch/hardlink -ef $dist/assets/preexisting ]]
+        rm -- "$scratch/hardlink"
       fi ;;
     source_after|bundle_after|bundle_extra|bundle_replaced|head_after)
       expect 0 jeryu_web_begin "$component"
@@ -263,11 +263,11 @@ for export_case in clean wrong_tree wrong_schema wrong_component unresolved_lock
     seed export
     unset jeryu_web_active
     : > "$TRACE"
-    : > "$temporary/clone.trace"
+    : > "$scratch/clone.trace"
     jq -n --arg source "$source_commit" --arg tree "$source_component_tree" \
       '{synthetic_test_only:true,schema_version:"jeryu.split-provenance/v1",
         component:"jeryu-deploy",source_commit:$source,original_component_tree:$tree,
-        lock_regeneration_required:false,publication_qualified:false}' > "$temporary/provenance-base.json"
+        lock_regeneration_required:false,publication_qualified:false}' > "$scratch/provenance-base.json"
     mutation=.
     case $export_case in
       wrong_tree) mutation='.original_component_tree="0000000000000000000000000000000000000000"' ;;
@@ -280,16 +280,16 @@ for export_case in clean wrong_tree wrong_schema wrong_component unresolved_lock
       printf '.jeryu-source.json\n' >> "$repository/.gitignore"
     fi
     if [[ $export_case == ignored_link ]]; then
-      ln -s "$temporary/provenance-base.json" "$repository/.jeryu-source.json"
+      ln -s "$scratch/provenance-base.json" "$repository/.jeryu-source.json"
     else
-      jq "$mutation" "$temporary/provenance-base.json" > "$repository/.jeryu-source.json"
+      jq "$mutation" "$scratch/provenance-base.json" > "$repository/.jeryu-source.json"
     fi
     commit_fixture "$repository"
     jeryu_web_git() {
       local directory=$1
       shift
       if [[ $1 == clone ]]; then
-        printf 'synthetic clone reached\n' >> "$temporary/clone.trace"
+        printf 'synthetic clone reached\n' >> "$scratch/clone.trace"
         [[ $# == 6 && $2 == --no-local && $3 == --no-checkout && $4 == --quiet &&
            $5 == https://github.com/neverhuman/jeryu.git &&
            $6 == "$jeryu_web_scratch/source" ]] || return 96
@@ -303,7 +303,7 @@ for export_case in clean wrong_tree wrong_schema wrong_component unresolved_lock
         expect 1 jeryu_web_begin "$component"
         [[ ! -s $TRACE ]]
         if [[ $export_case == ignored_file || $export_case == ignored_link ]]; then
-          [[ ! -s $temporary/clone.trace ]]
+          [[ ! -s $scratch/clone.trace ]]
         fi ;;
       *)
         export JERYU_TEST_BINARY=/synthetic-untrusted-binary
@@ -352,14 +352,14 @@ for local_case in clean wrong_head wrong_tree dirty hidden alias source_after; d
     case $local_case in
       dirty) printf 'changed local source\n' >> "$source_repository/README.md" ;;
       hidden) real_git "$source_repository" update-index --assume-unchanged README.md ;;
-      alias) ln -s "$source_repository" "$temporary/local-source-alias"; prepare=$temporary/local-source-alias ;;
+      alias) ln -s "$source_repository" "$scratch/local-source-alias"; prepare=$scratch/local-source-alias ;;
     esac
-    : > "$temporary/clone.trace"
+    : > "$scratch/clone.trace"
     jeryu_web_git() {
       local directory=$1
       shift
       if [[ $1 == clone ]]; then
-        printf 'local clone reached\n' >> "$temporary/clone.trace"
+        printf 'local clone reached\n' >> "$scratch/clone.trace"
         [[ $# == 6 && $5 == "file://$source_repository" && $6 == "$jeryu_web_scratch/source" ]] || return 96
       fi
       real_git "$directory" "$@"
@@ -367,11 +367,11 @@ for local_case in clean wrong_head wrong_tree dirty hidden alias source_after; d
     case $local_case in
       wrong_head|wrong_tree|dirty|hidden|alias)
         expect 1 jeryu_web_begin "$component" --prepare-local "$prepare"
-        [[ ! -s $temporary/clone.trace ]]
+        [[ ! -s $scratch/clone.trace ]]
         ;;
       *)
         expect 0 jeryu_web_begin "$component" --prepare-local "$prepare"
-        [[ $jeryu_web_mode == local-source-preparation && -s $temporary/clone.trace ]]
+        [[ $jeryu_web_mode == local-source-preparation && -s $scratch/clone.trace ]]
         if [[ $local_case == source_after ]]; then
           printf 'changed original source\n' >> "$source_repository/README.md"
           expect 1 jeryu_web_finish 0
@@ -386,7 +386,7 @@ for local_case in clean wrong_head wrong_tree dirty hidden alias source_after; d
 done
 # Exercise the actual web gate with synthetic npm/Cargo processes, including a
 # misleading child PASS marker followed by a nonzero exit.
-cat > "$temporary/bin/cargo" <<'CARGO'
+cat > "$scratch/bin/cargo" <<'CARGO'
 #!/bin/bash
 set -euo pipefail
 [[ ! -v JERYU_TEST_BINARY && $JERYU_REQUIRE_WEB == 1 &&
@@ -403,7 +403,7 @@ case "$*" in
   *) exit 97 ;;
 esac
 CARGO
-chmod 0700 "$temporary/bin/cargo"
+chmod 0700 "$scratch/bin/cargo"
 for dispatch_case in success api_failure cli_failure; do
   (
     label=dispatch_$dispatch_case
@@ -413,7 +413,7 @@ for dispatch_case in success api_failure cli_failure; do
     install -m 0600 "$(dirname -- "$helper")/web.sh" "$component/ops/ci/web.sh"
     printf 'JERYU_CI_JOBS=2\n' > "$component/ops/ci/common.sh"
     commit_fixture "$repository"
-    export CARGO_TRACE="$temporary/cargo.trace" API_STATUS=0 CLI_STATUS=0
+    export CARGO_TRACE="$scratch/cargo.trace" API_STATUS=0 CLI_STATUS=0
     export JERYU_TEST_BINARY=/synthetic-untrusted-binary
     : > "$CARGO_TRACE"
     expected=0 trace=$'api\ncli'
@@ -425,7 +425,7 @@ for dispatch_case in success api_failure cli_failure; do
     [[ $(<"$CARGO_TRACE") == "$trace" ]]
     if (( expected != 0 )); then
       if grep -q '^web gate: production bundle, three CLI process tests and source/bundle readback passed$' \
-          "$temporary/command.stdout"; then exit 1; fi
+          "$scratch/command.stdout"; then exit 1; fi
     fi
   )
   passed=$((passed+1))

@@ -117,9 +117,9 @@ impl Pin {
     }
 
     fn validate(&self) -> Result<(), String> {
-        if self.get("repo") != "http://127.0.0.1:8787/git/jeryu/jankurai.git" {
+        if self.get("repo") != "https://github.com/neverhuman/jankurai.git" {
             return Err(
-                "Jankurai release source must be the approved local Jeryu forge URL".to_owned(),
+                "Jankurai release source must be the approved public GitHub repository".to_owned(),
             );
         }
         let sha = Regex::new("^[0-9a-f]{40}$").expect("constant regex");

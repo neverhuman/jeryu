@@ -1,0 +1,88 @@
+# Family pins for the Jeryu product monorepo.
+# Trees are the integrated component trees at this monorepo revision.
+# fetch-family.sh is a no-op when components/<name> already matches tree.
+schema_version = "jeryu.split.lock/v3"
+family = "jeryu-split"
+manifest_authority = "repos.manifest.toml"
+manifest_sha256 = "989e8a7fa3c16e1e18d58e5e012dd78a4812bfc0ac7eac0098ace3d000ed63ee"
+monorepo_commit = "a064e2c95f1aed44d0adff73b59ff7711ad4c3e9"
+
+[[repo]]
+name = "jeryu-cache"
+path = "components/jeryu-cache"
+github = "https://github.com/neverhuman/jeryu-cache.git"
+tag = "jeryu-cache-family-7c903b93"
+tree = "3245ae6d18248a5d97eb2a558a4d6097de099d40"
+required_check = "jeryu-cache/required"
+
+[[repo]]
+name = "jeryu-ci-runner"
+path = "components/jeryu-ci-runner"
+github = "https://github.com/neverhuman/jeryu-ci-runner.git"
+tag = "jeryu-ci-runner-v5.0.0-split.0"
+tree = "2d365044a5f432a708b15d8ff20e0072a2443f11"
+required_check = "jeryu-ci-runner/required"
+
+[[repo]]
+name = "jeryu-core"
+path = "components/jeryu-core"
+github = "https://github.com/neverhuman/jeryu-core.git"
+tag = "jeryu-core-v5.0.0-split.5"
+tree = "031d93c3629bf3030b110999f52acb3c8628b117"
+required_check = "jeryu-core/required"
+
+[[repo]]
+name = "jeryu-deploy"
+path = "components/jeryu-deploy"
+github = "https://github.com/neverhuman/jeryu-deploy.git"
+tag = "jeryu-deploy-v5.0.0-split.3"
+tree = "0f0621d24d60c98210dab054864da4b399f9e4b7"
+required_check = "jeryu-deploy/required"
+
+[[repo]]
+name = "jeryu-intelligence"
+path = "components/jeryu-intelligence"
+github = "https://github.com/neverhuman/jeryu-intelligence.git"
+tag = "jeryu-intelligence-family-7c903b93"
+tree = "b1596970914fc6fcf02b2fd627f7e04a680b101a"
+required_check = "jeryu-intelligence/required"
+
+[[repo]]
+name = "jeryu-jira"
+path = "components/jeryu-jira"
+github = "https://github.com/neverhuman/jeryu-jira.git"
+tag = "jeryu-jira-family-7c903b93"
+tree = "73cfa6e9e2f6572f904c0d8fc03329ce592fe81f"
+required_check = "jeryu-jira/required"
+
+[[repo]]
+name = "jeryu-release-ops"
+path = "components/jeryu-release-ops"
+github = "https://github.com/neverhuman/jeryu-release-ops.git"
+tag = "jeryu-release-ops-family-7c903b93"
+tree = "ee462b428b3687069bb757752bd73fb5b88bd0c6"
+required_check = "jeryu-release-ops/required"
+
+[[repo]]
+name = "jeryu-tool"
+path = "components/jeryu-tool"
+github = "https://github.com/neverhuman/jeryu-tool.git"
+tag = "jeryu-tool-family-1840f21b"
+tree = "cbc52e64087fd694a7be55368179efa5d256c0c8"
+required_check = "jeryu-tool/required"
+
+[[repo]]
+name = "jeryu-tool-finder"
+path = "components/jeryu-tool-finder"
+github = "https://github.com/neverhuman/jeryu-tool-finder.git"
+tag = "jeryu-tool-finder-family-7c903b93"
+tree = "89d99b656f3aeee750c6e9c8cacfacbda93c622b"
+required_check = "jeryu-tool-finder/required"
+
+[[repo]]
+name = "jeryu-web"
+path = "components/jeryu-web"
+github = "https://github.com/neverhuman/jeryu-web.git"
+tag = "jeryu-web-family-7c903b93"
+tree = "31e32677438831d6a9b04b4dba4db8a16ab631db"
+required_check = "jeryu-web/required"

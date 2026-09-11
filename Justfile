@@ -34,6 +34,9 @@ ci:
 score:
   ./ops/ci/score.sh # jankurai audit repo-score
 
+catalog:
+  bash ops/ci/jankurai-catalog.sh
+
 security:
   bash scripts/ci.sh security
 
@@ -42,3 +45,12 @@ artifact-support:
 
 profile:
   printf '%s\n' "rust-workspace"
+
+badge:
+  jankurai badge --check
+
+jankurai-score:
+  bash ops/ci/jankurai-score.sh
+
+family-fetch:
+  bash scripts/fetch-family.sh --plan

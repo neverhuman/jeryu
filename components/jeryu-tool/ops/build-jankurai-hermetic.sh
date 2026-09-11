@@ -99,7 +99,7 @@ actual_cargo="$(cargo "+${JANKURAI_RUST_TOOLCHAIN}" --version)"
 tmp_parent="${TMPDIR:-/tmp}"
 [[ "${tmp_parent}" == /* && -d "${tmp_parent}" && ! -L "${tmp_parent}" &&
   "$(realpath -e -- "${tmp_parent}")" == "${tmp_parent}" ]] ||
-  die "temporary parent is not one physical absolute directory"
+  die "scratch parent is not one physical absolute directory"
 scratch="$(mktemp -d "${tmp_parent}/jeryu-jankurai-build.XXXXXX")"
 scratch_identity="$(stat -c '%d:%i:%u' -- "${scratch}")"
 stage=""
@@ -194,7 +194,7 @@ sed 's#^directory = ".*"$#directory = "/opt/jeryu/vendor"#' \
   "${scratch}/vendor-config.raw" >"${scratch}/cargo-config.toml"
 printf '\n[net]\noffline = true\n' >>"${scratch}/cargo-config.toml"
 grep -F "${scratch}" "${scratch}/cargo-config.toml" >/dev/null &&
-  die "Cargo configuration leaked a temporary source path"
+  die "Cargo configuration leaked a scratch source path"
 [[ -z "$(find "${scratch}/vendor" \
   \( -type l -o \( ! -type d ! -type f \) \) -print -quit)" ]] ||
   die "vendor closure contains a symlink or special node"

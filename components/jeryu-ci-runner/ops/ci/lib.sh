@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # BEGIN GENERATED JANKURAI PIN — DO NOT EDIT
-export JERYU_JANKURAI_SOURCE_REPO="http://127.0.0.1:8787/git/jeryu/jankurai.git"
+export JERYU_JANKURAI_SOURCE_REPO="https://github.com/neverhuman/jankurai.git"
 export JERYU_JANKURAI_VERSION="jankurai 1.6.11"
 export JERYU_JANKURAI_SHA256="9e6b8857a26f6004d4c74e510e13b06d880f2e2ae0c89502698889ed690c5d6c"
 export JERYU_JANKURAI_SOURCE_REV="b88562fdb124aa86dedd70ab972e7d0d87e58be1"
@@ -118,6 +118,30 @@ require_jankurai() {
     source "${candidate_root}/components/jeryu-tool/ops/verify-public-candidate.sh"
     require_public_candidate_jankurai
     return
+  fi
+  # Public GitHub Actions cannot hold the loopback governed receipt. Accept the
+  # pinned GitHub Release binary after SHA/version match. Host receipt-bound
+  # mode is unchanged.
+  if [[ "${GITHUB_ACTIONS:-}" == "true" && "${JAIN_RELEASE_CI:-0}" != "1" ]]; then
+    local here resolved actual actual_sha
+    here="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+    if [[ ! -x /usr/local/bin/jankurai ]]; then
+      bash "${here}/install-jankurai-release.sh"
+    fi
+    resolved="$(type -P -- jankurai 2>/dev/null || true)"
+    actual="$("${resolved:-:}" --version 2>/dev/null || true)"
+    actual_sha="$(sha256sum "${resolved:-/dev/null}" 2>/dev/null | awk '{print $1}')"
+    if [[ "$resolved" == /* && -f "$resolved" && ! -L "$resolved" && -x "$resolved" &&
+          "$actual" == "${JERYU_JANKURAI_VERSION}" &&
+          "$actual_sha" == "${JERYU_JANKURAI_SHA256}" ]]; then
+      export JERYU_GOVERNED_JANKURAI_BIN="$resolved"
+      export PATH="$(dirname "$resolved"):${PATH}"
+      export JANKURAI_NO_UPDATE_CHECK=1 GIT_TERMINAL_PROMPT=0
+      return 0
+    fi
+    printf 'github-actions jankurai identity mismatch: path=%s version=%s sha256=%s\n' \
+      "${resolved:-missing}" "${actual:-missing}" "${actual_sha:-missing}" >&2
+    exit 1
   fi
   local mode=receipt-bound
   local expected_broker="/opt/jain-ci/authority/release-bin/jankurai"

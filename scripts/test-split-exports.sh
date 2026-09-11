@@ -122,7 +122,9 @@ for component in "${components[@]}"; do
     checkout="$scratch/$component"
     git clone --no-local --no-checkout --quiet "$root" "$checkout"
     git -C "$checkout" fetch --quiet --no-tags "$root" "$commit"
-    git -C "$checkout" -c core.hooksPath=/dev/null checkout --quiet --detach "$commit"
+    empty_hooks=$(mktemp -d)
+    git -C "$checkout" -c core.hooksPath="$empty_hooks" checkout --quiet --detach "$commit"
+    rmdir -- "$empty_hooks"
     cd "$checkout"
     checked_commit=$(git rev-parse HEAD)
     checked_tree=$(git rev-parse 'HEAD^{tree}')

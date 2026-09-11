@@ -13,8 +13,8 @@ pub(super) struct TestDatabases {
 }
 
 impl TestDatabases {
-    pub(super) fn temporary() -> Self {
-        let parent = fs::canonicalize(std::env::temp_dir()).expect("physical temporary parent");
+    pub(super) fn scratch() -> Self {
+        let parent = fs::canonicalize(std::env::temp_dir()).expect("physical scratch parent");
         Self::new_in(&parent)
     }
 
@@ -134,7 +134,7 @@ impl Drop for TestDatabases {
 #[test]
 fn database_and_sidecars_are_removed_on_return_and_unwind() {
     for unwind in [false, true] {
-        let fixture = TestDatabases::temporary();
+        let fixture = TestDatabases::scratch();
         let root = fixture.root.clone();
         for name in [
             "work.sqlite",
@@ -188,7 +188,7 @@ fn cloned_web_states_keep_both_databases_until_the_last_owner_drops() {
 fn cleanup_refuses_links_unknown_children_and_root_replacement() {
     use std::os::unix::fs::{DirBuilderExt, symlink};
 
-    let outer = TestDatabases::temporary();
+    let outer = TestDatabases::scratch();
     let mut inner = TestDatabases::new_in(&outer.root);
     fs::write(outer.work_path(), b"outside the inner cleanup root").unwrap();
     symlink(outer.work_path(), inner.work_path()).unwrap();

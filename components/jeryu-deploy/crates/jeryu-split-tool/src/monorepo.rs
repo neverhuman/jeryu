@@ -264,7 +264,7 @@ fn public_auditor_repository(tool: &Value) -> Result<&str> {
         tool.get("jankurai")
             .and_then(|pin| pin.get("repo"))
             .and_then(Value::as_str)
-            == Some("http://127.0.0.1:8787/git/jeryu/jankurai.git"),
+            == Some("https://github.com/neverhuman/jankurai.git"),
         "governed auditor producer identity changed"
     );
     let distribution = tool
@@ -401,7 +401,7 @@ mod tests {
             r#"
 schema_version = "2"
 [jankurai]
-repo = "http://127.0.0.1:8787/git/jeryu/jankurai.git"
+repo = "https://github.com/neverhuman/jankurai.git"
 [distribution]
 source_repository = "https://github.com/neverhuman/jankurai.git"
 "#,
@@ -496,7 +496,7 @@ two_consumer_proof_required = true
         );
         assert_eq!(
             manifest["jankurai"]["repo"].as_str(),
-            Some("http://127.0.0.1:8787/git/jeryu/jankurai.git")
+            Some("https://github.com/neverhuman/jankurai.git")
         );
     }
 
@@ -542,7 +542,7 @@ two_consumer_proof_required = true
         }
         let mut changed = auditor_manifest();
         changed["jankurai"]["repo"] =
-            Value::String("https://github.com/neverhuman/jankurai.git".to_owned());
+            Value::String("http://127.0.0.1:8787/git/jeryu/jankurai.git".to_owned());
         assert!(public_auditor_repository(&changed).is_err());
     }
     fn complete_metadata() -> (serde_json::Value, serde_json::Value) {

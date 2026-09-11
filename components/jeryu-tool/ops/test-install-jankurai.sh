@@ -115,7 +115,7 @@ external_pin="${tmp}/external-pin.env"
 make_pin "${good_pin}" "${good_sha}"
 make_pin "${good_b_pin}" "${good_b_sha}"
 make_pin "${bad_digest_pin}" "$(printf '0%.0s' {1..64})"
-sed 's#^JANKURAI_REPO=.*#JANKURAI_REPO="https://github.com/neverhuman/jankurai.git"#' \
+sed 's#^JANKURAI_REPO=.*#JANKURAI_REPO="http://127.0.0.1:8787/git/jeryu/jankurai.git"#' \
   "${good_pin}" > "${external_pin}"
 
 # Test authority is rejected before the governed target, pin, Git double, or
@@ -256,7 +256,7 @@ expect_failure "hard-linked rollback leaf" \
   fail "hard-linked rollback leaf changed the external sentinel"
 
 # The old PID-derived stage name is no longer an authority. Pre-seed that exact
-# legacy leaf as a symlink in the process that execs the installer; the
+# predecessor leaf as a symlink in the process that execs the installer; the
 # unpredictable exclusive stage must ignore it and preserve the sentinel.
 predictable_leaf_root="${tmp}/predictable-leaf"
 predictable_leaf_sentinel="${tmp}/predictable-leaf-sentinel"
@@ -275,9 +275,9 @@ env JERYU_INSTALL_TEST_MODE=1 JERYU_INSTALL_ROOT="${predictable_leaf_root}" \
     exec bash "${JERYU_PID_INSTALLER}"
   ' >/dev/null
 [[ "$(sha "${predictable_leaf_root}/bin/jankurai")" == "${good_sha}" ]] ||
-  fail "legacy predictable leaf prevented the governed install"
+  fail "predecessor predictable leaf prevented the governed install"
 [[ "$(sha "${predictable_leaf_sentinel}")" == "${predictable_leaf_sha}" ]] ||
-  fail "legacy predictable leaf changed the external sentinel"
+  fail "predecessor predictable leaf changed the external sentinel"
 
 # Successful transaction and receipt-bound idempotency.
 root="${tmp}/success"
@@ -442,7 +442,7 @@ if env JERYU_INSTALL_TEST_MODE=1 JERYU_INSTALL_ROOT="${offline_root}" \
   JERYU_PIN_ENV="${offline_pin}" JERYU_INSTALL_TEST_GIT_BIN="${offline_git}" \
   JERYU_OFFLINE_TEST_REAL_GIT="${real_git}" \
   JERYU_OFFLINE_TEST_SOURCE="${offline_source}" \
-  JERYU_OFFLINE_TEST_CANONICAL="http://127.0.0.1:8787/git/jeryu/jankurai.git" \
+  JERYU_OFFLINE_TEST_CANONICAL="https://github.com/neverhuman/jankurai.git" \
   JERYU_CARGO_CACHE_SEED="${tmp}/empty-cargo" JERYU_RUN_ID="offline-test-$$" \
   bash "${installer}" >"${tmp}/offline.log" 2>&1; then
   fail "offline fetch test unexpectedly succeeded"
