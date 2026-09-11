@@ -1409,7 +1409,7 @@
       "kind": "proof-implementation-or-input",
       "path": "components/jeryu-ci-runner/ops/ci/install-jankurai-release.sh",
       "port_status": "pending-equivalence-proof",
-      "sha256": "bbf63c409de16c977f3533de89ad8d55aa7d5e4c0288e376c9eac3d2f6f71225"
+      "sha256": "17c1fdbb49718c9c7062a14cb19b9f2d009a923e90732aa6b4212bc2974b8eba"
     },
     {
       "component": "jeryu-ci-runner",
@@ -8535,7 +8535,7 @@
       "kind": "proof-implementation-or-input",
       "path": "ops/ci/install-jankurai-release.sh",
       "port_status": "pending-equivalence-proof",
-      "sha256": "bbf63c409de16c977f3533de89ad8d55aa7d5e4c0288e376c9eac3d2f6f71225"
+      "sha256": "17c1fdbb49718c9c7062a14cb19b9f2d009a923e90732aa6b4212bc2974b8eba"
     },
     {
       "component": "jeryu",
