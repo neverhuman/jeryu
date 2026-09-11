@@ -8823,7 +8823,7 @@
       "kind": "proof-implementation-or-input",
       "path": "tests/ci-matrix.sh",
       "port_status": "pending-equivalence-proof",
-      "sha256": "1e0d7f2a1eb5f3d57fcb2a434db9dee0328252580d3113e3d7527a95d2170fe1"
+      "sha256": "22125e252478190267ea2b4bcd7266d1238fa7612c6443f4f2c1860dd2a76f76"
     },
     {
       "component": "jeryu",
