@@ -18,7 +18,7 @@
       "kind": "workflow",
       "path": ".github/workflows/ci.yml",
       "port_status": "pending-equivalence-proof",
-      "sha256": "6dfe6f96d4adc422efce69cd4a8d0d86bf64df412e462f3484b0cb88d19b6e62"
+      "sha256": "9ee0c9422a03c5033bf42697e9517db6da5e6ac452f09c26d1da6c1e06ca1882"
     },
     {
       "component": "jeryu",
@@ -7017,7 +7017,7 @@
       "kind": "proof-implementation-or-input",
       "path": "components/jeryu-tool/crates/jeryu-tool-control/tests/hermetic_builder.rs",
       "port_status": "pending-equivalence-proof",
-      "sha256": "16f6e5366b164ff923463afa5f0a07052668f3818fca7b3db2587918bea1f4e5"
+      "sha256": "9c827aa4e7cf527591a8536a04efb66d6f59e46ced3c5057b197f4b853e7a653"
     },
     {
       "component": "jeryu-tool",
@@ -7026,6 +7026,14 @@
       "path": "components/jeryu-tool/crates/jeryu-tool-control/tests/hermetic_builder/create_attempt.rs",
       "port_status": "pending-equivalence-proof",
       "sha256": "a463a00be9ae7e728ba672197a2de8a2f3e08a44cacbb1df24aabf9305574db4"
+    },
+    {
+      "component": "jeryu-tool",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-tool/crates/jeryu-tool-control/tests/hermetic_builder/image_identity.rs",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "634b5a0c9a99f37c873110aa7df560269dea6b43c5f9b18ce9aba2806f2d2464"
     },
     {
       "component": "jeryu-tool",
@@ -7081,7 +7089,7 @@
       "kind": "proof-implementation-or-input",
       "path": "components/jeryu-tool/ops/build-jankurai-hermetic.sh",
       "port_status": "pending-equivalence-proof",
-      "sha256": "8859b4d833fc51cdffeb2e95da91e4ed4b1a226044a25f413e6a6e12ecdf0eb1"
+      "sha256": "39b146e987c3f5bf575dfd843d0c43dd77b1ac5e8086250660dfef4def1b1ecd"
     },
     {
       "component": "jeryu-tool",
