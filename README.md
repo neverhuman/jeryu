@@ -15,10 +15,12 @@ the [dependency and audit dashboard](docs/dependencies.md).
 ## Quick start
 
 Install the prerequisites below, then use the source installation contract.
-GitHub `main` may lag the candidate. Clone the published candidate tag:
+After this candidate is fast-forwarded to GitHub `main`, clone the default
+branch. The proven stranger lock remains the unmoved tag
+`jeryu-public-candidate-lock-72035eaf`.
 
 ```bash
-git clone --branch jeryu-public-candidate-20260911t035111z https://github.com/neverhuman/jeryu.git
+git clone https://github.com/neverhuman/jeryu.git
 cd jeryu
 ./scripts/build.sh
 ./scripts/install.sh --from-source
@@ -194,9 +196,9 @@ closed until signed Jeryu releases exist.
 | jeryu-tool | [![score](https://raw.githubusercontent.com/neverhuman/jeryu-tool/main/agent/jankurai-badge.svg)](https://github.com/neverhuman/jeryu-tool) | Hold ≥90 |
 | jeryu-intelligence | [![score](https://raw.githubusercontent.com/neverhuman/jeryu-intelligence/main/agent/jankurai-badge.svg)](https://github.com/neverhuman/jeryu-intelligence) | Clean-SHA 90 / 0 caps on `score/raise-90` (PR open; `main` not overwritten) |
 | jeryu-tool-finder | [![score](https://raw.githubusercontent.com/neverhuman/jeryu-tool-finder/main/agent/jankurai-badge.svg)](https://github.com/neverhuman/jeryu-tool-finder) | Clean-SHA 93 / 0 caps on `score/raise-90` (PR open; `main` not overwritten) |
-| jeryu-core | — | Wait: `codex/core-writer-runtime-20260909t141852z` @ `d0952ff90bbbc25be56afb2ec50235b4ff2a8b65`, dirty `crates/jeryu-core/src/engine/actors.rs` |
-| jeryu-deploy | — | Wait: `codex/agent-api-diagnostics-20260909t122959z` @ `b388edc512bb29eb67709efd63c7f557b97df305`, 19 dirty paths |
-| jeryu-ci-runner | — | Wait hosted-green: `codex/runner-supervision-20260909t142045z` @ `48406affebea9bbda7fc41c8ff2fd7c963a580d8` (clean tree, campaign score ~72) |
+| jeryu-core | — | Family pin is nested tag `jeryu-core-family-bb7cb7fb`. Standalone checkout is Codex-dirty; unused. |
+| jeryu-deploy | [![score](https://raw.githubusercontent.com/neverhuman/jeryu-deploy/main/agent/jankurai-badge.svg)](https://github.com/neverhuman/jeryu-deploy) | Thin CI PR score 87 / 0 caps (floor 85); `main` not overwritten |
+| jeryu-ci-runner | — | Family pin is nested tag `jeryu-ci-runner-family-install-quiet`. Standalone hosted `main` CI historically red; unused. |
 
 Candidate metadata stays fail-closed. This branch does not claim GA, GitHub
 branch protection, or service cutover.
