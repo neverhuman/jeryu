@@ -82,7 +82,7 @@
       "kind": "threshold-policy",
       "path": "agent/jankurai-badge.json",
       "port_status": "pending-equivalence-proof",
-      "sha256": "30f498a3897da3565ced2549b74d2dbb8d21e0503b48f949fdf26e4fb9f0d6aa"
+      "sha256": "5cb261b1a84498e7bc3362a8cb2427a4fd41dd2611befefe1b5c2a0285fad6cf"
     },
     {
       "component": "jeryu",
