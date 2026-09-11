@@ -17,8 +17,8 @@ already_verified() {
 }
 
 if already_verified; then
-  command -v jankurai
-  jankurai --version
+  command -v jankurai >&2
+  jankurai --version >&2
   exit 0
 fi
 
@@ -28,8 +28,8 @@ lock="$lock_dir/jankurai-release-install.lock"
 exec 9>"$lock"
 flock 9
 if already_verified; then
-  command -v jankurai
-  jankurai --version
+  command -v jankurai >&2
+  jankurai --version >&2
   exit 0
 fi
 
@@ -42,7 +42,7 @@ curl -fsSL -o "$asset" \
   "https://github.com/neverhuman/jankurai/releases/download/${tag}/${asset}"
 curl -fsSL -o "${asset}.sha256" \
   "https://github.com/neverhuman/jankurai/releases/download/${tag}/${asset}.sha256"
-sha256sum -c "${asset}.sha256"
+sha256sum -c "${asset}.sha256" >&2
 tar -xzf "$asset"
 bin="$(find "$work" -name jankurai -type f -perm -u+x | head -1)"
 [[ -n "$bin" ]]
@@ -57,5 +57,5 @@ else
   sudo install -m 0755 "$bin" "$staging"
   sudo mv -f -- "$staging" "$dest"
 fi
-command -v jankurai
-jankurai --version
+command -v jankurai >&2
+jankurai --version >&2
