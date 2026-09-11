@@ -1,7 +1,7 @@
 # Jeryu
 
 <!-- jankurai-badge:start -->
-[![Jankurai score](agent/jankurai-badge.svg)](.jankurai/repo-score.md)
+[![Jankurai score: 92/100](agent/jankurai-badge.svg)](.jankurai/repo-score.md)
 <!-- jankurai-badge:end -->
 
 Jeryu is a self-hosted forge for Git repositories, issues, pull requests,
@@ -18,7 +18,7 @@ Install the prerequisites below, then use the source installation contract.
 GitHub `main` may lag the candidate. Clone the published candidate tag:
 
 ```bash
-git clone --branch jeryu-public-candidate-lock-72035eaf https://github.com/neverhuman/jeryu.git
+git clone --branch jeryu-public-candidate-20260911t035111z https://github.com/neverhuman/jeryu.git
 cd jeryu
 ./scripts/build.sh
 ./scripts/install.sh --from-source
