@@ -1840,6 +1840,22 @@
       "component": "jeryu-core",
       "declaration": null,
       "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-core/crates/jeryu-core/src/engine/required_attempts/tests.rs",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "3e6e8655cc67b8dab6c4f1864d5ad9819e3aa35456c42a5c9a72b729afc37850"
+    },
+    {
+      "component": "jeryu-core",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
+      "path": "components/jeryu-core/crates/jeryu-core/src/engine/required_publisher_controller/tests.rs",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "a41c820fc50d3c632efa935ab1d610712ed6f343195375a0839b72d0393f6381"
+    },
+    {
+      "component": "jeryu-core",
+      "declaration": null,
+      "kind": "proof-implementation-or-input",
       "path": "components/jeryu-core/crates/jeryu-core/src/engine/storage/tests.rs",
       "port_status": "pending-equivalence-proof",
       "sha256": "a3fa6d6797cbc62ed136395f5f5dc0e6fb1e22846d34d32ac2f61f43e87fd812"

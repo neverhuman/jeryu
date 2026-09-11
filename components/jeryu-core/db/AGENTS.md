@@ -102,3 +102,37 @@ Migration 0015 authenticated-review notes:
   Gitd real observer/timeout cases, full affected Core/Gitd targets, the migration
   backfill test and the migration analysis lane above. Recipe/test success is
   separate from an authenticated hosted approval or installed qualification.
+
+Migration 0016 required-attempt notes:
+- Attempt reservations, received artifact bytes and terminal outbox rows have
+  independent persistence ownership, without catalog FKs or State staging.
+- Server UUID/ordinal allocation and reservation audit are one transaction.
+  Terminal result, received bytes, completion audit and outbox are another single
+  transaction. Identical retries retain original IDs/expiry/result bytes; changed
+  bindings or terminal payloads conflict. Every readback uses one SQLite snapshot.
+- No historical check/status row receives an authoritative attempt backfill.
+  These private store hooks require the future enrolled publisher/controller;
+  no publication transport or ordinary merge authority is activated here.
+- Keep incompatible writers stopped and retain a complete restore-tested state
+  package before installed migration. Never drop attempts/artifacts/outbox or
+  reverse accepted Git to undo this additive schema. Run the owning attempt,
+  actor/review, snapshot persistence and migration lanes with two Cargo jobs in
+  the admitted allocation; installed qualification remains separate.
+
+Migration 0017 required-publisher notes:
+- `forge_required_publishers` is independent of State saves and has no catalog
+  foreign key. Immutable revision/hash/installation identity and targeted
+  revocation remain durable after unrelated saves and runtime restarts.
+- Installation requires expected absence at revision one or an exact previous
+  enrollment hash with the next revision. Installation/revocation and audit
+  commit atomically. Replays cannot change accepted content or revive revocation.
+- The private installer requires the future root-owned commissioning verifier
+  under the authority guard, with actual independent actors and detached trust
+  acceptance. Shape-valid JSON and a test fixture do not supply that authority.
+- This forward-only additive migration invents no historical enrollment. Keep
+  incompatible writers stopped and retain a complete consistent restore-tested
+  backup before installed migration. Preserve the journal and recover forward
+  after accepted effects; never drop the table to bypass a prior enrollment.
+- Run required-publisher controller, required-attempt persistence, actor/review
+  and migration analysis lanes in an admitted two-job allocation. Real signing,
+  transport, managed Git and installed recovery campaigns remain mandatory.

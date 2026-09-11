@@ -50,6 +50,36 @@ the required source, build and provenance checks remain intact.
 
 ## Current public evidence
 
+At `294d73ece4e9f553fa14d2311d81c67af447bdac`,
+[run 34613853145, attempt 1](https://github.com/neverhuman/jeryu/actions/runs/34613853145)
+passes all three actual audit-executor confinement, nonzero-exit and descendant
+cleanup regressions. Full Rust still fails four API/merge/CLI targets. The
+[census artifact 10269438054](https://github.com/neverhuman/jeryu/actions/runs/34613853145/artifacts/10269438054)
+accounts for all 51 scopes: 22 executed reports fail policy, 23 tool errors and
+six unavailable sources. Root score is 64/raw 81, with 44 hard findings, 23 soft
+findings and four caps. Of those hard findings, 38 flag required SQLite `temp`
+schema qualifiers; producer classification must be corrected through its own
+reviewed lifecycle. These SQL qualifiers and the consumer policies remain.
+Authenticated governing-policy and predecessor admission are still missing.
+
+Public `50eb49f90423c82f422dc9410efe5ba745719027` integrates Deploy PR 1's
+credential-bound review routes, private real-Git/SQLite fixtures and logout
+failure propagation. Full [run 34615620791, attempt 1](https://github.com/neverhuman/jeryu/actions/runs/34615620791)
+and score run 34615622666 are pending. Earlier Core or executor results do not
+qualify this transport source.
+
+The next original Core intake preserves `7d6cba0169bf036c090c284e715d209ed3f45877`:
+server-issued attempt UUIDs/ordinals, fixed enrollment/source/credential/runtime
+bindings, bounded received artifact bytes, atomic terminal audit/outbox writes,
+latest-attempt precedence and durable enrollment rotation/revocation. All 14
+persistence and 11 controller regressions are retained with explicitly private
+SQLite fixture roots. Migrations 0016/0017 include owner metadata and retained
+rollback guidance; neither invents authority for historical checks. The private
+enrollment installer has no HTTP route, and runtime authority starts absent.
+This is unqualified source. Later actual publisher-custody/readback and
+commissioning-barrier contributions, signing provider, dispatch, protected merge
+and complete composed-migration/recovery qualification remain required.
+
 The retained census artifact for `324a4faf`
 [10268586956](https://github.com/neverhuman/jeryu/actions/runs/34610898798/artifacts/10268586956)
 records `bwrap: loopback: Failed RTM_NEWADDR: Operation not permitted`.

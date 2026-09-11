@@ -141,7 +141,16 @@ impl ForgeCore {
                 "read-only session proof cannot authorize mutations".into(),
             ));
         }
-        let binding = &actor.binding;
+        self.validate_actor_binding_locked(state, &actor.binding)
+    }
+
+    /// Private persisted-enrollment eligibility check, never request actor
+    /// authentication. A request still requires an opaque AuthenticatedActor.
+    pub(super) fn validate_actor_binding_locked(
+        &self,
+        state: &State,
+        binding: &ReviewActorBinding,
+    ) -> Result<ReviewActorBinding> {
         let account = state
             .accounts
             .get(&binding.login)
@@ -150,10 +159,10 @@ impl ForgeCore {
             || account.must_change_password
             || account.auth_epoch != binding.auth_epoch
             || account.created_at != binding.account_created_at
-            || !state
+            || state
                 .users
                 .get(&binding.login)
-                .is_some_and(|profile| profile.id == binding.profile_id)
+                .is_none_or(|profile| profile.id != binding.profile_id)
         {
             return Err(invalid_credential());
         }

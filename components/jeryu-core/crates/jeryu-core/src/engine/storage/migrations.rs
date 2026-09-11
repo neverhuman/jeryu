@@ -49,6 +49,11 @@ const MIGRATION_0014: &str =
 const MIGRATION_0015: &str =
     include_str!("../../../../../db/migrations/0015_authenticated_reviews.sql");
 
+const MIGRATION_0016: &str =
+    include_str!("../../../../../db/migrations/0016_required_attempts.sql");
+const MIGRATION_0017: &str =
+    include_str!("../../../../../db/migrations/0017_required_publishers.sql");
+
 pub(super) fn apply_migrations(conn: &Connection) -> Result<()> {
     apply_migrations_through_0010(conn)?;
     apply_migration_0011(conn)?;
@@ -58,6 +63,8 @@ pub(super) fn apply_migrations(conn: &Connection) -> Result<()> {
         .map_err(storage_error)?;
     conn.execute_batch(MIGRATION_0014).map_err(storage_error)?;
     conn.execute_batch(MIGRATION_0015).map_err(storage_error)?;
+    conn.execute_batch(MIGRATION_0016).map_err(storage_error)?;
+    conn.execute_batch(MIGRATION_0017).map_err(storage_error)?;
     Ok(())
 }
 

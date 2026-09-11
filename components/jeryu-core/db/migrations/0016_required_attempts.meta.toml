@@ -1,0 +1,18 @@
+# jankurai:migration v1
+id = "0016_required_attempts"
+owner = "jeryu-core"
+reviewer = "independent-review-required"
+change_type = "expand"
+safety = "online"
+transaction = "required"
+lock_timeout = "5s"
+statement_timeout = "60s"
+estimated_rows = 0
+deploy_phase = "expand"
+app_compatibility = "new_app_old_db"
+requires = ["0015_authenticated_reviews"]
+rollback = "db/rollbacks/0016_required_attempts.sql"
+backfill = "none; historical checks or named actors cannot authorize publishers"
+data_classification = "internal"
+tenant_impact = "none"
+tests = ["db-migration-analyze", "core::required_attempts::tests", "core::bound_reviews::tests", "stable_persistence"]

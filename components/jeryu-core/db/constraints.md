@@ -431,3 +431,68 @@ check attempts, continuous Git mutation exclusion, the Core-owned executor and
 installed recovery qualification remain subsequent work. Retain a consistent
 full-state backup and restoration receipt before installation; do not run an
 incompatible older writer or discard accepted history to undo migration.
+
+## Required attempt reservations and received evidence (0016)
+
+`forge_required_attempts` owns server UUIDs and positive monotonically increasing
+ordinals per repository UUID, exact commit and context. An idempotency key is
+unique within its repository; all immutable reservation bindings and fixed
+expiry must match on replay. Bindings retain exact commit/tree, opaque actor
+principal/credential/epoch, publisher/runtime, enrollment, evidence contract and
+authority origin. No caller-supplied historical status receives these bindings.
+
+The newest reservation governs immediately. Pending, failed, cancelled and
+expired reservations cannot fall back to an earlier success. Completion is
+accepted only from reservation time up to, but excluding, fixed expiry. An
+identical already-terminal retry returns its original receipt, even later;
+different input conflicts. The future caller must independently revalidate its
+current enrolled publisher, credentials, custody and origin before these private
+persistence methods are invoked. The store does not authenticate request DTOs.
+
+`forge_required_attempt_artifacts` retains actual receiving bytes and Core-made
+SHA-256/size/name identities; payload paths and caller hashes are not receiving
+evidence. The current bounded envelope admits 1–64 uniquely named nonempty
+artifacts totaling at most 16 MiB. Large build artifacts need separately qualified
+external custody and a bound receipt within that envelope; this limit is not a
+claim of large-artifact transport support. Terminal result, artifact bytes, audit
+and `forge_required_attempt_outbox` commit atomically. Reads obtain one SQLite
+snapshot, including newest selection, and verify artifact bytes/outbox against
+the immutable result.
+
+All three tables are outside State-save ownership and carry no catalog FK. They
+survive unrelated full-state saves, reopen and catalog deletion. The additive
+migration invents no attempts, grants or publisher enrollments. Before installed
+use, retain a consistent full-state recovery package and verified restoration,
+stop incompatible writers, and recover forward after accepted effects. The
+private hooks and source tests do not qualify publisher enrollment, authenticated
+routes, commissioning origin, merge execution or installed behavior.
+
+## Required publisher enrollment history (0017)
+
+`forge_required_publishers` owns immutable publisher UUID/revision, enrollment
+hash and installation operation identity. The first record requires expected
+absence and revision one; every successor requires the exact preceding hash and
+next revision. Only the latest revision may authorize an attempt. An operation
+retry retains the original identity/content; conflicting reuse refuses.
+
+Revocation targets the exact current enrollment and appends audit in the same
+transaction as its durable record update. Identical retries retain the original
+revocation; changed requests refuse. Dedicated history survives ordinary State
+saves and runtime restart, with no repository/account cascade deletion. Reading
+an enrollment validates indexed identities, canonical content digest and bounds
+under one SQLite read snapshot.
+
+The private installer does not authenticate request data. Its future caller is
+the root-owned commissioning verifier under the authority guard, after detached
+independent acceptance and current actor/key/credential checks. The attached
+Core authority service starts absent on restart. Public reserve/complete/snapshot
+methods revalidate opaque credentials, exact source scope and enrolled bindings;
+no transport may install arbitrary publisher JSON. Test-only gate implementations
+are not production trust or enrollment evidence.
+
+Migration is additive, idempotent and has no historical backfill. Before installed
+migration retain a complete consistent backup with a verified restore rehearsal,
+keep incompatible writers stopped and preserve all enrollment/audit history.
+After accepted effects, recover forward instead of removing rows or restoring an
+older writer. Eleven new owning fixtures are prepared but unexecuted; actual
+signing, installed custody and receiving transport qualification remain open.

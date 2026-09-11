@@ -32,6 +32,17 @@ pub use crate::core::{
     ReviewGitObservation, ReviewGitObserver, ReviewGitRepository, ReviewGitTarget,
     ReviewQualification, ReviewSnapshot, SubmitBoundReviewRequest,
 };
+pub use crate::core::{
+    CompleteRequiredAttemptRequest, DurableRequiredPublisher, RequiredArtifactUpload,
+    RequiredAttemptSnapshot, RequiredContextSnapshot, RequiredPublisherAction,
+    RequiredPublisherAuthority, RequiredPublisherEnrollment, RequiredPublisherRevocation,
+    RequiredPublisherScope, ReserveRequiredAttemptRequest,
+};
+pub use crate::core::{
+    DurableRequiredAttempt, ReceivedRequiredArtifact, RequiredAttemptBinding,
+    RequiredAttemptCompletion, RequiredAttemptConclusion, RequiredAttemptReservation,
+    RequiredAttemptStatus, RequiredAuthorityOrigin,
+};
 pub use crate::error::{AgentRepairHint, JeryuError, JeryuResult};
 pub use crate::errors::{ForgeError, Result};
 pub use crate::ids::{AgentId, PullRequestId, QueueEntryId, ReceiptId, RepoId};

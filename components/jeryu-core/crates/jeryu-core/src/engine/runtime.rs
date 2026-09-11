@@ -20,6 +20,8 @@ pub(super) struct SharedRuntime {
     pub(super) coordinator: MutationCoordinator,
     pub(super) storage_root: Option<PathBuf>,
     pub(super) review_git_observer: RwLock<Option<Arc<dyn super::ReviewGitObserver>>>,
+    pub(super) required_publisher_authority:
+        RwLock<Option<Arc<dyn super::RequiredPublisherAuthority>>>,
 }
 
 type Registry = HashMap<BackingIdentity, Weak<SharedRuntime>>;
@@ -87,6 +89,7 @@ pub(super) fn open(database: &Path, storage_root: Option<&Path>) -> Result<Arc<S
         coordinator: MutationCoordinator::default(),
         storage_root: identity.storage_root.clone(),
         review_git_observer: RwLock::new(None),
+        required_publisher_authority: RwLock::new(None),
     });
     registry.insert(identity, Arc::downgrade(&runtime));
     Ok(runtime)

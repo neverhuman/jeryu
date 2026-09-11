@@ -35,6 +35,17 @@ Core-owned durable executor are still unavailable: legacy split readiness,
 caller-result finalization and synthetic merge methods all refuse before Git
 dispatch. A source-review result never asserts merge or installed qualification.
 
+Core now owns `reserve_required_attempt`, `complete_required_attempt` and
+`required_attempt_snapshot`. They require opaque current credentials, managed
+source custody and a separately verified publisher installation service.
+Publisher scope/runtime/origin come from durable enrollment, not request fields.
+The installation service starts absent, so ordinary callers receive unavailable
+until actual trust and enrollment are commissioned. The private enrollment
+installer is not exposed to transport. Snapshot satisfaction requires the newest
+attempt, exact enrolled bindings and current credential eligibility; legacy
+checks/statuses remain advisory. Deployment adapters and protected merge
+composition still require the complete successor and installed qualification.
+
 This repository was seeded from Jeryu source commit `cbecf7caa0e932c76a341b2521e66e911233860d` by
 `ops/split/materialize.py`. It is part of the independent Jeryu split family and keeps source paths
 stable where practical so ownership remains auditable; family membership is derived from the

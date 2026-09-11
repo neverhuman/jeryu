@@ -14,7 +14,9 @@ mod codec;
 mod load;
 mod migrations;
 mod persist;
+mod publisher_enrollment;
 mod ref_operations;
+mod required_attempts;
 mod snapshot;
 
 #[cfg(test)]

@@ -32,6 +32,7 @@ mod coordinator;
 mod issues;
 mod jankurai;
 mod mutation;
+mod publisher_enrollment;
 mod pull_requests;
 mod readmes;
 mod ref_operations;
@@ -39,6 +40,8 @@ mod repositories;
 mod repository_creation;
 mod repository_transfer;
 mod repository_transfer_state;
+mod required_attempts;
+mod required_publisher_controller;
 mod reviews;
 mod runtime;
 mod storage;
@@ -52,6 +55,7 @@ pub use actors::{ActorCredential, AuthenticatedActor};
 pub use audit::AuditEntry;
 pub use bound_reviews::*;
 pub use coordinator::MutationCoordinator;
+pub use publisher_enrollment::*;
 pub use pull_requests::MergeReadiness;
 pub use ref_operations::{
     DurableRefOperation, DurableRefOperationKind, DurableRefOperationState, ObservedRef,
@@ -60,6 +64,8 @@ pub use ref_operations::{
 };
 pub use repositories::RepositoryDeletion;
 pub use repository_creation::RepositoryCreation;
+pub use required_attempts::*;
+pub use required_publisher_controller::*;
 
 #[derive(Debug, Clone, Default)]
 struct Counters {
