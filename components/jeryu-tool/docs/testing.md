@@ -66,6 +66,17 @@ inputs and content-addressed receipts are its only durable data boundaries, and
 diagnostic workflows stop after ten minutes. Do not invent migrations, spend
 records, or service kill switches merely to satisfy a generic product rubric.
 
+## Historical scanner findings
+
+The full-history scanner retains its default rules and required exit status.
+`.gitleaksignore` lists two exact historical fingerprints: a password for the
+temporary in-memory account in
+`forced_password_change_blocks_other_authenticated_routes_until_changed`
+(`043765916`), and an `Idempotency-Key` API documentation example (`270aff85`).
+Their source context was reviewed; neither grants access to an external account.
+The exclusions bind commit, path, rule and line. Every other fingerprint remains
+subject to the default scan, including matching content in a new commit.
+
 ## Agent-readable control errors
 
 `jeryu-toolctl` maps its closed `Usage`, `Registry`, and `Renderer` error

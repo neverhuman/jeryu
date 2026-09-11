@@ -299,16 +299,41 @@ fn rewritten_branch_keeps_new_side_and_records_withdrawn_history() {
 }
 
 #[test]
-fn pull_request_and_annotated_release_select_exact_revision() {
+fn pull_request_and_annotated_release_include_both_merge_parents_and_full_ancestry() {
     let mut f = Fixture::new();
-    f.append(2);
+    let base = f.tip.clone();
+    f.append(1);
+    let main = f.tip.clone();
+    let tree = f.git(&["rev-parse", &format!("{base}^{{tree}}")]);
+    let side = f.git(&["commit-tree", &tree, "-p", &base, "-m", "side parent"]);
+    let merge = f.git(&[
+        "commit-tree",
+        &tree,
+        "-p",
+        &main,
+        "-p",
+        &side,
+        "-m",
+        "PR merge",
+    ]);
+    f.tip = merge.clone();
     let mut request = f.request(None, Some(&f.tip));
     request["event"] = json!("pull_request");
     request["source_ref"] = json!("refs/pull/12/head");
     let pr = f.plan(&request);
     assert_eq!(pr["disposition"], "exact_revision");
-    assert_eq!(pr["jobs"].as_array().unwrap().len(), 1);
-    assert_eq!(pr["jobs"][0]["source_commit"], f.tip);
+    let commits: std::collections::BTreeSet<_> = pr["jobs"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|job| job["source_commit"].as_str().unwrap().to_owned())
+        .collect();
+    assert_eq!(commits, [base, main, side, merge].into_iter().collect());
+    assert_eq!(pr["jobs"].as_array().unwrap().len(), 4);
+    assert_eq!(
+        pr["jobs"].as_array().unwrap().last().unwrap()["source_commit"],
+        f.tip
+    );
     f.git(&[
         "-c",
         "tag.gpgsign=false",

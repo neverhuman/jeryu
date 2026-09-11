@@ -281,12 +281,10 @@ fn plan(repo: &Path, request: Request) -> Result<Plan> {
         disposition = "excluded_evidence_branch";
     } else if let Some(after) = &after {
         if matches!(request.event, Event::PullRequest | Event::Release) {
-            let tree = git(
-                repo,
-                &["rev-parse", "--verify", &format!("{after}^{{tree}}")],
-            )?;
-            ensure!(hex(tree.trim(), 40), "invalid source tree");
-            rows.push((after.clone(), tree.trim().to_owned()));
+            // A PR or release may be the first enrolled reference to these
+            // commits. Include both merge parents and all ancestors; accepted
+            // identical execution identities are deduplicated by the ledger.
+            rows = graph_rows(repo, after, None)?;
             disposition = "exact_revision";
         } else {
             rows = graph_rows(repo, after, before.as_deref())?;

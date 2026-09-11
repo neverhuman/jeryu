@@ -21,6 +21,26 @@ deletion exceptions are not accepted; these requirements remain fail-closed.
 
 ## Current public evidence
 
+At `c929d6ed`, [PR run 34567779982](https://github.com/neverhuman/jeryu/actions/runs/34567779982)
+passed source, public, product, security, web, native sandbox and OCI. Audit,
+auditor, auxiliary, Rust, runtime and splits failed; legacy was still running at
+readback. The pinned auditor again reproduced correctly, then the root audit
+failed at 64 with six hard findings. Runtime lacked ancestor traversal for its
+dedicated UID; Rust still used the runner UID. Both now select the dedicated
+identity, with traversal ACLs, and maintained commands serialize custody tests.
+Runner and Deploy split failures remain unresolved; future runs retain their
+child logs separately from private runtime custody.
+
+The next working-source corrections passed all seven planner integration
+tests, all 43 Codegraph targets and all 11 acquisition tests under isolated
+serial execution, plus relevant warning-denied Clippy and workflow linters.
+An initial acquisition filter ran zero tests; a two-thread retry passed 10 and
+failed one custody cleanup. Both attempts remain retained and are superseded
+only for the corrected serial command by the complete 11-test result.
+Tool's complete `just security` passed with two exact historical synthetic
+fingerprints excluded; a fresh secret-pattern canary still failed as required.
+These are local targeted results, not final-head CI qualification.
+
 [PR 66 run 34563986065, attempt 1](https://github.com/neverhuman/jeryu/actions/runs/34563986065)
 executes the complete matrix at `e97aa6330832db8a270e5150a86ab65644e59ad4`.
 Product, security, sandbox, web, source, OCI and public passed. Auxiliary,
@@ -95,6 +115,11 @@ anonymous source installation and release qualification remain open.
 
 ## Source reconciliation
 
+[Component PR dispositions](PR-RECONCILIATION.md) record the exact reviewed
+Intelligence and Tool Finder heads, accepted storage/contracts work and
+superseded policy/CI shortcuts. Original PRs remain open until protected merged
+replacements exist.
+
 The public commits `72035eaf` and `5c881aaa` remain in ancestry. The pending
 intake, immutable package preparation, Cache source checks, builder diagnostics
 and Runner denial changes were preserved and reapplied without conflicts.
@@ -146,7 +171,7 @@ claim. Missing maintained commands remain explicit gaps.
 | R17 | Authentic predecessors and auxiliary proofs / Tool+Release Ops | `scripts/ci.sh auxiliary`; Tool `ops/ci/tool-adoption.sh` | Candidate-derived baseline is insufficient. Protected predecessor, complete changed paths/hunks, proofbind/proofmark/configuration/conformance remain open. | 65; Tool 1 |
 | R18 | Coverage, mutation and stricter floors / components | Existing owning quantitative gates in `CI-COVERAGE.md` | Preserve all floors, zero hard findings/caps, soft limits, coverage/mutation/size/performance requirements. No waiver or lowered policy is admitted. | 65 |
 | R19 | Authenticated durable webhook intake / Deploy | `jeryu-split audit-service`; `audit-intake` | Separate bounded HTTP receiver implemented with raw-byte HMAC, durable acknowledgement, private held configuration and startup replay. All 20 intake tests pass, including five real HTTP/restart tests. Deployed enrollment remains unqualified. | [66](https://github.com/neverhuman/jeryu/pull/66) |
-| R20 | Persistent queue, ancestry, retries and reconciliation / service | `audit-plan`, `audit-ledger`, intake store | Local accounting exists. Maintainer receiver/dispatcher, backfill, restart/outage/missed-delivery drills and enrollment remain open. | New service work |
+| R20 | Persistent queue, ancestry, retries and reconciliation / service | `audit-plan`, `audit-ledger`, intake store | Seven planner tests pass, now including every PR/release ancestor and both merge parents. Local accounting and the receiver exist. Dispatcher, backfill, outage/missed-delivery drills and enrollment remain open. | [66](https://github.com/neverhuman/jeryu/pull/66); service followup |
 | R21 | Authenticated executor results and publication / service | `jeryu-split audit-package` | Private immutable preparation exists and cannot grant verified PASS. Workflow/run/attempt/source/policy/exit/hash authentication and publication credentials remain separate open boundaries. | [66](https://github.com/neverhuman/jeryu/pull/66) |
 | R22 | Immutable JSON/Markdown/SVG/provenance and Pages / service | `docs/migration/AUDIT-PUBLICATION.md` | Trusted sanitized publisher, first-party renderer, Pages artifact workflow and public reachability unqualified. | New service work |
 | R23 | Race-safe live cards and README enrollment / service | `jeryu-split audit-readme` | Marker validator exists; pending publication, monotonic head pointers and separate maintained/pinned cards need service integration. | 65 |
@@ -158,19 +183,22 @@ claim. Missing maintained commands remain explicit gaps.
 
 ## Open public PRs
 
-These are the eight open PRs observed across all eleven repositories. Full
+The original eight have advanced, and Deploy 1 plus corrective PR 66 bring the
+current inventory to ten open PRs across all eleven repositories. Full
 accepted-change dispositions still require review and merged replacements.
 
 | Repository / PR | Exact observed head | Disposition |
 | --- | --- | --- |
-| [jeryu 65](https://github.com/neverhuman/jeryu/pull/65) | `73b60a03f932659a847910da9b86182770cd2711` | Integrated locally; stronger admission restored, followup and independent approval pending |
-| [Cache 1](https://github.com/neverhuman/jeryu-cache/pull/1) | `d6d9cf0b3b1fd8160679044a93ea7243335197c4` | Open; reconcile complete census with thin score CI |
-| [Work 1](https://github.com/neverhuman/jeryu-jira/pull/1) | `86024ece2b3954859580ff746d801b39264b453f` | Open; reconcile complete census with thin score CI |
-| [Intelligence 1](https://github.com/neverhuman/jeryu-intelligence/pull/1) | `c5c0ab442d96dbf9b5bec8df2e3cd553e1c6f4c3` | Open; inspect accepted source and audit policies |
-| [Tool 1](https://github.com/neverhuman/jeryu-tool/pull/1) | `2c971826ffbdba9f1b13d56ffc3c49923e4dc611` | Open; require full provenance and authentic predecessor |
-| [Tool Finder 1](https://github.com/neverhuman/jeryu-tool-finder/pull/1) | `6bfd62cc9dcf0692dd52373a129c495f9a5f817f` | Open; inspect accepted source and audit policies |
-| [Web 1](https://github.com/neverhuman/jeryu-web/pull/1) | `cf1c20aeec4505f60ce749df38d39fda138683b2` | Open; reconcile complete census with thin score CI |
-| [Release Ops 1](https://github.com/neverhuman/jeryu-release-ops/pull/1) | `f660497972a2db2774afc7855a027a4ffd3c4018` | Open; preserve release authority and complete checks |
+| [jeryu 65](https://github.com/neverhuman/jeryu/pull/65) | `4367868b3dc208ef34256ce585cd52e6fcb1a280` | History preserved; accepted Git HEAD compatibility corrected in production and fixture; hosted-only skips superseded |
+| [jeryu 66](https://github.com/neverhuman/jeryu/pull/66) | `c929d6ed0be562c3bba49e332fe19ac31c492e29` | Draft corrective source; complete matrix remains failed |
+| [Cache 1](https://github.com/neverhuman/jeryu-cache/pull/1) | `a1571865b27ebce9b74154aedd265610df2eaae4` | Open; reconcile complete census with thin score CI |
+| [Deploy 1](https://github.com/neverhuman/jeryu-deploy/pull/1) | `c8f43edead0b8d276e9e13ed517823a223f6807a` | Newly open; accepted work and standalone qualification require reconciliation |
+| [Work 1](https://github.com/neverhuman/jeryu-jira/pull/1) | `9ad978a9fbd73c830e3ad0884eb74981d5e89460` | Open; reconcile complete census with thin score CI |
+| [Intelligence 1](https://github.com/neverhuman/jeryu-intelligence/pull/1) | `ca6ae2934600c95e2471ea038877733472928681` | Storage and corrected generated contract integrated; dispositions recorded; protected replacement pending |
+| [Tool 1](https://github.com/neverhuman/jeryu-tool/pull/1) | `d904e09cb1f49b3dc0feb47da2cde6b97b5f4391` | Open; require full provenance and authentic predecessor |
+| [Tool Finder 1](https://github.com/neverhuman/jeryu-tool-finder/pull/1) | `ee0e0ca335ad1f7c4adaa4ffd7d15e387160dffa` | Product source already identical; boundary guidance integrated; stronger controls retained |
+| [Web 1](https://github.com/neverhuman/jeryu-web/pull/1) | `b600754ec4d583d5a6ba29a8a321b6d6c5986bdd` | Open; reconcile complete census with thin score CI |
+| [Release Ops 1](https://github.com/neverhuman/jeryu-release-ops/pull/1) | `008c707e1341a0bce85a12c518d2f899d9dbcfc6` | Open; preserve release authority and complete checks |
 
-Core, Runner and Deploy had no open public PRs at this readback. Their source
+Core and Runner had no open public PRs at this readback. Their source
 and final-head qualification obligations still apply.

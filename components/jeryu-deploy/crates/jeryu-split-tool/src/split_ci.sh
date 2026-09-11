@@ -4,6 +4,7 @@ set -euo pipefail
 cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.."
 export CI=true
 export CARGO_BUILD_JOBS=${CARGO_BUILD_JOBS:-2}
+export RUST_TEST_THREADS=1
 jq -e '.schema_version == "jeryu.split-provenance/v1" and .lock_regeneration_required == false' .jeryu-source.json >/dev/null
 component=$(jq -r .component .jeryu-source.json)
 lane=${1:-ordinary}

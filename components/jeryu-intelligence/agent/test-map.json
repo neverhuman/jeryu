@@ -180,6 +180,11 @@
       "lane": "check",
       "purpose": "verify documented data boundary policy remains routed"
     },
+    "contracts/": {
+      "command": "just check && just score",
+      "lane": "check",
+      "purpose": "verify generated symbol schema matches the owning Rust serialization"
+    },
     "ops/": {
       "command": "just fast && just check && just score",
       "lane": "ci",

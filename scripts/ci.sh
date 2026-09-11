@@ -6,6 +6,9 @@ cd "$root"
 export CI=true
 export CARGO_BUILD_JOBS=${CARGO_BUILD_JOBS:-2}
 export JERYU_CI_JOBS=$CARGO_BUILD_JOBS
+# Whole-account process-custody assertions need serial suite execution. Tests
+# that exercise concurrency still create their own explicit concurrent actors.
+export RUST_TEST_THREADS=1
 export JERYU_WEB_DIST="$root/components/jeryu-web/apps/web/dist"
 export PATH="$root/target/ci-tools/bin:$PATH"
 

@@ -23,6 +23,15 @@ requirements. Runtime checks exercise source installation and the real server.
 Product, security, split and owning component proofs remain independently
 required until equivalent replacement coverage is demonstrated.
 
+The maintained root and split commands set `RUST_TEST_THREADS=1`. Process-custody
+tests inspect every process with their account's UID, including concurrent test
+children, and retain fixtures when any process cannot be inspected. Run those
+suites under a dedicated unprivileged account with no unrelated supervisor
+processes. The hosted Rust/runtime jobs prepare that identity and grant it only
+traversal through workspace ancestors; the Rust job also needs Docker access
+for the complete auditor build. Compiler parallelism remains two jobs. Explicit
+concurrency inside individual regressions remains exercised.
+
 Native sandbox and OCI lanes need disposable Linux environments with the
 required kernel and container capabilities. Read the owning command and
 admission checks before running them. Installing the forge does not require
