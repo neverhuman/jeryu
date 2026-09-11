@@ -1,4 +1,4 @@
-//! Durable local reception before planning. No HTTP, execution or publisher authority.
+//! Durable reception before planning. No execution or publisher authority.
 use anyhow::{Context, Result, bail, ensure};
 use clap::Subcommand;
 use hmac::{Hmac, Mac};
@@ -12,6 +12,8 @@ use crate::{audit_evidence, audit_ledger, audit_score::JsonObject};
 
 #[path = "audit_intake_input.rs"]
 mod input;
+#[path = "audit_service.rs"]
+pub(super) mod service;
 #[path = "audit_intake_store.rs"]
 mod store;
 #[path = "audit_intake_translate.rs"]

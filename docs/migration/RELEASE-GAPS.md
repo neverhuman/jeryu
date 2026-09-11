@@ -36,6 +36,20 @@ The workflow now prepares a dedicated unprivileged runtime UID and runs the
 same maintained command with an empty credential environment. Cleanup and
 live-handle checks remain strict. Its hosted result is pending.
 
+At corrected `7b4b2ffb`, [PR run 34565427389](https://github.com/neverhuman/jeryu/actions/runs/34565427389)
+reproduced and verified the pinned auditor executable through the complete
+public build/receipt path. The following root audit failed at score 64 with
+six hard findings. Runtime setup encountered toolchains copied from the host
+home skeleton; it now requests an explicitly empty dedicated home. Neither
+result is a qualification of current source or `main`.
+
+The separate `audit-service` receiver now has 20 passing intake tests, including
+five real HTTP/restart tests, and package warning-denied Clippy. Raw bytes commit
+before HTTP acknowledgement; failed writes, duplicate signatures and replaced
+databases cannot report successful reception. Product dependency inspection
+confirms that `jeryu-cli` does not depend on the receiver package. Deployment,
+complete queue dispatch, reconciliation and publication remain open.
+
 [PR 65](https://github.com/neverhuman/jeryu/pull/65) remains open without an
 approval. At its exact `5c881aaa` head,
 [run 34554016443, attempt 1](https://github.com/neverhuman/jeryu/actions/runs/34554016443)
@@ -126,12 +140,12 @@ claim. Missing maintained commands remain explicit gaps.
 | R11 | Public Cache scanners, advisories and API baseline / Cache | Cache `ops/ci/security.sh`, `ops/ci/api-compat.sh` | Source guards integrated. Full public scanner producer, pinned advisory DB and immutable API baseline remain unqualified. | 65; Cache 1 |
 | R12 | Runner image ownership and immutable inputs / Runner | Runner `images/agent-sandbox`, `scripts/test-oci.sh` | Product image and duplicate Deploy route need complete reconciliation. Native and OCI-probe successes do not qualify the product image. | 65 |
 | R13 | Enforced network denial / Runner | `cargo test -p jeryu-runner-oci --lib` | All 20 unit tests pass. Requested and effective Deny required; session bridge override removed; exact dispatch argv covered. Product image remains separately unqualified. | 65 |
-| R14 | Auditor public acquisition / Tool | `scripts/ci.sh auditor` | Complete source/build/receipt path retained. Immutable repository/platform admission now binds the runtime engine handle; all 12 builder regressions pass. Real builder reproduction and receipt qualification remain pending. | [66](https://github.com/neverhuman/jeryu/pull/66); Tool 1 |
+| R14 | Auditor public acquisition / Tool | `scripts/ci.sh auditor` | All 12 builder regressions pass. Real hosted reproduction and candidate receipt verification pass at 7b4b2ffb; subsequent root audit fails score 64/hard 6. Independent producer qualification remains separate. | [66](https://github.com/neverhuman/jeryu/pull/66); Tool 1 |
 | R15 | Independent producer qualification / Jankurai owners | Producer owning protected quality gates | Classification, readonly behavior, child status and SVG corrections must be independently qualified before consumer adoption. No substitute binary or repin is admitted. | Owning producer PRs |
 | R16 | Complete root/component/export/dependency census / Deploy | `scripts/ci.sh audit` | Every scope is recorded; producer, governing policy and execution admission still prevent a qualified aggregate. | 65 |
 | R17 | Authentic predecessors and auxiliary proofs / Tool+Release Ops | `scripts/ci.sh auxiliary`; Tool `ops/ci/tool-adoption.sh` | Candidate-derived baseline is insufficient. Protected predecessor, complete changed paths/hunks, proofbind/proofmark/configuration/conformance remain open. | 65; Tool 1 |
 | R18 | Coverage, mutation and stricter floors / components | Existing owning quantitative gates in `CI-COVERAGE.md` | Preserve all floors, zero hard findings/caps, soft limits, coverage/mutation/size/performance requirements. No waiver or lowered policy is admitted. | 65 |
-| R19 | Authenticated durable webhook intake / Deploy | `jeryu-split audit-intake` | Raw-byte HMAC and durable local intake integrated. HTTP deployment and service authority are not implemented by this CLI. | [66](https://github.com/neverhuman/jeryu/pull/66) |
+| R19 | Authenticated durable webhook intake / Deploy | `jeryu-split audit-service`; `audit-intake` | Separate bounded HTTP receiver implemented with raw-byte HMAC, durable acknowledgement, private held configuration and startup replay. All 20 intake tests pass, including five real HTTP/restart tests. Deployed enrollment remains unqualified. | [66](https://github.com/neverhuman/jeryu/pull/66) |
 | R20 | Persistent queue, ancestry, retries and reconciliation / service | `audit-plan`, `audit-ledger`, intake store | Local accounting exists. Maintainer receiver/dispatcher, backfill, restart/outage/missed-delivery drills and enrollment remain open. | New service work |
 | R21 | Authenticated executor results and publication / service | `jeryu-split audit-package` | Private immutable preparation exists and cannot grant verified PASS. Workflow/run/attempt/source/policy/exit/hash authentication and publication credentials remain separate open boundaries. | [66](https://github.com/neverhuman/jeryu/pull/66) |
 | R22 | Immutable JSON/Markdown/SVG/provenance and Pages / service | `docs/migration/AUDIT-PUBLICATION.md` | Trusted sanitized publisher, first-party renderer, Pages artifact workflow and public reachability unqualified. | New service work |

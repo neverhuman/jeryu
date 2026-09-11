@@ -66,6 +66,13 @@ trusted publication and authenticated governing-policy admission remain open.
 The census aggregate deliberately remains failed until those required inputs
 are admitted; no source availability or synthetic fixture is an audit pass.
 
+The separate maintainer [HTTP receiver](AUDIT-SERVICE.md) now commits exact raw
+webhook bodies before acknowledgement and replays interrupted classifications
+on restart. All 20 intake tests pass, including five real HTTP/restart tests;
+package Clippy passes with warnings denied. The product binary has no dependency
+on this process. Deployment, persistent executor dispatch, missed-delivery
+reconciliation and verified publication still require their own completion.
+
 Work now writes security evidence through its owning Rust package. The scanner
 commands and failure outcome remain required. The complete selected source,
 standalone exports and public installation still need final qualification.

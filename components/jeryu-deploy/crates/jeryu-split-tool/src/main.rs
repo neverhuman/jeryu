@@ -42,6 +42,8 @@ struct Cli {
 enum Command {
     /// Require every proof job at an exact GitHub source and workflow attempt.
     CiRequiredCheck(ci_required::Arguments),
+    /// Run the separate maintainer webhook receiver; product serving is independent.
+    AuditService(audit_intake::service::Arguments),
     /// Durably receive signed webhook bytes locally; no HTTP or audit authority.
     AuditIntake {
         #[arg(long)]
@@ -324,6 +326,7 @@ fn parse_manifest_compat(args: &[OsString]) -> std::result::Result<Cli, Manifest
 fn run(cli: Cli) -> Result<()> {
     match cli.command {
         Command::CiRequiredCheck(arguments) => ci_required::run(arguments),
+        Command::AuditService(arguments) => audit_intake::service::run(arguments),
         Command::AuditIntake {
             database,
             operation,

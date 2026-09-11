@@ -43,7 +43,8 @@ jobs:
       - name: Prepare dedicated runtime test identity
         if: ${{ matrix.lane == 'runtime' }}
         run: |
-          sudo -n useradd --uid 45165 --user-group --create-home --shell /bin/bash jeryu-runtime
+          sudo -n useradd --uid 45165 --user-group --no-create-home --home-dir /home/jeryu-runtime --shell /bin/bash jeryu-runtime
+          sudo -n mkdir --mode=0700 /home/jeryu-runtime
           sudo -n mv "$HOME/.cargo" "$HOME/.rustup" /home/jeryu-runtime/
           sudo -n chown -R jeryu-runtime:jeryu-runtime "$GITHUB_WORKSPACE" /home/jeryu-runtime
       - name: Run shared local command

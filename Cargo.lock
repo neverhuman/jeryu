@@ -2020,6 +2020,7 @@ name = "jeryu-split-tool"
 version = "5.0.0"
 dependencies = [
  "anyhow",
+ "axum",
  "clap",
  "hmac",
  "jeryu-repogate",
@@ -2030,6 +2031,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "tempfile",
+ "tokio",
  "toml",
 ]
 

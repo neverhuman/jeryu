@@ -1,4 +1,6 @@
 use super::*;
+#[path = "audit_service_tests.rs"]
+mod service_http;
 use std::{
     fs,
     os::unix::fs::{OpenOptionsExt, PermissionsExt},
