@@ -40,4 +40,9 @@ jobs:
         with:
           name: audit-census-${{ github.run_id }}-${{ github.run_attempt }}
           if-no-files-found: error
-          path: ${{ runner.temp }}/jeryu-audit-census/attempt.*/census/census.json
+          path: |
+            ${{ runner.temp }}/jeryu-audit-census/attempt.*/census/census.json
+            ${{ runner.temp }}/jeryu-audit-census/attempt.*/census/*/audit.log
+            ${{ runner.temp }}/jeryu-audit-census/attempt.*/census/*/report.json
+            ${{ runner.temp }}/jeryu-audit-census/attempt.*/census/*/report.md
+          retention-days: 30

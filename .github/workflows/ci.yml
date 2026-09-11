@@ -59,6 +59,7 @@ jobs:
       - name: Run shared local command
         env:
           JERYU_CI_LANE: ${{ matrix.lane }}
+          JERYU_AUDIT_OUTPUT_ROOT: ${{ runner.temp }}/jeryu-audit-census
         run: |
           if [ "$JERYU_CI_LANE" = sandbox ] || [ "$JERYU_CI_LANE" = oci ]; then
             sudo -n env PATH="$PATH" CARGO_HOME="$HOME/.cargo" RUSTUP_HOME="$HOME/.rustup" \
@@ -104,6 +105,19 @@ jobs:
           path: |
             target/split-evidence/**/*.log
             target/split-evidence/**/*.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Preserve audit census diagnostics
+        if: ${{ always() && matrix.lane == 'audit' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: audit-census-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/jeryu-audit-census/attempt.*/census/census.json
+            ${{ runner.temp }}/jeryu-audit-census/attempt.*/census/*/audit.log
+            ${{ runner.temp }}/jeryu-audit-census/attempt.*/census/*/report.json
+            ${{ runner.temp }}/jeryu-audit-census/attempt.*/census/*/report.md
           if-no-files-found: error
           retention-days: 30
 

@@ -32,6 +32,22 @@ fresh dedicated home now clears inherited/default hosted ACLs and reasserts
 0700, so descendant privacy follows the installer's existing umask and checks.
 Full Rust qualification remains required at the corrected committed head.
 
+At `9be7395e`, the Rust lane completes the actual pinned hermetic build and then
+rejects checkout ancestors owned by the hosted runner account. During isolated
+Rust/runtime commands the single checkout now moves beneath the private test
+home, with same-inode restoration and no copying or replacement of existing
+paths. Success, child exit 73 and collision refusal controls pass. The full
+hosted result remains required. Both census jobs now retain their public-source
+execution logs and reports beside the complete result inventory, so a missing
+report can be diagnosed after the runner exits.
+
+PR 65 subsequently advanced to `31b0536d09255208bb161db93d581701f41f647b`.
+Its four changed files are preserved and reviewed: repeated release-binary
+installation and quieter diagnostics are addressed by the maintained verified
+candidate transaction and its regression suite. The environment-selected,
+download-only installer and its new family tag are not adopted as authority;
+the required source, build and provenance checks remain intact.
+
 ## Current public evidence
 
 At `c929d6ed`, [PR run 34567779982](https://github.com/neverhuman/jeryu/actions/runs/34567779982)

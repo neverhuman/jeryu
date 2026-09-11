@@ -18,7 +18,7 @@
       "kind": "workflow",
       "path": ".github/workflows/ci.yml",
       "port_status": "pending-equivalence-proof",
-      "sha256": "ee37fcce2bae936591104af71295c35a37f1c23eb8528bdbfbc32ba7e5a4c8f5"
+      "sha256": "6594a721da41c2d9c826917ae3ce92b464b45d8158189d8d40471db42d9116b7"
     },
     {
       "component": "jeryu",
@@ -26,7 +26,7 @@
       "kind": "workflow",
       "path": ".github/workflows/jankurai-score.yml",
       "port_status": "pending-equivalence-proof",
-      "sha256": "20f5b1fb45f767d4d4e1d82b403cd35435a8fe8f55ce56968b5c8851b1414da1"
+      "sha256": "8b2ab690e4289fb6d6e6fb03d1a60edbe729d690ea9d4cfc0acfcd7ac8af8d97"
     },
     {
       "component": "jeryu",
