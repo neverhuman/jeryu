@@ -2,6 +2,10 @@ mod git_authorization;
 mod pull_review_routes;
 mod work_authorization;
 
+use super::http::{
+    HDR_API, HDR_FAST_PATH, HDR_TOOL, advisory_headers, bootstrap_tui, capabilities_payload,
+    is_automation_agent, suggested_tool,
+};
 use super::*;
 use crate::Method;
 use crate::web::markdown::render_markdown;

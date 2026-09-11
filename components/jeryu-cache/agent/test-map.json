@@ -190,6 +190,11 @@
       "lane": "ci",
       "purpose": "bind product execution before evidence and final revalidation"
     },
+    "tests/source_authority_test.sh": {
+      "command": "bash tests/source_authority_test.sh",
+      "lane": "ci",
+      "purpose": "verify full repository source admission from standalone and monorepo Cache entrypoints"
+    },
     "tests/security_lane_test.sh": {
       "command": "bash tests/security_lane_test.sh",
       "lane": "security",

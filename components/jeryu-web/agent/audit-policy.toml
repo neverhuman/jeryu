@@ -27,14 +27,14 @@ allow_terms = ["stale", "placeholder", "fallback", "old"]
 # Excluded from scanning because they are NOT product code (carried over from
 # the reviewed monorepo policy):
 #   .jankurai/               -> the auditor's OWN output; auditing it is circular.
-#   apps/web/eslint.config.js -> lint tooling configuration; its content is
+#   apps/web/eslint.config.mjs -> lint tooling configuration; its content is
 #                                ESLint rule identifiers (e.g. `no-unused-vars`)
 #                                and browser global declarations, not product logic.
 #   playwright-report/ storybook-static/ test-results/ -> generated build/test
 #                                artifacts (gitignored; never authored).
 excluded_paths = [
   ".jankurai/",
-  "apps/web/eslint.config.js",
+  "apps/web/eslint.config.mjs",
   "apps/web/playwright-report/",
   "apps/web/storybook-static/",
   "apps/web/test-results/",

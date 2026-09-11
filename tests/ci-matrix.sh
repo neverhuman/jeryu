@@ -140,6 +140,10 @@ fixture_rg() {
 cargo() { fixture_cargo "$@"; }
 bash() {
   case $1 in
+    scripts/audit.sh|scripts/auxiliary-proofs.sh|ops/ci/score.sh)
+      fixture_call bash "$@"
+      return $?
+      ;;
     components/jeryu-ci-runner/scripts/test-native-sandbox.sh|scripts/test-native-sandbox.sh) ;;
     *) return 96 ;;
   esac
@@ -158,8 +162,11 @@ jq() {
   fixture_call jq || return $?
   command jq "$@"
 }
+if [[ $1 == audit || $1 == auxiliary ]]; then set -- "$1"; fi
 case $1 in
 MOCKS
+  sed -n '/^  audit)$/,/^    ;;$/p' "$root/scripts/ci.sh"
+  sed -n '/^  auxiliary)$/,/^    ;;$/p' "$root/scripts/ci.sh"
   sed -n '/^  rust)$/,/^    ;;$/p' "$root/scripts/ci.sh"
   sed -n '/^  sandbox)$/,/^    ;;$/p' "$root/scripts/ci.sh"
   sed -n '/^  sandbox)$/,/^    ;;$/p' "$root/components/jeryu-deploy/crates/jeryu-split-tool/src/split_ci.sh" |
@@ -198,6 +205,19 @@ while IFS= read -r fail_call; do
   run_coverage_case rust failure 23 "$fail_call"
   [[ $(tail -n 1 "$fixture/calls") == "$fail_call" ]]
 done <"$fixture/expected"
+
+# Hosted environment metadata cannot select a reduced required proof surface.
+for environment in false true; do
+  GITHUB_ACTIONS="$environment" run_coverage_case audit normal 0
+  printf 'bash scripts/audit.sh\n' >"$fixture/expected"
+  cmp "$fixture/expected" "$fixture/calls"
+  GITHUB_ACTIONS="$environment" run_coverage_case audit failure 23 'bash scripts/audit.sh'
+  GITHUB_ACTIONS="$environment" run_coverage_case auxiliary normal 0
+  printf '%s\n' 'source scripts/bootstrap-jankurai.sh' 'bootstrap_public_jankurai' \
+    'bash scripts/auxiliary-proofs.sh' >"$fixture/expected"
+  cmp "$fixture/expected" "$fixture/calls"
+  GITHUB_ACTIONS="$environment" run_coverage_case auxiliary failure 23 'bash scripts/auxiliary-proofs.sh'
+done
 
 # A cached green legacy receipt must never satisfy either invocation gate.
 # Preserve the original 25 sandbox cases, and repeat them through split dispatch.

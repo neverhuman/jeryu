@@ -15,12 +15,15 @@ use toml::Value;
 
 mod audit_census;
 mod audit_evidence;
+mod audit_intake;
 mod audit_ledger;
+mod audit_publication;
 mod audit_readme;
 mod audit_scheduler;
 mod audit_score;
 mod build_config;
 mod canonical_json;
+mod ci_required;
 mod dependency_inputs;
 mod mirror_update;
 mod monorepo;
@@ -37,6 +40,17 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Command {
+    /// Require every proof job at an exact GitHub source and workflow attempt.
+    CiRequiredCheck(ci_required::Arguments),
+    /// Durably receive signed webhook bytes locally; no HTTP or audit authority.
+    AuditIntake {
+        #[arg(long)]
+        database: PathBuf,
+        #[command(subcommand)]
+        operation: audit_intake::Operation,
+    },
+    /// Prepare private immutable audit inputs; publication remains blocked.
+    AuditPackage(audit_publication::Arguments),
     /// Account for local audit plans and attempts; no execution or publication authority.
     AuditLedger {
         /// Existing physical owner-only directory containing the ledger database.
@@ -309,6 +323,12 @@ fn parse_manifest_compat(args: &[OsString]) -> std::result::Result<Cli, Manifest
 
 fn run(cli: Cli) -> Result<()> {
     match cli.command {
+        Command::CiRequiredCheck(arguments) => ci_required::run(arguments),
+        Command::AuditIntake {
+            database,
+            operation,
+        } => audit_intake::run(&database, operation),
+        Command::AuditPackage(args) => audit_publication::run(Path::new("."), args),
         Command::AuditReadme {
             readme,
             image_url,

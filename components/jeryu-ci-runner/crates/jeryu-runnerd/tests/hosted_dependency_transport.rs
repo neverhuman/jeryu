@@ -31,11 +31,7 @@ impl Auditor {
     fn selected() -> Self {
         match std::env::var("JERYU_MONOREPO_CANDIDATE").as_deref() {
             Err(std::env::VarError::NotPresent) | Ok("0") => Self {
-                // Host default is the governed receipt path. Public GHA exports
-                // the same SHA-pinned Release binary via JERYU_GOVERNED_JANKURAI_BIN.
-                binary: std::env::var_os("JERYU_GOVERNED_JANKURAI_BIN")
-                    .map(PathBuf::from)
-                    .unwrap_or_else(|| PathBuf::from(GOVERNED_JANKURAI)),
+                binary: PathBuf::from(GOVERNED_JANKURAI),
                 candidate: None,
             },
             Ok("1") => {
@@ -201,20 +197,6 @@ fn run_library_jankurai(
 ) -> Output {
     let root = root();
     let mut command = Command::new("bash");
-    // Public Actions `require_jankurai` resolves with `type -P`. Keep the
-    // SHA-pinned Release directory first there; the host still prepends the
-    // hostile directory and relies on the receipt-bound absolute path.
-    let path_prefix = if std::env::var_os("GITHUB_ACTIONS").as_deref() == Some("true")
-        && auditor.candidate.is_none()
-    {
-        auditor
-            .binary
-            .parent()
-            .expect("governed Jankurai parent")
-            .to_owned()
-    } else {
-        earlier_path.to_owned()
-    };
     command
         .args([
             "-lc",
@@ -231,7 +213,7 @@ printf 'version='
 jankurai --version"#,
             "_",
             root.to_str().expect("UTF-8 workspace root"),
-            path_prefix.to_str().expect("UTF-8 PATH prefix"),
+            earlier_path.to_str().expect("UTF-8 hostile PATH"),
         ])
         .env("JERYU_JANKURAI_BIN", earlier_path.join("jankurai"))
         .env(

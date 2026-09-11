@@ -1,5 +1,4 @@
 //! Axum HTTP/WebSocket edge for the local live Jeryu API.
-#![allow(unused_imports)] // child modules (`http`, bootstrap, tests) import these through `use super::*`.
 
 #[cfg(test)]
 mod test_databases;
@@ -38,18 +37,21 @@ use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
-use axum::extract::{DefaultBodyLimit, Extension, Path as AxumPath, Request, State};
-use axum::http::{HeaderName, HeaderValue, Method as HttpMethod, StatusCode, header};
-use axum::middleware::{Next, from_fn, from_fn_with_state};
+#[cfg(test)]
+use axum::extract::{Path as AxumPath, Request, State};
+#[cfg(test)]
+use axum::http::{Method as HttpMethod, StatusCode, header};
+#[cfg(test)]
 use axum::response::{IntoResponse, Response as AxumResponse};
-use axum::routing::{any, get, post};
+#[cfg(test)]
 use axum::{Json, Router as AxumRouter};
 use jeryu_codegraph::CodeGraphStore;
-use jeryu_core::{AccountSummary, ForgeCore, UserRole};
+use jeryu_core::{ForgeCore, UserRole};
 use jeryu_jira::WorkStore;
 use jeryu_readmodel::TuiReadModel;
 use jeryu_readmodel::contracts::{RepositoryRole, ServerWsMessage, WebEvent};
 use serde::{Deserialize, Serialize};
+#[cfg(test)]
 use serde_json::{Value, json};
 use tokio::net::TcpListener;
 use tokio::sync::mpsc::UnboundedSender;
@@ -493,11 +495,6 @@ use bootstrap::bootstrap_public_accounts;
 #[cfg(test)]
 use bootstrap::bootstrap_public_accounts_with_admin_password;
 
-#[cfg(test)]
-use http::{
-    HDR_API, HDR_FAST_PATH, HDR_TOOL, advisory_headers, bootstrap_tui, capabilities_payload,
-    is_automation_agent, suggested_tool,
-};
 use http::{api_error, app, server_time};
 
 #[cfg(test)]

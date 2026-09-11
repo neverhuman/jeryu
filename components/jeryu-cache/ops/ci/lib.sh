@@ -254,8 +254,8 @@ jeryu_governed_git() (
     HOME=/nonexistent PATH=/usr/bin:/bin LANG=C LC_ALL=C \
     GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_SYSTEM=/dev/null \
     GIT_CONFIG_GLOBAL=/dev/null GIT_ATTR_NOSYSTEM=1 \
-    GIT_NO_REPLACE_OBJECTS=1 \
-    /usr/bin/git --no-replace-objects "$@"
+    GIT_NO_REPLACE_OBJECTS=1 GIT_OPTIONAL_LOCKS=0 \
+    /usr/bin/git --no-replace-objects -c core.fsmonitor=false "$@"
 )
 
 jeryu_reject_ambient_git_authority() {
@@ -293,25 +293,48 @@ jeryu_reject_git_replacement_authority() {
   }
 }
 
+# Resolve only the standalone root or the Cache component in a monorepo.
+# The returned directory owns every Git-relative source and index path.
+jeryu_cache_source_root() {
+  local checkout="$1" label="$2" resolved git_root git_dir
+  [[ "$checkout" == /* && -d "$checkout" && ! -L "$checkout" ]] || {
+    printf '%s is not an absolute physical checkout: %s\n' "$label" "$checkout" >&2
+    return 1
+  }
+  resolved="$(realpath -e -- "$checkout" 2>/dev/null || true)"
+  [[ "$resolved" == "$checkout" ]] || {
+    printf '%s checkout path traverses a symlink: %s\n' "$label" "$checkout" >&2
+    return 1
+  }
+  jeryu_reject_ambient_git_authority "$label" || return 1
+  git_root="$(jeryu_governed_git -C "$checkout" rev-parse --show-toplevel)" || return 1
+  [[ "$git_root" == /* && -d "$git_root" && ! -L "$git_root" &&
+    "$(realpath -e -- "$git_root")" == "$git_root" &&
+    ( "$checkout" == "$git_root" ||
+      "$checkout" == "$git_root/components/jeryu-cache" ) ]] || {
+    printf '%s is outside the standalone or monorepo Cache source scope\n' "$label" >&2
+    return 1
+  }
+  git_dir="$(jeryu_governed_git -C "$git_root" rev-parse --absolute-git-dir)" || return 1
+  [[ "$git_dir" == "$git_root/.git" && -d "$git_dir" && ! -L "$git_dir" &&
+    "$(realpath -e -- "$git_dir")" == "$git_dir" ]] || {
+    printf '%s requires its own physical Git directory\n' "$label" >&2
+    return 1
+  }
+  printf '%s\n' "$git_root"
+}
+
 # Prove that the physical checkout is an exact materialization of HEAD. Git's
 # porcelain output alone is insufficient: excludes can hide untracked build
 # inputs, and assume-unchanged/skip-worktree can hide modified tracked files.
 jeryu_assert_closed_source_authority() {
   local checkout="$1" expected_head="$2" label="$3"
-  local actual_head resolved
-
-  [[ "$checkout" == /* && -d "$checkout" && ! -L "$checkout" ]] || {
-    printf '%s is not an absolute physical checkout: %s\n' \
-      "$label" "$checkout" >&2
-    return 1
-  }
-  resolved="$(realpath -e -- "$checkout" 2>/dev/null || true)"
-  [[ "$resolved" == "$checkout" ]] || {
-    printf '%s checkout path traverses a symlink: %s\n' \
-      "$label" "$checkout" >&2
-    return 1
-  }
-  jeryu_reject_ambient_git_authority "$label" || return 1
+  local actual_head source_root component_prefix=""
+  source_root="$(jeryu_cache_source_root "$checkout" "$label")" || return 1
+  if [[ "$checkout" != "$source_root" ]]; then
+    component_prefix="components/jeryu-cache/"
+  fi
+  checkout="$source_root"
   jeryu_reject_git_replacement_authority "$checkout" "$label" || return 1
   actual_head="$(jeryu_governed_git -C "$checkout" rev-parse 'HEAD^{commit}' \
     2>/dev/null || true)"
@@ -320,6 +343,19 @@ jeryu_assert_closed_source_authority() {
       "$label" "$expected_head" "${actual_head:-missing}" >&2
     return 1
   }
+
+  # Enumerate ordinary untracked inputs without status/index refresh, which
+  # could otherwise run repository-local clean filters before source admission.
+  if ! jeryu_governed_git -C "$checkout" ls-files --others --exclude-standard -z | {
+    local path rejected=false
+    while IFS= read -r -d '' path; do
+      printf '%s contains an untracked source/build input: %q\n' "$label" "$path" >&2
+      rejected=true
+    done
+    [[ "$rejected" == false ]]
+  }; then
+    return 1
+  fi
 
   # At this repository's governed HEAD every stage-zero entry is reported as
   # exactly `H path`. Lowercase h and S/s expose hidden index promises.
@@ -338,7 +374,7 @@ jeryu_assert_closed_source_authority() {
   fi
 
   # Reject staged additions/deletions, alternate stages, and non-blob modes.
-  jeryu_governed_git -C "$checkout" diff-index --cached --quiet \
+  jeryu_governed_git -C "$checkout" diff-index --cached --quiet --no-ext-diff --no-textconv \
     "$expected_head" -- \
     || {
       printf '%s index does not exactly match the governed HEAD\n' "$label" >&2
@@ -369,6 +405,13 @@ jeryu_assert_closed_source_authority() {
     --exclude-standard -z -- ':/' | {
       local path rejected=false
       while IFS= read -r -d '' path; do
+        if [[ -n "$component_prefix" ]]; then
+          case "$path" in
+            "$component_prefix"target|"$component_prefix"target/|"$component_prefix"target/*|\
+            "$component_prefix".jankurai|"$component_prefix".jankurai/|"$component_prefix".jankurai/*|\
+            "$component_prefix"agent/repo-score.json|"$component_prefix"agent/repo-score.md) continue ;;
+          esac
+        fi
         case "$path" in
           target|target/|target/*|.jankurai|.jankurai/|.jankurai/*|\
           agent/repo-score.json|agent/repo-score.md) ;;

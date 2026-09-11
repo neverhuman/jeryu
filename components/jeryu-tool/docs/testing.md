@@ -109,6 +109,25 @@ installation and source qualification still require their own successful results
 fixtures cannot qualify the auditor binary; the real network-disabled build
 must reproduce the manifest's unchanged binary digest separately.
 
+Container creation has a separate 120-second bound plus two seconds of kill
+grace. Before dispatch, the builder records the exact command array, executable
+digests and timeout in private `create-request.json`. After dispatch,
+`create-response.json` retains the actual command exit, UTC observations and
+output hashes. These diagnostics do not establish container ownership. Missing
+private CID data still prevents start and cleanup; a name or ID printed to
+stdout is insufficient. A failed build retains scratch and staged output after
+attempting the existing container cleanup. Its original create exit remains
+separate from an uncertain-cleanup failure.
+
+The focused `create_attempt::` integration tests use synthetic Docker responses
+and retain every fixture. They cover command binding, failed/timeout responses,
+missing CID, refused overwrite and retained staged output. They do not establish
+real daemon timing. Run them with
+`cargo test --locked -p jeryu-tool-control --test hermetic_builder create_attempt:: -- --nocapture`.
+Other historical tests still have successful-fixture cleanup paths that need
+separate custody review before use on a shared host. The changed builder requires
+a new real build receipt; an older matching auditor binary is insufficient.
+
 The load-bearing test is the pin drift check. Editing `tool-manifest.toml` and
 running `ops/render-tool-manifest.sh` must update every consumer; `--check` must
 then be green. Reverting any one consumer by hand must make `--check` fail.

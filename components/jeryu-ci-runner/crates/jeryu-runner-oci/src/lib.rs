@@ -12,7 +12,7 @@ pub use session::{AgentSessionPlan, plan_agent_session};
 
 use jeryu_runner_core::error::{RunnerError, RunnerResult};
 use jeryu_runner_core::fscheck::deny_dangerous_host_path;
-use jeryu_runner_core::job::JobRequest;
+use jeryu_runner_core::job::{JobRequest, NetworkPolicy};
 use jeryu_runner_core::policy::PolicyDecision;
 use jeryu_runner_core::receipt::{Receipt, ReceiptStatus, now_ms};
 use jeryu_runner_core::sandbox::SandboxPlan;
@@ -109,8 +109,16 @@ impl OciSpec {
             ));
         }
         deny_dangerous_host_path(Path::new(&job.workspace))?;
-        // Network policy is checked but no longer blocks; sessions override to
-        // bridge after construction for model API egress.
+        if job.network_policy != NetworkPolicy::Deny || plan.network_policy != NetworkPolicy::Deny {
+            return Err(RunnerError::new(
+                "invalid_agent_network_policy",
+                format!(
+                    "agent containers require both requested and effective network policy deny; requested={}, effective={}; model egress requires the separate proxy bridge",
+                    job.network_policy.as_str(),
+                    plan.network_policy.as_str()
+                ),
+            ));
+        }
         let runtime = std::env::var("JERYU_OCI_RUNTIME").unwrap_or_else(|_| "podman".to_string());
         let image = std::env::var("JERYU_AGENT_IMAGE")
             .unwrap_or_else(|_| "localhost/jeryu/agent-sandbox:latest".to_string());

@@ -13,8 +13,10 @@ path = "src/main.rs"
 [dependencies]
 anyhow = { version = "1" }
 clap.workspace = true
+hmac.workspace = true
 jeryu-repogate = { workspace = true }
 rusqlite.workspace = true
+rustix = { version = "1.1.4", features = ["fs"] }
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true

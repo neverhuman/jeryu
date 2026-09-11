@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use axum::extract::{DefaultBodyLimit, Extension, Path as AxumPath, Request, State};
 use axum::http::{HeaderName, HeaderValue, Method as HttpMethod, StatusCode, header};
-use axum::middleware::{from_fn, from_fn_with_state};
+use axum::middleware::{Next, from_fn, from_fn_with_state};
 use axum::response::{IntoResponse, Response as AxumResponse};
 use axum::routing::{any, get, post};
 use axum::{Json, Router as AxumRouter};
@@ -280,9 +280,9 @@ async fn health() -> Json<Value> {
     Json(json!({ "status": "ok", "service": "jeryu-api" }))
 }
 
-pub(in crate::web) const HDR_API: &str = "x-jeryu-api";
-pub(in crate::web) const HDR_FAST_PATH: &str = "x-jeryu-fast-path";
-pub(in crate::web) const HDR_TOOL: &str = "x-jeryu-tool";
+pub(super) const HDR_API: &str = "x-jeryu-api";
+pub(super) const HDR_FAST_PATH: &str = "x-jeryu-fast-path";
+pub(super) const HDR_TOOL: &str = "x-jeryu-tool";
 
 /// Response middleware: stamps every reply with advisory steering headers. For
 /// `gh`/automation user-agents it also injects a suggested jeryu MCP tool for
@@ -316,7 +316,7 @@ async fn steer_headers(request: Request, next: Next) -> AxumResponse {
 /// and fast-path pointer; for `gh`/automation/agent user-agents it additionally
 /// emits a per-route MCP tool hint when one is known. Factored out of the
 /// middleware so the header policy can be unit-tested without a live server.
-pub(in crate::web) fn advisory_headers(
+pub(super) fn advisory_headers(
     user_agent: &str,
     method: &HttpMethod,
     path: &str,
@@ -335,7 +335,7 @@ pub(in crate::web) fn advisory_headers(
 
 /// Heuristic: does this user-agent look like the `gh` CLI, a generic HTTP
 /// client used by automation, or a Jeryu/agent UA? Matched case-insensitively.
-pub(in crate::web) fn is_automation_agent(user_agent: &str) -> bool {
+pub(super) fn is_automation_agent(user_agent: &str) -> bool {
     let ua = user_agent.to_ascii_lowercase();
     const NEEDLES: [&str; 7] = [
         "github cli",
@@ -352,7 +352,7 @@ pub(in crate::web) fn is_automation_agent(user_agent: &str) -> bool {
 /// Suggests the jeryu MCP tool for a route+method so steered agents can switch
 /// to the faster path. Mutations map to dedicated MCP tools; all other GETs map
 /// to the generic read tool. Returns `None` when no hint applies.
-pub(in crate::web) fn suggested_tool(method: &HttpMethod, path: &str) -> Option<&'static str> {
+pub(super) fn suggested_tool(method: &HttpMethod, path: &str) -> Option<&'static str> {
     let trimmed = path.trim_end_matches('/');
     match *method {
         HttpMethod::POST if trimmed.ends_with("/pulls") => Some(MCP_PATCH_TOOL),
@@ -374,7 +374,7 @@ async fn capabilities() -> Json<Value> {
 }
 
 /// Pure builder for the `/.jeryu/capabilities` payload (unit-testable).
-pub(in crate::web) fn capabilities_payload() -> Value {
+pub(super) fn capabilities_payload() -> Value {
     json!({
         "server": "jeryu",
         "api_version": "v4",
@@ -427,9 +427,7 @@ async fn bootstrap(
     }
 }
 
-pub(in crate::web) async fn bootstrap_tui(
-    State(state): State<Arc<WebState>>,
-) -> Json<TuiReadModel> {
+pub(super) async fn bootstrap_tui(State(state): State<Arc<WebState>>) -> Json<TuiReadModel> {
     Json(workcells::live_tui(&state))
 }
 

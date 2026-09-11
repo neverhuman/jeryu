@@ -233,8 +233,6 @@ fn summary_with_required_contexts(
 }
 
 #[cfg(test)]
-pub(super) use super::posture::audit_merge_enforced_value;
-#[cfg(test)]
 use super::posture::required_contexts_with_enforcement;
 use super::posture::{
     checks_for_pr, commit_tree_sha, passport, passport_blockers, passport_hash, required_contexts,

@@ -1,6 +1,6 @@
-# Family pins for the Jeryu product monorepo.
-# Trees are the integrated component trees at this monorepo revision.
-# fetch-family.sh is a no-op when components/<name> already matches tree.
+# Historical export inventory for 72035eaf; these immutable tags never move.
+# This is provenance, not build input or release authority. Current component
+# source is tracked in the monorepo; fetch-family.sh only verifies that source.
 schema_version = "jeryu.split.lock/v3"
 family = "jeryu-split"
 manifest_authority = "repos.manifest.toml"

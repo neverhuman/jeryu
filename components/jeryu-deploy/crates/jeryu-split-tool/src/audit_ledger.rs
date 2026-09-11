@@ -14,12 +14,14 @@ use std::{
 
 use crate::{audit_evidence, audit_scheduler as scheduler, audit_score::JsonObject};
 
+#[path = "audit_intake_schema.rs"]
+mod intake_schema;
 #[path = "audit_ledger_store.rs"]
 mod store;
 #[path = "audit_ledger_validation.rs"]
 mod validation;
 
-const SCHEMA: i64 = 1;
+const SCHEMA: i64 = 2;
 const APPLICATION: i64 = 0x4a524c41;
 const MAX_INPUT: u64 = 16 * 1024 * 1024;
 
@@ -61,7 +63,7 @@ pub(super) enum Operation {
     Status,
 }
 
-fn now() -> Result<i64> {
+pub(super) fn now() -> Result<i64> {
     i64::try_from(SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs())
         .context("ledger clock overflow")
 }
@@ -104,7 +106,7 @@ fn owned_file(path: &Path) -> Result<()> {
     Ok(())
 }
 
-fn open(path: &Path, read_only: bool) -> Result<Connection> {
+pub(super) fn open(path: &Path, read_only: bool) -> Result<Connection> {
     let parent = path
         .parent()
         .context("ledger database needs a parent directory")?;
@@ -176,7 +178,7 @@ fn check_schema(connection: &Connection) -> Result<()> {
     let version: i64 = connection.query_row("PRAGMA user_version", [], |row| row.get(0))?;
     let application: i64 = connection.query_row("PRAGMA application_id", [], |row| row.get(0))?;
     ensure!(
-        version == SCHEMA && application == APPLICATION,
+        (1..=SCHEMA).contains(&version) && application == APPLICATION,
         "unsupported audit ledger database"
     );
     Ok(())
@@ -197,74 +199,83 @@ fn existing_kind(connection: &Connection) -> Result<()> {
     check_schema(connection)
 }
 
+pub(super) fn initialize_legacy(transaction: &rusqlite::Transaction<'_>) -> Result<()> {
+    let tables: i64 = transaction.query_row(
+        "SELECT count(*) FROM sqlite_schema WHERE name NOT LIKE 'sqlite_%'",
+        [],
+        |row| row.get(0),
+    )?;
+    ensure!(tables == 0, "refusing to initialize a nonempty database");
+    transaction.execute_batch(r"
+        CREATE TABLE plans (
+            id TEXT PRIMARY KEY, event_key TEXT UNIQUE NOT NULL,
+            bytes BLOB NOT NULL, imported_at INTEGER NOT NULL
+        ) STRICT;
+        CREATE TABLE jobs (
+            key TEXT PRIMARY KEY, identity BLOB NOT NULL, source_commit TEXT NOT NULL,
+            source_tree TEXT NOT NULL, config BLOB NOT NULL, governing_policy BLOB NOT NULL,
+            candidate_policy BLOB NOT NULL
+        ) STRICT;
+        CREATE TABLE requests (
+            key TEXT PRIMARY KEY, job_key TEXT NOT NULL REFERENCES jobs(key)
+        ) STRICT;
+        CREATE TABLE plan_jobs (
+            plan_id TEXT NOT NULL REFERENCES plans(id),
+            request_key TEXT NOT NULL REFERENCES requests(key),
+            PRIMARY KEY(plan_id,request_key)
+        ) STRICT;
+        CREATE TABLE attempts (
+            id TEXT PRIMARY KEY, job_key TEXT NOT NULL REFERENCES jobs(key),
+            request_key TEXT NOT NULL REFERENCES requests(key), ordinal INTEGER NOT NULL,
+            started_at INTEGER NOT NULL, deadline INTEGER NOT NULL,
+            UNIQUE(job_key,ordinal), CHECK(ordinal > 0), CHECK(deadline > started_at)
+        ) STRICT;
+        CREATE TABLE observations (
+            id TEXT PRIMARY KEY, attempt_id TEXT NOT NULL REFERENCES attempts(id),
+            kind TEXT NOT NULL CHECK(kind IN ('finish','timeout')),
+            outcome TEXT NOT NULL CHECK(outcome IN ('completed_unqualified','failed_policy','tool_error','timed_out','source_unavailable','canceled')),
+            recorded_at INTEGER NOT NULL, receipt BLOB NOT NULL, report BLOB,
+            receipt_sha256 TEXT NOT NULL, report_sha256 TEXT, summary BLOB,
+            diagnostic TEXT NOT NULL, reason TEXT NOT NULL, UNIQUE(attempt_id,kind)
+        ) STRICT;
+        CREATE TABLE closures (
+            attempt_id TEXT PRIMARY KEY REFERENCES attempts(id),
+            acknowledged_at INTEGER NOT NULL, acknowledgement BLOB NOT NULL,
+            acknowledgement_sha256 TEXT NOT NULL
+        ) STRICT;
+        CREATE INDEX attempt_job ON attempts(job_key,ordinal);
+        CREATE INDEX observation_attempt ON observations(attempt_id);
+    ")?;
+    // All authoritative accounting rows are append-only. Derived state has no mutable table.
+    for table in [
+        "plans",
+        "jobs",
+        "requests",
+        "plan_jobs",
+        "attempts",
+        "observations",
+        "closures",
+    ] {
+        for operation in ["UPDATE", "DELETE"] {
+            transaction.execute_batch(&format!(
+                "CREATE TRIGGER {table}_no_{operation} BEFORE {operation} ON {table} BEGIN SELECT RAISE(ABORT,'audit ledger is append-only'); END;"
+            ))?;
+        }
+    }
+    transaction.pragma_update(None, "application_id", APPLICATION)?;
+    transaction.pragma_update(None, "user_version", 1)?;
+    Ok(())
+}
+
 fn initialize(connection: &mut Connection) -> Result<()> {
     let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
     existing_kind(&transaction)?;
     let version: i64 = transaction.query_row("PRAGMA user_version", [], |row| row.get(0))?;
     if version == 0 {
-        let tables: i64 = transaction.query_row(
-            "SELECT count(*) FROM sqlite_schema WHERE name NOT LIKE 'sqlite_%'",
-            [],
-            |row| row.get(0),
-        )?;
-        ensure!(tables == 0, "refusing to initialize a nonempty database");
-        transaction.execute_batch(r"
-            CREATE TABLE plans (
-                id TEXT PRIMARY KEY, event_key TEXT UNIQUE NOT NULL,
-                bytes BLOB NOT NULL, imported_at INTEGER NOT NULL
-            ) STRICT;
-            CREATE TABLE jobs (
-                key TEXT PRIMARY KEY, identity BLOB NOT NULL, source_commit TEXT NOT NULL,
-                source_tree TEXT NOT NULL, config BLOB NOT NULL, governing_policy BLOB NOT NULL,
-                candidate_policy BLOB NOT NULL
-            ) STRICT;
-            CREATE TABLE requests (
-                key TEXT PRIMARY KEY, job_key TEXT NOT NULL REFERENCES jobs(key)
-            ) STRICT;
-            CREATE TABLE plan_jobs (
-                plan_id TEXT NOT NULL REFERENCES plans(id),
-                request_key TEXT NOT NULL REFERENCES requests(key),
-                PRIMARY KEY(plan_id,request_key)
-            ) STRICT;
-            CREATE TABLE attempts (
-                id TEXT PRIMARY KEY, job_key TEXT NOT NULL REFERENCES jobs(key),
-                request_key TEXT NOT NULL REFERENCES requests(key), ordinal INTEGER NOT NULL,
-                started_at INTEGER NOT NULL, deadline INTEGER NOT NULL,
-                UNIQUE(job_key,ordinal), CHECK(ordinal > 0), CHECK(deadline > started_at)
-            ) STRICT;
-            CREATE TABLE observations (
-                id TEXT PRIMARY KEY, attempt_id TEXT NOT NULL REFERENCES attempts(id),
-                kind TEXT NOT NULL CHECK(kind IN ('finish','timeout')),
-                outcome TEXT NOT NULL CHECK(outcome IN ('completed_unqualified','failed_policy','tool_error','timed_out','source_unavailable','canceled')),
-                recorded_at INTEGER NOT NULL, receipt BLOB NOT NULL, report BLOB,
-                receipt_sha256 TEXT NOT NULL, report_sha256 TEXT, summary BLOB,
-                diagnostic TEXT NOT NULL, reason TEXT NOT NULL, UNIQUE(attempt_id,kind)
-            ) STRICT;
-            CREATE TABLE closures (
-                attempt_id TEXT PRIMARY KEY REFERENCES attempts(id),
-                acknowledged_at INTEGER NOT NULL, acknowledgement BLOB NOT NULL,
-                acknowledgement_sha256 TEXT NOT NULL
-            ) STRICT;
-            CREATE INDEX attempt_job ON attempts(job_key,ordinal);
-            CREATE INDEX observation_attempt ON observations(attempt_id);
-        ")?;
-        // All authoritative accounting rows are append-only. Derived state has no mutable table.
-        for table in [
-            "plans",
-            "jobs",
-            "requests",
-            "plan_jobs",
-            "attempts",
-            "observations",
-            "closures",
-        ] {
-            for operation in ["UPDATE", "DELETE"] {
-                transaction.execute_batch(&format!(
-                    "CREATE TRIGGER {table}_no_{operation} BEFORE {operation} ON {table} BEGIN SELECT RAISE(ABORT,'audit ledger is append-only'); END;"
-                ))?;
-            }
-        }
-        transaction.pragma_update(None, "application_id", APPLICATION)?;
+        initialize_legacy(&transaction)?;
+    }
+    if version < SCHEMA {
+        intake_schema::install(&transaction)?;
         transaction.pragma_update(None, "user_version", SCHEMA)?;
     } else {
         check_schema(&transaction)?;

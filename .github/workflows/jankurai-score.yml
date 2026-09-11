@@ -11,37 +11,29 @@ permissions:
   contents: read
 
 concurrency:
-  group: jankurai-score-${{ github.repository }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: jankurai-score-${{ github.run_id }}-${{ github.run_attempt }}
+  cancel-in-progress: false
 
 jobs:
   score:
-    name: jankurai audit + badge --check
+    name: Complete audit census
     runs-on: ubuntu-24.04
     timeout-minutes: 30
-    env:
-      JANKURAI_TAG: v1.6.11-deadlang-precision-split.3
-      JANKURAI_VERSION: jankurai 1.6.11
-      JANKURAI_SHA256: 9e6b8857a26f6004d4c74e510e13b06d880f2e2ae0c89502698889ed690c5d6c
     steps:
       - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
           persist-credentials: false
-      - name: Install pinned Jankurai 1.6.11
-        run: bash ops/ci/install-jankurai-release.sh
-      - name: Audit and badge check
-        run: bash ops/ci/jankurai-score.sh
+      - name: Install pinned Rust toolchain
+        run: rustup show active-toolchain
+      - name: Audit every enrolled scope
+        env:
+          JERYU_AUDIT_OUTPUT_ROOT: ${{ runner.temp }}/jeryu-audit-census
+        run: bash scripts/ci.sh audit
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
-          name: jankurai-score
-          path: |
-            .jankurai/repo-score.json
-            .jankurai/repo-score.md
-            target/jankurai/repair-queue.jsonl
-            target/jankurai/repo-score.json
-            target/jankurai/repo-score.md
-            target/jankurai/accepted-baseline.json
-            agent/jankurai-badge.svg
-            agent/jankurai-badge.json
+          name: audit-census-${{ github.run_id }}-${{ github.run_attempt }}
+          if-no-files-found: error
+          path: ${{ runner.temp }}/jeryu-audit-census/attempt.*/census/census.json

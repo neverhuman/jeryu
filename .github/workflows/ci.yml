@@ -10,8 +10,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: jeryu-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: jeryu-${{ github.run_id }}-${{ github.run_attempt }}
+  cancel-in-progress: false
 
 jobs:
   verify:
@@ -28,6 +28,7 @@ jobs:
     steps:
       - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
@@ -55,8 +56,32 @@ jobs:
     if: ${{ always() }}
     needs: [verify]
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
     steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Install pinned Rust toolchain
+        run: rustup show active-toolchain
+      - name: Read this workflow attempt
+        id: inventory
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          umask 077
+          out=$(mktemp -d "$RUNNER_TEMP/jeryu-required.XXXXXXXX")
+          api="repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/attempts/$GITHUB_RUN_ATTEMPT"
+          gh api "$api" > "$out/run.json"
+          gh api --paginate "$api/jobs?per_page=100" > "$out/jobs.json"
+          printf 'directory=%s\n' "$out" >> "$GITHUB_OUTPUT"
       - name: Require every proof job to succeed
         env:
           RESULT: ${{ needs.verify.result }}
-        run: test "$RESULT" = success
+          JERYU_CI_SOURCE: ${{ github.event.pull_request.head.sha || github.sha }}
+          JERYU_CI_INVENTORY: ${{ steps.inventory.outputs.directory }}
+        run: bash scripts/check-required-ci.sh "$JERYU_CI_INVENTORY/run.json" "$JERYU_CI_INVENTORY/jobs.json"

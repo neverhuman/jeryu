@@ -8,6 +8,11 @@ use std::{
 
 pub(super) fn pin(root: &Path, name: &str) -> Result<String> {
     let source = fs::read_to_string(root.join("components/jeryu-tool/generated/jankurai-pin.env"))?;
+    parse_pin(&source, name)
+}
+
+// Share the owning projection grammar with bounded artifact readers.
+pub(super) fn parse_pin(source: &str, name: &str) -> Result<String> {
     let prefix = format!("{name}=\"");
     let matches: Vec<_> = source
         .lines()

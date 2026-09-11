@@ -34,6 +34,10 @@ use sha2::{Digest, Sha256};
 mod support;
 use super::repositories::{find_repo, repo_id};
 use super::{WebState, server_time};
+#[cfg(test)]
+pub(super) use posture::audit_merge_enforced_value;
+#[cfg(test)]
+pub(super) use support::detail_for_pr_with_audit_enforcement;
 use support::{
     core_error, detail_for_pr, github_merge_error, not_found, repair_error, resolve_pr,
     self_approval_forbidden, stale_sha, state_matches, summary,
@@ -106,9 +110,6 @@ struct PullRequestCheck {
 }
 
 pub(super) mod posture;
-pub(super) use posture::audit_merge_enforced_value;
-#[cfg(test)]
-pub(super) use support::detail_for_pr_with_audit_enforcement;
 
 use posture::{checks_for_pr, comment_input, review_state, threads_for_pr};
 

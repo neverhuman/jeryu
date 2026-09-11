@@ -1,12 +1,6 @@
 #!/usr/bin/env bash
-# Local and CI entrypoint for audit + honest badge check.
+# Local and hosted audits use the complete maintained census.
 set -euo pipefail
 root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd -P)
-cd "$root"
-mkdir -p .jankurai
-jankurai audit . --full --mode standard --no-score-history \
-  --fail-on critical,high \
-  --json .jankurai/repo-score.json \
-  --md .jankurai/repo-score.md
-jankurai badge --check --update-readme
-printf 'jankurai-score ok\n'
+[[ $# == 0 ]] || { printf 'usage: ops/ci/jankurai-score.sh\n' >&2; exit 2; }
+exec bash "$root/scripts/ci.sh" audit

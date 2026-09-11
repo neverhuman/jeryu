@@ -105,6 +105,7 @@ scratch_identity="$(stat -c '%d:%i:%u' -- "${scratch}")"
 stage=""
 stage_identity=""
 create_attempted=0
+create_status=""
 container_removed=0
 container_id=""
 docker_call_limit=5
@@ -128,7 +129,13 @@ cleanup() {
   if (( create_attempted )) && ! container_cleanup; then
     printf 'retaining builder source/scratch: container closure unknown; control=%s name=%s\n' \
       "${control}" "${container_name}" >&2
+    printf 'create response: exit=%s retained under %s\n' "${create_status:-unobserved}" "${control}" >&2
     exit 1
+  fi
+  if (( status != 0 )); then
+    printf 'retaining failed builder scratch/stage: build_exit=%s create_exit=%s scratch=%s\n' \
+      "${status}" "${create_status:-unobserved}" "${scratch}" >&2
+    exit "${status}"
   fi
   if [[ -n "${stage}" ]]; then
     if [[ -f "${stage}" && ! -L "${stage}" && -O "${stage}" &&
@@ -321,11 +328,9 @@ IFS= read -r invocation </proc/sys/kernel/random/uuid
 [[ "${invocation}" =~ ^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$ ]] || die "invocation identity unavailable"
 container_name="jeryu-jankurai-${invocation}"
 printf 'hermetic container custody: control=%s name=%s\n' "${control}" "${container_name}"
-create_attempted=1
-
 # The single-quoted script expands only inside the container.
 # shellcheck disable=SC2016
-docker_call_limit=30 local_docker create --cidfile "${control}/cid" --name "${container_name}" \
+create_argv=(create --cidfile "${control}/cid" --name "${container_name}" \
   --label "org.jeryu.builder.invocation=${invocation}" --pull=never --user "${build_uid}:${build_gid}" \
   --network none --read-only --cap-drop ALL --security-opt no-new-privileges \
   --pids-limit 1024 --memory 6g --cpus 2 --cpuset-cpus "${build_cpus}" \
@@ -358,7 +363,58 @@ docker_call_limit=30 local_docker create --cidfile "${control}/cid" --name "${co
     test "$(/opt/jeryu/out/bin/jankurai --version)" = "${EXPECTED_VERSION}"
     printf "%s  %s\n" "${EXPECTED_BINARY_SHA256}" \
       /opt/jeryu/out/bin/jankurai | sha256sum --check --strict
-  ' >"${control}/create.stdout" 2>"${control}/create.stderr"
+  ')
+# Persist the precise create request before contacting the daemon. These fields
+# contain only fixed public build inputs and private scratch coordinates.
+create_limit=120
+create_started="$(date --utc '+%Y-%m-%dT%H:%M:%S.%NZ')"
+container_control_valid || die "create control changed before request recording"
+(
+  set -o noclobber
+  jq -ne --arg started "${create_started}" --arg docker "${docker_bin}" \
+    --arg docker_sha256 "$(sha256sum "${docker_bin}" | cut -d' ' -f1)" \
+    --arg timeout_sha256 "$(sha256sum /usr/bin/timeout | cut -d' ' -f1)" \
+    --arg host "unix://${docker_socket}" --arg config "${scratch}/docker-config" \
+    --argjson seconds "${create_limit}" --args '{
+      schema:"jeryu.jankurai-container-create-request/v1", started_at:$started,
+      command:{executable:$docker, executable_sha256:$docker_sha256,
+        argv:(["--host",$host,"--config",$config] + $ARGS.positional)},
+      timeout:{executable:"/usr/bin/timeout", executable_sha256:$timeout_sha256,
+        foreground:true, signal:"TERM", kill_after_seconds:2, seconds:$seconds},
+      environment:{clear:true, PATH:"/usr/bin:/bin"}
+    } | select(.command.executable_sha256 | test("^[0-9a-f]{64}$"))
+      | select(.timeout.executable_sha256 | test("^[0-9a-f]{64}$"))
+    ' -- "${create_argv[@]}" >"${control}/create-request.json"
+) || die "create request could not be retained; daemon was not contacted"
+create_attempted=1
+if ( docker_call_limit="${create_limit}" local_docker "${create_argv[@]}" ) \
+  >"${control}/create.stdout" 2>"${control}/create.stderr"; then
+  create_status=0
+else
+  create_status=$?
+fi
+create_ended="$(date --utc '+%Y-%m-%dT%H:%M:%S.%NZ')"
+container_control_valid || die "create control changed before response recording"
+(
+  set -o noclobber
+  jq -ne --arg started "${create_started}" --arg ended "${create_ended}" \
+    --arg request_sha256 "$(sha256sum "${control}/create-request.json" | cut -d' ' -f1)" \
+    --arg stdout_sha256 "$(sha256sum "${control}/create.stdout" | cut -d' ' -f1)" \
+    --arg stderr_sha256 "$(sha256sum "${control}/create.stderr" | cut -d' ' -f1)" \
+    --argjson exit_code "${create_status}" '{
+      schema:"jeryu.jankurai-container-create-response/v1",
+      request_sha256:$request_sha256, started_at:$started, ended_at:$ended,
+      actual_command_exit:$exit_code, stdout_sha256:$stdout_sha256,
+      stderr_sha256:$stderr_sha256, container_ownership_verified:false
+    } | select([.request_sha256,.stdout_sha256,.stderr_sha256]
+      | all(.[]; test("^[0-9a-f]{64}$")))' >"${control}/create-response.json"
+) || die "create response could not be retained"
+if (( create_status != 0 )); then
+  printf 'container create failed: exit=%s response=%s/create-response.json\n' \
+    "${create_status}" "${control}" >&2
+  exit "${create_status}"
+fi
+
 container_inspect || die "created container ownership mismatch"
 [[ "$(cat "${control}/create.stdout")" == "${container_id}" ]] || die "created container ID output mismatch"
 jq -e '.State.Status == "created" and .State.Running == false' "${control}/inspect.json" >/dev/null ||
