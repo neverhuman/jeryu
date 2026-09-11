@@ -33,6 +33,18 @@ fn core_with_repo() -> ForgeCore {
     core
 }
 
+fn register_fork_source(core: &ForgeCore) {
+    core.create_repository(
+        "fork-owner",
+        CreateRepositoryRequest {
+            name: "jeryu".to_string(),
+            default_branch: Some("main".to_string()),
+            ..Default::default()
+        },
+    )
+    .unwrap();
+}
+
 fn open_pr(core: &ForgeCore, head_sha: &str, draft: bool) -> u64 {
     open_pr_with_source_repository(core, head_sha, draft, None)
 }
@@ -144,6 +156,7 @@ fn pull_request_uses_github_field_names() {
 #[test]
 fn create_pull_request_accepts_explicit_source_repository() {
     let core = core_with_repo();
+    register_fork_source(&core);
     let pr = core
         .create_pull_request(
             "alice",
@@ -164,6 +177,7 @@ fn create_pull_request_accepts_explicit_source_repository() {
 #[test]
 fn owner_and_fork_prs_hit_branch_protection_the_same_way() {
     let core = core_with_repo();
+    register_fork_source(&core);
     protect_main(&core, 1, &["ci/fast"]);
 
     let owner_pr =
@@ -220,6 +234,15 @@ fn non_owner_pr_is_forbidden_from_bypassing_branch_protection() {
     // PR is denied the same way and source_repository grants no owner/admin
     // bypass. (non-owner forbidden.)
     let core = core_with_repo();
+    core.create_repository(
+        "non-owner",
+        CreateRepositoryRequest {
+            name: "jeryu-fork".to_string(),
+            default_branch: Some("main".to_string()),
+            ..Default::default()
+        },
+    )
+    .unwrap();
     protect_main(&core, 1, &["ci/fast"]);
 
     let non_owner_pr = open_pr_with_source_repository(

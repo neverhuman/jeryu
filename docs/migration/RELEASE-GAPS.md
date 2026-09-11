@@ -172,17 +172,35 @@ Existing parent rowids, independently owned columns and foreign-key children
 survive ordinary saves. Database constraints remain active, and rejected writes
 roll back both durable and shared state.
 
-The monorepo retains its modular serializer and UUID creation journal. The
-upstream mutation-block table is excluded from this slice because its owning
-State and migration have not yet been integrated. All four upstream storage
+The monorepo retains its modular serializer and UUID creation journal. At
+`da29370b`, the upstream mutation-block table was excluded until its owning
+State and migration could be integrated. All four upstream storage
 regressions and six stable-persistence integration cases are retained; the
 latter also exercise independently owned creation receipts and opaque journal
 columns, including preservation after repository deletion. Two fixture calls
 are adapted to the existing fallible `create_user` and coordinator interfaces.
 Formatting and source checks are preparation only: these imported tests still
-require execution at the new candidate. Ordinary mutation guards, opaque actors,
-bound reviews, Git intents/outbox, required attempts, publisher enrollment and
-commissioning barriers remain separate required intake and qualification work.
+require execution at the new candidate.
+
+The next intake applies the original mutation admission at
+`21aa2d6f3fdbcd32f146f32f1f5023bfd525a4a7`, preserving modular authentication
+and storage. Public writers hold authority and sorted immutable repository
+guards, reject inherited writer processes, and recheck repository identity,
+current administrator access and read-only/reconciliation custody after waiting.
+Profile creation propagates admission failures. Both creation and mutation-block
+0013 migrations remain separately named and idempotent; restrictions are included
+in State loading/staging/reconciliation and retained on rollback.
+
+UUID creation retries and family completion use these guards too. The added
+restart regression refuses newly blocked pending creation before materialization;
+completed retry and family-by-UUID refusals extend the original custody suite.
+The retained completion-write failure test now injects its error on the actual
+journal UPDATE rather than the preceding serializer's INSERT. Six original
+mutation concurrency cases, seven public custody cases and the inherited-process
+control remain required. These source changes await their exact-head tests,
+migration analysis and independent review. Opaque actors, bound reviews, Git
+intents/outbox, required attempts, publisher enrollment and commissioning barriers
+remain required subsequent intake; this intermediate source is not merge-ready.
 
 All ten component GitHub `main` protections now require strict,
 GitHub Actions app-bound `<component>/required` and `<component>/audit`, one

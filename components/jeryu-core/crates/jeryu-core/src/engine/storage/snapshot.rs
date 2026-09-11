@@ -73,6 +73,11 @@ const OWNED_TABLES: &[OwnedTable] = &[
         primary_key: "repository_id",
     },
     OwnedTable {
+        name: "repository_mutation_blocks",
+        columns: "repo_id,block_json",
+        primary_key: "repo_id",
+    },
+    OwnedTable {
         name: "repository_transfer_journal",
         columns: "transaction_id,idempotency_key,request_fingerprint,repository_id,source_owner,source_name,destination_owner,destination_name,status,prepared_at,completed_at,failure,receipt_json",
         primary_key: "transaction_id",

@@ -19,6 +19,7 @@ pub(super) fn load_state(conn: &Connection) -> Result<State> {
     load_teams(conn, &mut state)?;
     load_repositories(conn, &mut state)?;
     load_repository_creations(conn, &mut state)?;
+    load_repository_mutation_blocks(conn, &mut state)?;
     load_repository_transfers(conn, &mut state)?;
     load_repository_aliases(conn, &mut state)?;
     load_repo_grants(conn, &mut state)?;
@@ -57,6 +58,19 @@ fn load_repository_creations(conn: &Connection, state: &mut State) -> Result<()>
         state
             .repository_creations
             .insert(journal.repository_id, journal);
+    }
+    Ok(())
+}
+
+fn load_repository_mutation_blocks(conn: &Connection, state: &mut State) -> Result<()> {
+    let mut statement = conn
+        .prepare("SELECT repo_id, block_json FROM repository_mutation_blocks")
+        .map_err(storage_error)?;
+    let mut rows = statement.query([]).map_err(storage_error)?;
+    while let Some(row) = rows.next().map_err(storage_error)? {
+        let id = parse_uuid(row.get(0).map_err(storage_error)?)?;
+        let block = parse_json(row.get(1).map_err(storage_error)?)?;
+        state.repository_mutation_blocks.insert(id, block);
     }
     Ok(())
 }

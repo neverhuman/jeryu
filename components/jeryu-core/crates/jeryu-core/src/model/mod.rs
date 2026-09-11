@@ -12,6 +12,7 @@ mod jankurai;
 mod policy;
 mod pull_requests;
 mod repo;
+mod repository_custody;
 mod repository_transfer;
 mod webhooks;
 
@@ -22,5 +23,6 @@ pub use jankurai::*;
 pub use policy::*;
 pub use pull_requests::*;
 pub use repo::*;
+pub use repository_custody::*;
 pub use repository_transfer::*;
 pub use webhooks::*;

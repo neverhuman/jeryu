@@ -14,29 +14,31 @@ impl ForgeCore {
         repo: &str,
         request: CreateWebhookRequest,
     ) -> Result<Webhook> {
-        self.ensure_repo_exists(owner, repo)?;
-        require_name("webhook url", &request.config.url)?;
-        let now = Utc::now();
-        let hook = Webhook {
-            id: Uuid::new_v4(),
-            owner: owner.to_string(),
-            repo: repo.to_string(),
-            name: request.name,
-            active: request.active,
-            events: request.events,
-            config: request.config,
-            created_at: now,
-            updated_at: now,
-        };
-        let mut state = self.runtime.state.write();
-        let previous = state.clone();
-        state
-            .webhooks
-            .entry((owner.to_string(), repo.to_string()))
-            .or_default()
-            .push(hook.clone());
-        self.persist_after_mutation(&mut state, previous)?;
-        Ok(hook)
+        self.with_repository_mutation(owner, repo, || {
+            self.ensure_repo_exists(owner, repo)?;
+            require_name("webhook url", &request.config.url)?;
+            let now = Utc::now();
+            let hook = Webhook {
+                id: Uuid::new_v4(),
+                owner: owner.to_string(),
+                repo: repo.to_string(),
+                name: request.name,
+                active: request.active,
+                events: request.events,
+                config: request.config,
+                created_at: now,
+                updated_at: now,
+            };
+            let mut state = self.runtime.state.write();
+            let previous = state.clone();
+            state
+                .webhooks
+                .entry((owner.to_string(), repo.to_string()))
+                .or_default()
+                .push(hook.clone());
+            self.persist_after_mutation(&mut state, previous)?;
+            Ok(hook)
+        })
     }
 
     pub fn list_webhooks(&self, owner: &str, repo: &str) -> Result<Vec<Webhook>> {

@@ -1,5 +1,13 @@
 # SQLite Constraints And Rollback Notes
 
+Current persistence reconciles only explicitly owned State rows and columns
+through connection-local staging tables. It updates changed rows in place,
+inserts new keys, and deletes rows explicitly removed from State in child-first
+order. Unknown columns, stable parent rowids and independently owned foreign-key
+children survive ordinary saves. Constraints remain active; rejected writes
+roll back the full transaction and the shared State. References below to older
+full-table writers describe rollback hazards, not the maintained serializer.
+
 ## 0001 Core Forge Tables
 
 The initial migration creates durable rows for repositories, issues, pull
@@ -294,8 +302,8 @@ records to the owning transport; it does not authenticate its caller.
 
 The journal has no repository foreign key. Deletion retains its receipt so an
 old request cannot recreate a removed identity or adopt a replacement at the
-same name. Loading validates the JSON receipt and matching UUID. Every full-state
-rewrite includes the journal, including unrelated mutations. Existing rows have
+same name. Loading validates the JSON receipt and matching UUID. Every State
+transaction includes the journal, including unrelated mutations. Existing rows have
 no backfill: their creation identities cannot be inferred. Core completion does
 not claim completion of the browser's README/family setup or Core/Work linking.
 
@@ -305,3 +313,27 @@ lock/statement budgets in its metadata. Do not start an older application agains
 the adopted store: it can leave creation receipts inconsistent with its writes.
 Keep the table and recover forward after accepted mutations. Restore a verified
 pre-migration package only when it loses no accepted mutation.
+
+## 0013 Repository mutation restrictions
+
+The original `0013_repository_mutation_blocks` migration is retained alongside
+`0013_repository_creation`; startup applies both named additive migrations
+idempotently. `repository_mutation_blocks.repo_id` references the immutable
+repository UUID and its JSON payload records either read-only custody or an
+operation awaiting reconciliation. No synthetic restriction is backfilled.
+
+The typed maintenance API admits only nonempty reasons and evidence, or a
+non-nil reconciliation operation UUID. A repeated identical block is idempotent;
+ordinary APIs cannot clear it or replace it with another disposition. Reads
+remain available. Every public writer reacquires authority and sorted UUID
+guards and checks current identity and custody before touching State. Retained
+creation retries and family completion use the same guards; an administrator
+identity does not bypass them. Authentication and installed recovery authority
+are separate boundaries, not granted by a reason or evidence string.
+
+Before adoption, stop writers, retain a verified consistent backup and hold
+the migration lock. Use the bounded lock and statement budgets in the migration
+metadata. Preserve all restriction rows during rollback and keep incompatible
+older writers stopped: they do not enforce these restrictions. After accepted
+mutations or custody decisions, recover forward. A pre-adoption package may be
+restored only when no accepted mutation or restriction is lost.

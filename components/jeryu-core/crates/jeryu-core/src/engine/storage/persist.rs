@@ -177,6 +177,13 @@ pub(super) fn stage_state(conn: &Connection, state: &State) -> Result<()> {
         .map_err(storage_error)?;
     }
 
+    for (repository_id, block) in &state.repository_mutation_blocks {
+        conn.execute(
+            "INSERT INTO temp.repository_mutation_blocks (repo_id, block_json) VALUES (?1, ?2)",
+            params![repository_id.to_string(), json(block)?],
+        )
+        .map_err(storage_error)?;
+    }
     for journal in state.repository_transfers.values() {
         conn.execute(
             r#"

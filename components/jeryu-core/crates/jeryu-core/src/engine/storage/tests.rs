@@ -219,7 +219,7 @@ fn invalid_final_invitation_uniqueness_rolls_back_existing_updates_and_shared_st
     let fixture = fixture(false);
     let other_handle = fixture.core.clone();
     let previous = fixture.core.list_account_invitations();
-    let result = fixture.core.coordinator().with_authority(&[], || {
+    let result = fixture.core.with_global_mutation(|| {
         let mut state = fixture.core.runtime.state.write();
         let previous_state = state.clone();
         let existing = state.invitations.get_mut(&fixture.id).unwrap();

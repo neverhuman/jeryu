@@ -28,12 +28,13 @@ Migration 0005-0007 notes:
 - `repositories.family` (0005) is UI grouping data; its seed backfill runs only
   when the column is first added and must never overwrite operator edits.
 - `forge_audit_log` (0006) deliberately has NO repository FK and is excluded
-  from the full-rewrite persist (`delete_all`/`persist_state`) so delete
+  from the State snapshot so delete
   receipts survive both repository deletion and every state rewrite.
 - `jankurai_scores` (0007) allows NULL `score` (decision `tool-failed` records
-  an unscoreable audit); any new per-repo table MUST be threaded through
-  `State`, `load_state`, `persist_state`, and `delete_all`, or the next
-  mutation silently wipes it.
+  an unscoreable audit). State-owned tables must be threaded through `State`,
+  `load_state`, `stage_state`, and the explicit `snapshot::OWNED_TABLES` list.
+  Independently owned journals stay outside that list. Ordinary saves retain
+  unchanged parent keys, rowids, unknown columns and independent FK children.
 
 Live-readiness note:
 - When migrations or constraints change, include this guidance file in the
@@ -41,7 +42,7 @@ Live-readiness note:
 
 Migration 0012 review dismissal notes:
 - Preserve every nullable historical target; never infer a verdict UUID.
-- Persist and reload new dismissal targets through every full-state rewrite.
+- Persist and reload new dismissal targets through every State transaction.
 - Keep incompatible older writers stopped: their rewrite loses target bindings.
 - Exercise migration_0012_preserves_unbound_dismissals and
   review_dismissal_survives_sqlite_reopen_and_unrelated_write with two Cargo jobs
@@ -49,6 +50,16 @@ Migration 0012 review dismissal notes:
 
 Migration 0013 creation journal:
 - Keep receipts after repository deletion; they prevent creation UUID reuse.
-- Thread the journal through State, load and every atomic full-state rewrite.
+- Thread the journal through State, load and atomic snapshot reconciliation.
 - Never infer retry authority for legacy rows. Stop older writers after adoption.
 - Run the complete core::repository_creation::tests scope and migration analysis.
+
+Migration 0013 mutation restrictions:
+- Preserve both independently named 0013 migrations; apply each idempotently.
+- Restrictions reference immutable repository UUIDs and survive unrelated saves.
+- Ordinary calls, including creation retries and administrator calls, cannot
+  clear a restriction. Read-only rows may supply fork source reads; unresolved
+  reconciliation blocks deny that use until the owning recovery lifecycle acts.
+- Retain restrictions on rollback and keep incompatible older writers stopped.
+- Run mutation_custody, core::mutation::tests, all creation controls, SQLite
+  persistence and migration analysis under the allocated native CI window.

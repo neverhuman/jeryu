@@ -41,12 +41,17 @@ const MIGRATION_0012: &str =
     include_str!("../../../../../db/migrations/0012_review_dismissal_target.sql");
 const MIGRATION_0013: &str =
     include_str!("../../../../../db/migrations/0013_repository_creation.sql");
+// Both independently named 0013 migrations are preserved on monorepo intake.
+const MIGRATION_0013_MUTATION_BLOCKS: &str =
+    include_str!("../../../../../db/migrations/0013_repository_mutation_blocks.sql");
 
 pub(super) fn apply_migrations(conn: &Connection) -> Result<()> {
     apply_migrations_through_0010(conn)?;
     apply_migration_0011(conn)?;
     add_column_if_missing(conn, "reviews", "dismissed_review_id", MIGRATION_0012)?;
     conn.execute_batch(MIGRATION_0013).map_err(storage_error)?;
+    conn.execute_batch(MIGRATION_0013_MUTATION_BLOCKS)
+        .map_err(storage_error)?;
     Ok(())
 }
 

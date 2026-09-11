@@ -153,6 +153,43 @@ fn retry_rejects_changed_request_owner_and_another_creation_id() {
 }
 
 #[test]
+fn pending_creation_rechecks_custody_before_materialization_after_reopen() {
+    let directory = tempfile::tempdir().unwrap();
+    let database = directory.path().join("forge.sqlite");
+    let materializer = Arc::new(Materializer::default());
+    materializer.fail.store(true, Ordering::SeqCst);
+    let id = Uuid::new_v4();
+    let core = ForgeCore::open_sqlite(&database)
+        .unwrap()
+        .with_repo_materializer(materializer.clone());
+    assert!(
+        core.create_repository_with_id(id, "alice", request())
+            .is_err()
+    );
+    core.block_repository_mutations(
+        id,
+        crate::RepositoryMutationBlock::ReadOnly {
+            reason: "repository retained for independent review".into(),
+            evidence: "review-custody-receipt".into(),
+        },
+    )
+    .unwrap();
+    drop(core);
+
+    materializer.fail.store(false, Ordering::SeqCst);
+    let core = ForgeCore::open_sqlite(&database)
+        .unwrap()
+        .with_repo_materializer(materializer.clone());
+    assert!(matches!(
+        core.create_repository_with_id(id, "alice", request()),
+        Err(ForgeError::Forbidden(_))
+    ));
+    assert_eq!(materializer.calls.load(Ordering::SeqCst), 1);
+    assert!(!core.repository_creations()[0].materialized);
+    assert_eq!(core.get_repository("alice", "recovery").unwrap().id, id);
+}
+
+#[test]
 fn retained_creation_cannot_resurrect_deleted_or_recreated_repository() {
     let directory = tempfile::tempdir().unwrap();
     let database = directory.path().join("forge.sqlite");
@@ -184,7 +221,7 @@ fn completion_write_failure_is_an_error_and_retains_pending_receipt() {
     let database = directory.path().join("forge.sqlite");
     let core = ForgeCore::open_sqlite(&database).unwrap();
     let connection = rusqlite::Connection::open(&database).unwrap();
-    connection.execute_batch("CREATE TRIGGER reject_completion BEFORE INSERT ON repository_creation_journal WHEN json_extract(NEW.receipt_json, '$.materialized') = 1 BEGIN SELECT RAISE(ABORT, 'interrupted completion write'); END;").unwrap();
+    connection.execute_batch("CREATE TRIGGER reject_completion BEFORE UPDATE ON repository_creation_journal WHEN json_extract(NEW.receipt_json, '$.materialized') = 1 BEGIN SELECT RAISE(ABORT, 'interrupted completion write'); END;").unwrap();
     let id = Uuid::new_v4();
     assert!(
         core.create_repository_with_id(id, "alice", request())

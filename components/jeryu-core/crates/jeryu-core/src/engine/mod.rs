@@ -29,6 +29,7 @@ mod commit_status;
 mod coordinator;
 mod issues;
 mod jankurai;
+mod mutation;
 mod pull_requests;
 mod readmes;
 mod repositories;
@@ -87,6 +88,7 @@ struct State {
     jankurai_scores: HashMap<(String, String), Vec<JankuraiScore>>,
     repository_aliases: HashMap<(String, String), RepositoryAlias>,
     repository_transfers: HashMap<String, RepositoryTransferJournal>,
+    repository_mutation_blocks: HashMap<Uuid, RepositoryMutationBlock>,
 }
 
 fn default_branch_protection_rule(owner: &str, repo: &str, branch: &str) -> BranchProtectionRule {
@@ -195,8 +197,10 @@ impl ForgeCore {
         })
     }
 
-    /// Shared coordination primitives. Existing mutation methods do not yet acquire
-    /// these guards; callers must not infer complete mutation exclusion from them.
+    /// Shared coordination primitives used by public Core mutation methods.
+    /// Guards are not reentrant: callers must not wrap a public mutator in a
+    /// coordinator closure. Internal composition uses private admitted helpers.
+    /// Git transport and database/Git recovery require their separate integration.
     pub fn coordinator(&self) -> &MutationCoordinator {
         &self.runtime.coordinator
     }

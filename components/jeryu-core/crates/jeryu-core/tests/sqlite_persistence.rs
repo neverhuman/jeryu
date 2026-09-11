@@ -260,6 +260,15 @@ fn sqlite_store_round_trips_core_forge_resources() {
             },
         )
         .unwrap();
+        core.create_repository(
+            "fork-owner",
+            CreateRepositoryRequest {
+                name: "jeryu".to_string(),
+                default_branch: Some("main".to_string()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
         core.create_label(
             "alice",
             "jeryu",
@@ -476,7 +485,11 @@ fn sqlite_store_round_trips_core_forge_resources() {
         Some("Alice")
     );
     assert_eq!(reopened.list_teams("neverhuman").unwrap().len(), 1);
-    assert_eq!(reopened.list_repositories(None).len(), 1);
+    assert_eq!(reopened.list_repositories(None).len(), 2);
+    assert_eq!(
+        reopened.get_repository("fork-owner", "jeryu").unwrap().name,
+        "jeryu"
+    );
     assert_eq!(
         reopened.list_labels("alice", "jeryu").unwrap()[0].name,
         "bug"

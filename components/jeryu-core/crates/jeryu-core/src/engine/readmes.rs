@@ -24,14 +24,16 @@ impl ForgeCore {
         repo: &str,
         markdown: String,
     ) -> Result<String> {
-        self.ensure_repo_exists(owner, repo)?;
-        let mut state = self.runtime.state.write();
-        let previous = state.clone();
-        state
-            .readmes
-            .insert((owner.to_string(), repo.to_string()), markdown.clone());
-        self.persist_after_mutation(&mut state, previous)?;
-        Ok(markdown)
+        self.with_repository_mutation(owner, repo, || {
+            self.ensure_repo_exists(owner, repo)?;
+            let mut state = self.runtime.state.write();
+            let previous = state.clone();
+            state
+                .readmes
+                .insert((owner.to_string(), repo.to_string()), markdown.clone());
+            self.persist_after_mutation(&mut state, previous)?;
+            Ok(markdown)
+        })
     }
 
     /// Return the persisted README or a deterministic local default.

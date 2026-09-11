@@ -38,6 +38,17 @@ impl ForgeCore {
         owner: &str,
         request: CreateRepositoryRequest,
     ) -> Result<Repository> {
+        self.with_repository_creation_mutation(repository_id, || {
+            self.create_repository_with_id_admitted(repository_id, owner, request)
+        })
+    }
+
+    fn create_repository_with_id_admitted(
+        &self,
+        repository_id: Uuid,
+        owner: &str,
+        request: CreateRepositoryRequest,
+    ) -> Result<Repository> {
         require_name("repository name", &request.name)?;
         if repository_id.is_nil() {
             return Err(ForgeError::Validation(
