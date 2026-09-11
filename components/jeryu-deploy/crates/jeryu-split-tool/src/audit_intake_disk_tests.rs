@@ -229,7 +229,7 @@ fn legacy_schema_migration_preserves_history_and_read_only_status_does_not_upgra
         upgraded
             .query_row("PRAGMA user_version", [], |row| row.get::<_, i64>(0))
             .unwrap(),
-        2
+        3
     );
     assert_eq!(
         status_snapshot(&upgraded).unwrap()["pending_received_events"],

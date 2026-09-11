@@ -2,6 +2,7 @@
 use super::*;
 
 pub(crate) fn status(connection: &Connection) -> Result<Value> {
+    let version: i64 = connection.query_row("PRAGMA user_version", [], |row| row.get(0))?;
     type ReceptionRow = (
         i64,
         i64,
@@ -58,7 +59,11 @@ pub(crate) fn status(connection: &Connection) -> Result<Value> {
                 "command_exit":row.get::<_,Option<i32>>(2)?,"diagnostic_sha256":row.get::<_,Option<String>>(3)?,"recorded_at":row.get::<_,i64>(4)?,
                 "observation_authenticated":false})))?.collect::<rusqlite::Result<_>>()?
         };
-        events.push(json!({"event_key":key,"metadata":metadata,"worker_failures":failures,"planning_complete":false,"queue_imported":false}));
+        let plans = queue::links(connection, &key)?;
+        events.push(
+            json!({"event_key":key,"metadata":metadata,"worker_failures":failures,
+            "planning_complete":false,"queue_imported":!plans.is_empty(),"queued_plans":plans}),
+        );
     }
     let processing_errors: Vec<Value> = {
         let mut statement=connection.prepare("SELECT id,reception_id,diagnostic_sha256,recorded_at FROM intake_processing_errors ORDER BY id")?;
@@ -67,6 +72,7 @@ pub(crate) fn status(connection: &Connection) -> Result<Value> {
     };
     Ok(
         json!({"schema_version":"jeryu.audit-intake-status/v1","raw_payloads_private":true,
+        "migration_required":version<3,
         "receiver_deployment_admitted":false,"execution_verified":false,"publication_qualified":false,
         "pending_classifications":pending,"pending_received_events":events.len(),
         "receptions":receptions,"deliveries":deliveries,"events":events,"processing_errors":processing_errors}),

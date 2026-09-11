@@ -21,7 +21,7 @@ mod store;
 #[path = "audit_ledger_validation.rs"]
 mod validation;
 
-const SCHEMA: i64 = 2;
+const SCHEMA: i64 = 3;
 const APPLICATION: i64 = 0x4a524c41;
 const MAX_INPUT: u64 = 16 * 1024 * 1024;
 
@@ -274,8 +274,11 @@ fn initialize(connection: &mut Connection) -> Result<()> {
     if version == 0 {
         initialize_legacy(&transaction)?;
     }
-    if version < SCHEMA {
+    if version < 2 {
         intake_schema::install(&transaction)?;
+    }
+    if version < 3 {
+        intake_schema::install_plan_links(&transaction)?;
         transaction.pragma_update(None, "user_version", SCHEMA)?;
     } else {
         check_schema(&transaction)?;
@@ -283,6 +286,8 @@ fn initialize(connection: &mut Connection) -> Result<()> {
     transaction.commit()?;
     Ok(())
 }
+
+pub(super) use store::import_in_transaction;
 
 pub(super) fn run(database: &Path, operation: Operation) -> Result<()> {
     let mut connection = open(database, matches!(operation, Operation::Status))?;

@@ -69,6 +69,67 @@ interrupted after their raw bytes committed. TERM/INT stop accepting requests an
 drain in-flight transactions; incomplete work remains available for replay after
 a crash. No failed evidence or runtime state is automatically deleted.
 
+## Bind a retained event to the local queue
+
+The maintenance command now connects an exact accepted reception to the existing
+Git planner and durable queue. Its new regression suite is awaiting execution;
+this source change does not qualify deployment or automatic scheduling.
+
+```sh
+jeryu-split audit-intake --database /var/lib/jeryu-audit/ledger.sqlite plan \
+  --event-key RECEIVED_EVENT_SHA256 --reception-id RECEIVED_ID \
+  --source-repo /var/lib/jeryu-audit/sources/jeryu \
+  --identity /etc/jeryu-audit/identity.json \
+  --execution-config /etc/jeryu-audit/execution.json \
+  --governing-policy /etc/jeryu-audit/policy.toml \
+  --candidate-policy /etc/jeryu-audit/candidate-policy.toml
+```
+
+Select the event key and reception ID from intake status. The command reads the
+retained raw bytes and classification again; it accepts no caller-supplied
+endpoints or precomputed plan. Configuration inputs use the same private-file
+rules as routes and are limited to 64 KiB each. The identity is the existing
+planner `ExecutionIdentity`: repository, scope, auditor source/executable/receipt
+hashes and governing-policy/execution-config hashes. Its repository and input
+hashes must match the retained route. The execution configuration retains the
+closed `jeryu.audit-ledger-execution/v1` contract; its `executor_inputs` object
+must also contain the route's three `executor_*` and four
+`governing_workflow_*` observations with exactly matching values. These are
+configured observations, not independent authentication.
+
+The planner reads complete local Git objects without fetching or running hooks.
+It enumerates intermediate push commits, records rewritten ancestry, preserves
+existing jobs after deletion, and includes both a PR head's ancestry and the
+reported merge commit's complete ancestry. Fork facts do not admit credentialed
+execution. Release tags, missing previous objects, unclassified or rejected
+receptions and other unresolved source identities remain pending. It never
+uses a truncated webhook commit array as a coverage inventory.
+
+Plans, jobs, requests and immutable received-event links commit in one SQLite
+transaction. A missing second PR endpoint or failed link write cannot leave a
+partially queued event. Repeating the same reception or another accepted
+delivery of identical signed bytes preserves the original links; changing an
+auditor identity creates distinct jobs. Every failed planning attempt retains
+its private diagnostic. A queue error returns failure, including when retaining
+that failure also fails. Status exposes only plan identities and diagnostic
+hashes. Schema 3 adds the link table transactionally; read-only status never
+upgrades a schema 1 or 2 database.
+
+`queue_imported` records this local transaction. Complete enrolled scopes,
+missed deliveries, source-policy admission, executor dispatch/closure,
+authenticated results and publication remain separate open obligations. The
+HTTP receiver does not yet invoke this planner automatically, and its 202
+response still means durable intake only. The product does not require either
+maintenance command.
+
+Run the queue regressions with
+`cargo test --locked --offline -p jeryu-split-tool audit_intake::tests::queue_tests`.
+The cases use actual Git objects and private SQLite fixtures, exercising
+multi-commit coverage, retries/reopen, rewrites/deletion, both PR endpoints,
+transaction rollback, missing objects, rejected reception bindings, changed
+auditor inputs and schema migration. They do not replace the deployed outage,
+process-crash, TLS or executor recovery drills.
+
 Run the transport and restart regressions with:
 
 ```sh

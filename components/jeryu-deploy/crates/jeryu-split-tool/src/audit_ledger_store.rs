@@ -51,6 +51,21 @@ pub(super) fn import(
     candidate: &[u8],
     now: i64,
 ) -> Result<Value> {
+    let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+    let result = import_in_transaction(&transaction, plan, config, governing, candidate, now)?;
+    transaction.commit()?;
+    Ok(result)
+}
+
+/// The caller commits queue rows and their reception links together.
+pub(crate) fn import_in_transaction(
+    transaction: &rusqlite::Transaction<'_>,
+    plan: &[u8],
+    config: &[u8],
+    governing: &[u8],
+    candidate: &[u8],
+    now: i64,
+) -> Result<Value> {
     ensure!(
         [plan, config, governing, candidate]
             .iter()
@@ -63,7 +78,6 @@ pub(super) fn import(
     let id = audit_evidence::hash(&bytes);
     let event_key = scheduler::plan_event_key(&plan)?;
     let identity = serde_json::to_vec(&plan.identity)?;
-    let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
     transaction.execute(
         "INSERT OR IGNORE INTO plans(id,event_key,bytes,imported_at) VALUES(?1,?2,?3,?4)",
         params![id, event_key, bytes, now],
@@ -80,7 +94,7 @@ pub(super) fn import(
     for planned in &plan.jobs {
         transaction.execute("INSERT OR IGNORE INTO jobs(key,identity,source_commit,source_tree,config,governing_policy,candidate_policy) VALUES(?1,?2,?3,?4,?5,?6,?7)",
             params![planned.deduplication_key,identity,planned.source_commit,planned.source_tree,config,governing,candidate])?;
-        let stored = job(&transaction, &planned.deduplication_key)?;
+        let stored = job(transaction, &planned.deduplication_key)?;
         ensure!(
             stored.identity == plan.identity
                 && stored.commit == planned.source_commit
@@ -108,7 +122,6 @@ pub(super) fn import(
             params![id, planned.attempt_key],
         )?;
     }
-    transaction.commit()?;
     Ok(
         json!({"plan_id":id,"jobs":plan.jobs.len(),"plan_authenticated":false,"publication_qualified":false}),
     )

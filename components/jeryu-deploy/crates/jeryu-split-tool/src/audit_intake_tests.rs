@@ -1,4 +1,6 @@
 use super::*;
+#[path = "audit_intake_queue_tests.rs"]
+mod queue_tests;
 #[path = "audit_service_tests.rs"]
 mod service_http;
 use std::{

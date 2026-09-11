@@ -12,6 +12,8 @@ use crate::{audit_evidence, audit_ledger, audit_score::JsonObject};
 
 #[path = "audit_intake_input.rs"]
 mod input;
+#[path = "audit_intake_queue.rs"]
+mod queue;
 #[path = "audit_service.rs"]
 pub(super) mod service;
 #[path = "audit_intake_store.rs"]
@@ -36,6 +38,23 @@ pub(super) enum Operation {
     },
     /// Finish classifying receptions left pending by interruption; no source work.
     Reconcile,
+    /// Plan a retained signed event from complete local Git objects and atomically queue it.
+    Plan {
+        #[arg(long)]
+        event_key: String,
+        #[arg(long)]
+        reception_id: i64,
+        #[arg(long)]
+        source_repo: PathBuf,
+        #[arg(long)]
+        identity: PathBuf,
+        #[arg(long)]
+        execution_config: PathBuf,
+        #[arg(long)]
+        governing_policy: PathBuf,
+        #[arg(long)]
+        candidate_policy: PathBuf,
+    },
     /// Append a worker-reported failure; cannot mark an event processed or passed.
     Failure {
         #[arg(long)]
@@ -319,6 +338,27 @@ pub(super) fn run(database: &Path, operation: Operation) -> Result<()> {
             store::classify(&mut connection, id)?
         }
         Operation::Reconcile => store::reconcile(&mut connection)?,
+        Operation::Plan {
+            event_key,
+            reception_id,
+            source_repo,
+            identity,
+            execution_config,
+            governing_policy,
+            candidate_policy,
+        } => queue::run(
+            &mut connection,
+            &event_key,
+            reception_id,
+            &source_repo,
+            queue::Inputs::read(
+                &identity,
+                &execution_config,
+                &governing_policy,
+                &candidate_policy,
+            ),
+            audit_ledger::now()?,
+        )?,
         Operation::Failure {
             event_key,
             kind,

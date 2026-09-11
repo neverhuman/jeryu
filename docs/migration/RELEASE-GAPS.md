@@ -72,6 +72,17 @@ the required source, build and provenance checks remain intact.
 
 ## Current public evidence
 
+The next maintenance-service slice connects an exact retained authenticated
+reception to complete local Git planning and the existing durable queue. Plans,
+jobs, requests and immutable intake links commit together, including both PR
+head and merged ancestry. Ten new owning regressions cover multi-commit pushes,
+retry/reopen, rewrites/deletion, missing objects, transaction rollback, rejected
+reception bindings, distinct auditor inputs, schema migration and CLI admission.
+They are authored but unexecuted. Full automatic service dispatch, authenticated
+executor/policy admission, missed-delivery reconciliation and publication remain
+open; a local queue entry is not an accepted audit result. See the
+[maintainer command](AUDIT-SERVICE.md#bind-a-retained-event-to-the-local-queue).
+
 The browser approval correction prepares the server's current credential-bound
 review challenge before submission. A Rust-owned read-model projection describes
 the observed source/base, reviewer and nonce; actual API fixture responses and

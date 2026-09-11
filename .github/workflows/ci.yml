@@ -102,6 +102,57 @@ jobs:
           else
             bash ops/ci/monorepo.sh "$JERYU_CI_LANE"
           fi
+      - name: Prepare generated contract diagnostics
+        if: ${{ failure() && matrix.lane == 'web' }}
+        timeout-minutes: 10
+        env:
+          JERYU_CI_SOURCE: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          umask 077
+          test "$(git rev-parse HEAD)" = "$JERYU_CI_SOURCE"
+          test -z "$(GIT_OPTIONAL_LOCKS=0 git status --porcelain)"
+          source_tree=$(git rev-parse 'HEAD^{tree}')
+          # The earlier required command remains failed. This owning generation
+          # supplies reviewable source artifacts; it does not waive contract drift.
+          bash scripts/contracts.sh --write
+          test "$(git rev-parse HEAD)" = "$JERYU_CI_SOURCE"
+          test "$(git rev-parse 'HEAD^{tree}')" = "$source_tree"
+          git diff --exit-code -- . \
+            ':!components/jeryu-core/contracts/generated' \
+            ':!components/jeryu-jira/contracts/generated' \
+            ':!components/jeryu-web/contracts/generated'
+          mkdir -p target
+          sha256sum components/jeryu-core/contracts/generated/*.ts \
+            components/jeryu-jira/contracts/generated/*.ts \
+            components/jeryu-web/contracts/generated/*.ts > target/contract-checksums.sha256
+          jq -n --arg source "$JERYU_CI_SOURCE" --arg tree "$source_tree" \
+            --arg repository "$GITHUB_REPOSITORY" --arg run "$GITHUB_RUN_ID" \
+            --arg attempt "$GITHUB_RUN_ATTEMPT" --arg workflow "$GITHUB_WORKFLOW_REF" \
+            --arg compiler "$(rustc --version)" \
+            --arg core "$(sha256sum target/debug/export_contracts | cut -d ' ' -f1)" \
+            --arg work "$(sha256sum target/debug/jeryu-jira-export-contracts | cut -d ' ' -f1)" \
+            --arg checksums "$(sha256sum target/contract-checksums.sha256 | cut -d ' ' -f1)" \
+            '{schema_version:"jeryu.contract-diagnostics/v1",source_commit:$source,source_tree:$tree,
+              repository:$repository,run_id:$run,run_attempt:$attempt,workflow_ref:$workflow,
+              rustc:$compiler,core_generator_sha256:$core,work_generator_sha256:$work,
+              checksums_sha256:$checksums,command:"bash scripts/contracts.sh --write",
+              generation_exit:0,source_qualified:false,publication_qualified:false}' \
+            > target/contract-diagnostics.json
+      - name: Preserve generated contract diagnostics
+        if: ${{ failure() && matrix.lane == 'web' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: generated-contracts-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            target/contract-diagnostics.json
+            target/contract-checksums.sha256
+            components/jeryu-core/contracts/generated/*.ts
+            components/jeryu-jira/contracts/generated/*.ts
+            components/jeryu-web/contracts/generated/*.ts
+          if-no-files-found: error
+          retention-days: 30
+
       - name: Preserve split check diagnostics
         if: ${{ always() && matrix.lane == 'splits' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

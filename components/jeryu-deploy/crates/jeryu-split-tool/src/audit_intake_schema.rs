@@ -63,3 +63,26 @@ pub(super) fn install(transaction: &rusqlite::Transaction<'_>) -> Result<()> {
     }
     Ok(())
 }
+
+/// Link received events to the existing queue without changing historical rows.
+pub(super) fn install_plan_links(transaction: &rusqlite::Transaction<'_>) -> Result<()> {
+    transaction.execute_batch(
+        r"
+        CREATE TABLE intake_plan_links (
+            event_key TEXT NOT NULL REFERENCES intake_events(key),
+            identity_sha256 TEXT NOT NULL,
+            source_ref TEXT NOT NULL,
+            plan_id TEXT NOT NULL REFERENCES plans(id),
+            reception_id INTEGER NOT NULL REFERENCES intake_receptions(id),
+            facts_sha256 TEXT NOT NULL,
+            linked_at INTEGER NOT NULL,
+            PRIMARY KEY(event_key,identity_sha256,source_ref)
+        ) STRICT;
+        CREATE TRIGGER intake_plan_links_no_UPDATE BEFORE UPDATE ON intake_plan_links
+            BEGIN SELECT RAISE(ABORT,'audit intake is append-only'); END;
+        CREATE TRIGGER intake_plan_links_no_DELETE BEFORE DELETE ON intake_plan_links
+            BEGIN SELECT RAISE(ABORT,'audit intake is append-only'); END;
+    ",
+    )?;
+    Ok(())
+}
