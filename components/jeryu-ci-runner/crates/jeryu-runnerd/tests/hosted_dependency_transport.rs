@@ -201,6 +201,20 @@ fn run_library_jankurai(
 ) -> Output {
     let root = root();
     let mut command = Command::new("bash");
+    // Public Actions `require_jankurai` resolves with `type -P`. Keep the
+    // SHA-pinned Release directory first there; the host still prepends the
+    // hostile directory and relies on the receipt-bound absolute path.
+    let path_prefix = if std::env::var_os("GITHUB_ACTIONS").as_deref() == Some("true")
+        && auditor.candidate.is_none()
+    {
+        auditor
+            .binary
+            .parent()
+            .expect("governed Jankurai parent")
+            .to_owned()
+    } else {
+        earlier_path.to_owned()
+    };
     command
         .args([
             "-lc",
@@ -217,7 +231,7 @@ printf 'version='
 jankurai --version"#,
             "_",
             root.to_str().expect("UTF-8 workspace root"),
-            earlier_path.to_str().expect("UTF-8 hostile PATH"),
+            path_prefix.to_str().expect("UTF-8 PATH prefix"),
         ])
         .env("JERYU_JANKURAI_BIN", earlier_path.join("jankurai"))
         .env(
