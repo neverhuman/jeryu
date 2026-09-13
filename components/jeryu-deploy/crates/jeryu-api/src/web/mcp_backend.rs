@@ -6,15 +6,11 @@ use super::{WebState, agent_runs, codegraph, control_plane};
 
 pub(super) struct WebMcpBackend {
     state: Arc<WebState>,
-    inner: jeryu_mcp::MemoryBackend,
 }
 
 impl WebMcpBackend {
     pub(super) fn new(state: Arc<WebState>) -> Self {
-        Self {
-            state,
-            inner: jeryu_mcp::MemoryBackend::new(),
-        }
+        Self { state }
     }
 }
 
@@ -23,7 +19,7 @@ impl jeryu_mcp::ToolBackend for WebMcpBackend {
         &self,
         tool: &str,
         args: Value,
-        ctx: &jeryu_mcp::backend::McpCallContext,
+        _ctx: &jeryu_mcp::backend::McpCallContext,
     ) -> anyhow::Result<jeryu_mcp::ToolResponse> {
         if let Some(response) = self.call_agent_work(tool, args.clone())? {
             return Ok(response);
@@ -48,11 +44,29 @@ impl jeryu_mcp::ToolBackend for WebMcpBackend {
                 "{tool} requires repo"
             )));
         }
-        self.inner.call(tool, args, ctx)
+        Ok(jeryu_mcp::ToolResponse {
+            success: false,
+            message: format!("{tool} is unavailable: no durable execution adapter is installed"),
+            data: Some(json!({ "code": "tool_unavailable", "tool": tool })),
+        })
     }
 
     fn list(&self) -> Vec<jeryu_mcp::ToolDescriptor> {
-        self.inner.list()
+        jeryu_mcp::tool_manifest()
+            .into_iter()
+            .map(|value| {
+                serde_json::from_value::<jeryu_mcp::ToolDescriptor>(value)
+                    .expect("owning MCP catalog descriptor must deserialize")
+            })
+            .filter(|descriptor| {
+                live_adapter_installed(
+                    descriptor
+                        .name
+                        .strip_prefix(jeryu_mcp::TOOL_PREFIX)
+                        .unwrap_or(&descriptor.name),
+                )
+            })
+            .collect()
     }
 }
 
@@ -395,6 +409,40 @@ impl WebMcpBackend {
     }
 }
 
+// Only dispatches implemented above may be advertised by the production backend.
+// This registry deliberately excludes the deterministic test backend's operations.
+fn live_adapter_installed(tool: &str) -> bool {
+    is_codegraph_tool(tool)
+        || matches!(
+            tool,
+            "agent_work.start"
+                | "agent_work.status"
+                | "agent_work.control"
+                | "agent_work.events"
+                | "agent_work.tail"
+                | "agent_work.export_pr"
+                | "codegraph.tool_build.status"
+                | "codegraph.tool_build.clusters"
+                | "codegraph.tool_build.feedback"
+                | "tool_finder.clusters"
+                | "tool_finder.scan"
+                | "tool_finder.dashboard"
+                | "tool_registry.summary"
+                | "control_plane.status"
+                | "control_plane.priorities"
+                | "repo_graph.clusters"
+                | "repo_graph.query"
+                | "remote.status"
+                | "artifacts.latest"
+                | "runner_fabric.status"
+                | "get_system_snapshot"
+                | "get_ci_run_jobs"
+                | "get_ci_bottlenecks"
+                | "explain_blockers"
+                | "plan_validation"
+        )
+}
+
 fn live_graph(state: &Arc<WebState>) -> anyhow::Result<jeryu_codegraph::CodeGraph> {
     Ok(jeryu_codegraph::CodeGraph::from_snapshot(
         state.codegraph_store.load_snapshot()?,
@@ -466,6 +514,42 @@ mod tests {
     use tempfile::tempdir;
 
     use super::{WebMcpBackend, WebState};
+
+    #[tokio::test]
+    async fn unavailable_tools_never_produce_synthetic_success_or_discovery() {
+        let backend = Arc::new(WebMcpBackend::new(Arc::new(
+            WebState::new(ForgeCore::new()),
+        )));
+        let names: Vec<_> = backend.list().into_iter().map(|tool| tool.name).collect();
+        for tool in ["run_tests", "propose_patch", "request_merge", "bug_submit"] {
+            assert!(!names.contains(&format!("jeryu.{tool}")));
+            let response = backend.call(tool, json!({}), &ctx()).unwrap();
+            assert!(!response.success);
+            assert_eq!(response.data.unwrap()["code"], "tool_unavailable");
+        }
+        let core = jeryu_mcp::McpCore::new(backend);
+        let mut session = jeryu_mcp::McpSessionState::new();
+        let initialize = json!({
+            "jsonrpc": "2.0", "id": 1, "method": "initialize",
+            "params": { "protocolVersion": jeryu_mcp::MCP_PROTOCOL_VERSION,
+                "clientInfo": { "name": "display-only", "version": "1" } }
+        });
+        let initialized = core
+            .handle_line_test(&mut session, &initialize.to_string())
+            .await;
+        assert!(initialized[0].get("result").is_some());
+        let request = json!({ "jsonrpc": "2.0", "id": 2, "method": "tools/call",
+            "params": { "name": "jeryu.run_tests", "arguments": { "repo": 1, "target_ref": "main", "test_scope": "unit" } } });
+        let replies = core
+            .handle_line_test(&mut session, &request.to_string())
+            .await;
+        assert_eq!(replies[0]["result"]["isError"], true);
+        assert_eq!(replies[0]["result"]["structuredContent"]["success"], false);
+        assert_eq!(
+            replies[0]["result"]["structuredContent"]["data"]["code"],
+            "tool_unavailable"
+        );
+    }
 
     fn ctx() -> McpCallContext {
         McpCallContext::mcp("req-test", "tester", jeryu_mcp::MCP_PROTOCOL_VERSION)
