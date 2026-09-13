@@ -42,10 +42,22 @@ require_tool() {
 
 require_jankurai() {
   if [[ "${JERYU_MONOREPO_CANDIDATE:-0}" != "0" ]]; then
+    [[ ${JAIN_RELEASE_CI:-0} != 1 ]] || {
+      printf 'public auditor candidate cannot satisfy a protected release broker\n' >&2
+      return 1
+    }
     local candidate_root
     candidate_root="$(env -i PATH=/usr/bin:/bin GIT_CONFIG_GLOBAL=/dev/null \
       GIT_CONFIG_NOSYSTEM=1 /usr/bin/git -C "$(dirname -- "${BASH_SOURCE[0]}")" \
       rev-parse --show-toplevel)" || return 1
+    if [[ -e $candidate_root/.jeryu-source.json || -L $candidate_root/.jeryu-source.json ]]; then
+      # The export adapter checks the tracked descriptor, exact acquired source,
+      # actual consumer/policy and the unchanged full Tool receipt verifier.
+      # shellcheck source=ops/ci/public-auditor.sh
+      source "$candidate_root/ops/ci/public-auditor.sh"
+      require_export_candidate_jankurai
+      return
+    fi
     # shellcheck source=/dev/null
     source "${candidate_root}/components/jeryu-tool/ops/verify-public-candidate.sh"
     require_public_candidate_jankurai
