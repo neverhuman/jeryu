@@ -282,10 +282,9 @@ pub(super) async fn serve_with_planner(
     let enabled = planner.is_some();
     let (stop, watch) = tokio::sync::watch::channel(false);
     let mut server_watch = watch.clone();
-    let server = axum::serve(listener, router(receiver))
-        .with_graceful_shutdown(async move {
-            let _ = server_watch.wait_for(|stop| *stop).await;
-        });
+    let server = axum::serve(listener, router(receiver)).with_graceful_shutdown(async move {
+        let _ = server_watch.wait_for(|stop| *stop).await;
+    });
     let server = async { server.await.context("audit receiver transport failed") };
     let worker = async move {
         match planner {
@@ -296,7 +295,11 @@ pub(super) async fn serve_with_planner(
         }
     };
     tokio::pin!(server, worker, shutdown);
-    enum End { Server(Result<()>), Worker(Result<()>), Shutdown }
+    enum End {
+        Server(Result<()>),
+        Worker(Result<()>),
+        Shutdown,
+    }
     let end = tokio::select! {
         result = &mut server => End::Server(result),
         result = &mut worker => End::Worker(result),
@@ -305,7 +308,9 @@ pub(super) async fn serve_with_planner(
     let _ = stop.send(true);
     match end {
         End::Server(result) => {
-            if enabled { worker.await?; }
+            if enabled {
+                worker.await?;
+            }
             result
         }
         End::Worker(result) => {
@@ -316,7 +321,9 @@ pub(super) async fn serve_with_planner(
         }
         End::Shutdown => {
             let result = server.await;
-            if enabled { worker.await?; }
+            if enabled {
+                worker.await?;
+            }
             result
         }
     }
@@ -347,11 +354,11 @@ pub(crate) fn run(arguments: Arguments) -> Result<()> {
             let mut terminate =
                 tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())?;
             serve_with_planner(listener, receiver, planner, async move {
-                    tokio::select! {
-                        _ = tokio::signal::ctrl_c() => {},
-                        _ = terminate.recv() => {},
-                    }
-                })
-                .await
+                tokio::select! {
+                    _ = tokio::signal::ctrl_c() => {},
+                    _ = terminate.recv() => {},
+                }
+            })
+            .await
         })
 }
