@@ -110,6 +110,10 @@ require_tool() {
 
 require_jankurai() {
   if [[ "${JERYU_MONOREPO_CANDIDATE:-0}" != "0" ]]; then
+    [[ ${JAIN_RELEASE_CI:-0} != 1 ]] || {
+      printf 'public auditor candidate cannot satisfy a protected release broker\n' >&2
+      return 1
+    }
     local candidate_root
     candidate_root="$(env -i PATH=/usr/bin:/bin GIT_CONFIG_GLOBAL=/dev/null \
       GIT_CONFIG_NOSYSTEM=1 /usr/bin/git -C "$(dirname -- "${BASH_SOURCE[0]}")" \
