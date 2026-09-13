@@ -308,7 +308,7 @@ impl GithubRouter {
                 Ok(self.list_releases(owner, repo, path, page))
             }
             (Post, ["repos", owner, repo, "releases"]) => {
-                Ok(self.create_release(owner, repo, body))
+                Ok(self.create_release(owner, repo))
             }
 
             // Actions (sourced from check-runs as a CI proxy) ----------------

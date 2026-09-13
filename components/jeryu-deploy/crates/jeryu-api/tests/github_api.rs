@@ -662,23 +662,29 @@ fn webhooks_create_and_list() {
 }
 
 #[test]
-fn releases_create_and_list() {
+fn releases_refuse_creation_without_reporting_resources() {
     let router = router_with_repo();
-
-    let created = router.post(
-        "/repos/alice/jeryu/releases",
+    for request in [
         r#"{"tag_name":"v1.0.0","name":"First","body":"notes","prerelease":false}"#,
-    );
-    assert_eq!(created.status, 201, "create release: {}", created.body);
-    let release = body(&created);
-    assert_eq!(release["tag_name"], "v1.0.0");
-    assert_eq!(release["name"], "First");
-    // target_commitish defaults to the repo default branch.
-    assert_eq!(release["target_commitish"], "main");
-
+        r#"{"tag_name":"v1.0.0","target_commitish":"feature","draft":true}"#,
+        "invalid JSON",
+    ] {
+        let response = router.post("/repos/alice/jeryu/releases", request);
+        assert_eq!(response.status, 501, "{}", response.body);
+        let error = body(&response);
+        assert!(error.get("tag_name").is_none());
+        assert!(error.get("html_url").is_none());
+        assert!(error.get("id").is_none());
+        assert!(error.get("documentation_url").is_some());
+        assert!(error.get("jeryu_repair_hint").is_some());
+    }
     let listed = router.get("/repos/alice/jeryu/releases");
     assert_eq!(listed.status, 200);
-    assert!(listed.body.starts_with('['));
+    assert_eq!(body(&listed), serde_json::json!([]));
+    assert_eq!(
+        router.post("/repos/alice/missing/releases", "{}").status,
+        404
+    );
 }
 
 #[test]

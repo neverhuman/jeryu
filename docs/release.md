@@ -50,3 +50,14 @@ restoration into a new data directory, upgrade/rollback admission, interrupted
 repository creation and remote TLS requirements. Its same-binary restore test
 must pass at the exact candidate; cross-version upgrade/recovery qualification
 remains open in [current status](migration/STATUS.md).
+
+## Hosted forge releases and Git tags
+
+Jeryu does not yet store hosted release resources or uploaded release assets.
+Authenticated, repository-authorized `POST /repos/{owner}/{repo}/releases`
+returns `501 Not Implemented`; it creates neither a release nor a Git tag.
+The compatibility list is empty. Git tags can be pushed and fetched through
+Git independently and do not imply a hosted release resource. Durable release
+resources, assets and lifecycle operations remain in the parity program (R30).
+Publishing signed Jeryu distribution artifacts on GitHub remains a separate
+required foundation release gate.
