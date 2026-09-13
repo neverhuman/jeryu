@@ -40,6 +40,11 @@
       "lane": "ci",
       "purpose": "verify the package version, immutable engine pin, and artifact receipt stay aligned"
     },
+    "db/": {
+      "command": "just check && just score",
+      "lane": "check",
+      "purpose": "verify the documented absence of a separate Finder database"
+    },
     "contracts/": {
       "command": "just",
       "lane": "ci",

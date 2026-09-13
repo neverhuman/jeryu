@@ -123,8 +123,22 @@ Primary lanes:
   check, and verify that the protected merge plus repeated push callback keeps
   the reviewed head, tree, version, changelog and existing tag. Both ordinary
   features and explicitly prepared version changes are covered without a
-  `[skip-version]` marker. Fixture reviews and checks stay in memory; this test
-  does not publish release evidence or replace the sealed required lane.
+  `[skip-version]` marker. These positive merge expectations remain required
+  and currently fail while durable protected merge is unavailable. They do not
+  publish release evidence or replace the sealed required lane.
+
+Authenticated review transport is covered by
+`cargo test --locked -p jeryu-api --features web --lib authenticated_reviews`
+and the existing `pulls_` / `pull_detail_` tests. The fixtures own temporary
+bare repositories and SQLite stores, use real password/session/PAT issuance,
+and attach the actual managed Git observer. Cases cover authenticated history,
+duplicate submissions, self approval, changed live heads, revoked credentials,
+CSRF, targeted dismissal, comments preserving rejection, and refusal before
+legacy merge side effects. A single-worker route case holds Git observation
+while an unrelated health request completes. These tests do not publish checks
+or imply installed forge qualification. Use the agreed two-job shared compute
+allocation for this workspace; older worker defaults below do not authorize
+concurrent source or execution windows.
 
 This checkout has source for only `jeryu-api`, `jeryu-cli`, and
 `jeryu-split-tool`. Commands below that name another package exercise a pinned

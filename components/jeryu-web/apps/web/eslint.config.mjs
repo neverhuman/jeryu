@@ -12,18 +12,6 @@ import reactHooks from 'eslint-plugin-react-hooks';
 import tsParser from '@typescript-eslint/parser';
 import tsPlugin from '@typescript-eslint/eslint-plugin';
 
-function varsRuleName(rules) {
-  const name = Object.keys(rules).find((key) => key.startsWith('no-') && key.endsWith('-vars'));
-  if (!name) {
-    throw new Error('expected a vars rule in the recommended ESLint map');
-  }
-  return name;
-}
-
-const coreVarsRule = varsRuleName(js.configs.recommended.rules);
-const tsVarsRule = '@typescript-eslint/' + varsRuleName(tsPlugin.rules);
-const storageGlobals = ['local', 'session'].map((prefix) => prefix + 'Storage');
-
 // Browser + DOM globals consumed across the SPA. The flat config no longer
 // inherits the legacy `env: { browser: true }` shortcut, so the list is
 // enumerated explicitly. TypeScript files set `no-undef: off` (TS handles
@@ -76,10 +64,10 @@ export default [
       // TypeScript already resolves identifiers; ESLint's `no-undef`
       // produces noisy false positives on type-only names (JSX, etc.).
       'no-undef': 'off',
-      [coreVarsRule]: 'off',
+      'no-unused-vars': 'off',
       'no-empty': ['warn', { allowEmptyCatch: true }],
-      [tsVarsRule]: ['warn', { argsIgnorePattern: '^_' }],
-      'no-restricted-globals': ['error', ...storageGlobals],
+      '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
+      'no-restricted-globals': ['error', 'localStorage', 'sessionStorage'],
       // Dynamic code execution is the canonical XSS/RCE sink in a browser
       // SPA. We have no `eslint-plugin-security`, but these core rules cover
       // the high-value cases (`eval`, `new Function`, string `setTimeout`)
@@ -96,8 +84,9 @@ export default [
       'jsx-a11y/role-has-required-aria-props': 'warn',
       'jsx-a11y/click-events-have-key-events': 'warn',
       'jsx-a11y/no-noninteractive-element-interactions': 'warn',
-      // Scrollable panes use tabIndex={0} so keyboard users can reach them.
-      // Same advisory class as the other jsx-a11y rules above: visible, not a gate.
+      // Preserve the effective .js configuration when consolidating into .mjs.
+      // Scrollable diff/review panes need keyboard focus for the maintained
+      // axe scrollable-region-focusable check; ESLint cannot inspect overflow.
       'jsx-a11y/no-noninteractive-tabindex': 'warn',
       'react-hooks/set-state-in-effect': 'warn',
       // react-hooks' purity / static-components / refs rules report
@@ -124,7 +113,7 @@ export default [
   {
     files: ['**/*.stories.{ts,tsx}'],
     rules: {
-      [tsVarsRule]: 'off',
+      '@typescript-eslint/no-unused-vars': 'off',
     },
   },
   // ── E2E tests (Playwright) ──

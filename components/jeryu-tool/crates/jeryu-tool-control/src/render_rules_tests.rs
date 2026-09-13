@@ -109,8 +109,7 @@ fn pin_block_replacement_rejects_ambiguous_or_malformed_shell() {
 fn jankurai_wrapper_executes_only_the_verified_governed_binary() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
     let function = require_function(&root).expect("governed verifier template");
-    // GHA SHA-verified Release lookup, release-broker pin, and host shadow check.
-    assert_eq!(function.matches("type -P -- jankurai").count(), 3);
+    assert_eq!(function.matches("type -P -- jankurai").count(), 2);
     assert!(!function.contains("command -v jankurai"));
 
     let legacy = r#"readonly JERYU_JANKURAI_BIN="${CARGO_HOME}/bin/jankurai"
@@ -118,6 +117,30 @@ fn jankurai_wrapper_executes_only_the_verified_governed_binary() {
 jankurai() {
   require_jankurai || return 1
   command "${JERYU_JANKURAI_BIN}" "$@"
+}
+
+#[test]
+fn generated_candidate_function_retains_export_admission_and_refuses_release_broker() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let pin = Pin::load(&root).unwrap();
+    let function = require_function(&root).unwrap();
+    let original = "#!/bin/bash\nset -euo pipefail\nrequire_jankurai() {\n  exit 97\n}\n";
+    let path = Path::new("components/jeryu-ci-runner/ops/ci/lib.sh");
+    let rendered = render_candidate_consumer(path, original, &pin, &function).unwrap();
+    assert!(rendered.contains("require_export_candidate_jankurai"));
+    assert_eq!(render_candidate_consumer(path, &rendered, &pin, &function).unwrap(), rendered);
+    // Exercise the generated function, including the refusal before Git/source
+    // selection. An installed broker cannot execute a candidate export helper.
+    let output = std::process::Command::new("/bin/bash")
+        .env_clear()
+        .env("PATH", "/usr/bin:/bin")
+        .env("JERYU_MONOREPO_CANDIDATE", "1")
+        .env("JAIN_RELEASE_CI", "1")
+        .args(["-c", &format!("{rendered}\nrequire_jankurai\nexit 98\n")])
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(1));
+    assert!(String::from_utf8_lossy(&output.stderr).contains("cannot satisfy a protected release broker"));
 }
 "#;
     let rendered = bind_jankurai_wrapper(legacy).expect("bind legacy wrapper");

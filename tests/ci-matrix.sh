@@ -77,7 +77,7 @@ fixture_cargo() {
   fixture_call cargo "$@" || return $?
   case "$*" in
     'fmt --all -- --check'|'clippy --locked --workspace --all-targets --all-features -- -D warnings'|'clippy --locked -p jeryu-api --all-targets --no-default-features -- -D warnings'|'fetch --locked') ;;
-    'test --locked --workspace --all-features --exclude jeryu-sandbox-linux'|'test --locked -p jeryu-api --no-default-features')
+    'test --locked --workspace --all-features --exclude jeryu-sandbox-linux --no-fail-fast'|'test --locked -p jeryu-api --no-default-features --no-fail-fast')
       [[ ${fixture_auditor:-} == verified ]] || return 92
       ;;
     'run --locked -p jeryu-sandbox-linux --example required_capabilities') ;;
@@ -140,6 +140,10 @@ fixture_rg() {
 cargo() { fixture_cargo "$@"; }
 bash() {
   case $1 in
+    scripts/audit.sh|scripts/auxiliary-proofs.sh|ops/ci/score.sh)
+      fixture_call bash "$@"
+      return $?
+      ;;
     components/jeryu-ci-runner/scripts/test-native-sandbox.sh|scripts/test-native-sandbox.sh) ;;
     *) return 96 ;;
   esac
@@ -158,8 +162,11 @@ jq() {
   fixture_call jq || return $?
   command jq "$@"
 }
+if [[ $1 == audit || $1 == auxiliary ]]; then set -- "$1"; fi
 case $1 in
 MOCKS
+  sed -n '/^  audit)$/,/^    ;;$/p' "$root/scripts/ci.sh"
+  sed -n '/^  auxiliary)$/,/^    ;;$/p' "$root/scripts/ci.sh"
   sed -n '/^  rust)$/,/^    ;;$/p' "$root/scripts/ci.sh"
   sed -n '/^  sandbox)$/,/^    ;;$/p' "$root/scripts/ci.sh"
   sed -n '/^  sandbox)$/,/^    ;;$/p' "$root/components/jeryu-deploy/crates/jeryu-split-tool/src/split_ci.sh" |
@@ -173,14 +180,7 @@ run_coverage_case() {
   local case_root="$fixture"
   [[ $lane != split-sandbox ]] || case_root="$fixture/standalone"
   : >"$calls_file"
-  # Host rust dispatch must not inherit public GITHUB_ACTIONS; that path
-  # serializes jeryu-api and is proven by the hosted rust job itself.
-  if [[ $lane == rust ]]; then
-    (cd "$case_root" && env -u GITHUB_ACTIONS -u JAIN_RELEASE_CI \
-      JERYU_DISPOSABLE_SANDBOX=1 bash "$fixture/dispatch.sh" "$lane" "$scenario" "$calls_file" "$fail_call") >"$transcript" 2>&1 || result=$?
-  else
-    (cd "$case_root" && JERYU_DISPOSABLE_SANDBOX=1 bash "$fixture/dispatch.sh" "$lane" "$scenario" "$calls_file" "$fail_call") >"$transcript" 2>&1 || result=$?
-  fi
+  (cd "$case_root" && JERYU_DISPOSABLE_SANDBOX=1 bash "$fixture/dispatch.sh" "$lane" "$scenario" "$calls_file" "$fail_call") >"$transcript" 2>&1 || result=$?
   [[ $result == "$expected" ]] || {
     printf 'CI dispatch %s/%s returned %s, expected %s\n' "$lane" "$scenario" "$result" "$expected" >&2
     cat "$transcript" >&2
@@ -196,15 +196,33 @@ cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
 cargo fetch --locked
 source scripts/bootstrap-jankurai.sh
 bootstrap_public_jankurai
-cargo test --locked --workspace --all-features --exclude jeryu-sandbox-linux
-cargo test --locked -p jeryu-api --no-default-features
+cargo test --locked --workspace --all-features --exclude jeryu-sandbox-linux --no-fail-fast
+cargo test --locked -p jeryu-api --no-default-features --no-fail-fast
 cargo clippy --locked -p jeryu-api --all-targets --no-default-features -- -D warnings
 CALLS
 cmp "$fixture/expected" "$fixture/calls"
 while IFS= read -r fail_call; do
   run_coverage_case rust failure 23 "$fail_call"
-  [[ $(tail -n 1 "$fixture/calls") == "$fail_call" ]]
+  case "$fail_call" in
+    'cargo test '*|'cargo clippy --locked -p jeryu-api '*)
+      cmp "$fixture/expected" "$fixture/calls"
+      ;;
+    *) [[ $(tail -n 1 "$fixture/calls") == "$fail_call" ]] ;;
+  esac
 done <"$fixture/expected"
+
+# Hosted environment metadata cannot select a reduced required proof surface.
+for environment in false true; do
+  GITHUB_ACTIONS="$environment" run_coverage_case audit normal 0
+  printf 'bash scripts/audit.sh\n' >"$fixture/expected"
+  cmp "$fixture/expected" "$fixture/calls"
+  GITHUB_ACTIONS="$environment" run_coverage_case audit failure 23 'bash scripts/audit.sh'
+  GITHUB_ACTIONS="$environment" run_coverage_case auxiliary normal 0
+  printf '%s\n' 'source scripts/bootstrap-jankurai.sh' 'bootstrap_public_jankurai' \
+    'bash scripts/auxiliary-proofs.sh' >"$fixture/expected"
+  cmp "$fixture/expected" "$fixture/calls"
+  GITHUB_ACTIONS="$environment" run_coverage_case auxiliary failure 23 'bash scripts/auxiliary-proofs.sh'
+done
 
 # A cached green legacy receipt must never satisfy either invocation gate.
 # Preserve the original 25 sandbox cases, and repeat them through split dispatch.
@@ -315,10 +333,7 @@ for scenario in fresh unavailable-db advisory-finding unavailable-tool; do
     advisory-finding) audit_status=44; expected=44 ;;
     unavailable-tool) tools_status=45; expected=45 ;;
   esac
-  # Prove the host pr-ci union. Public GITHUB_ACTIONS skip is a real hosted
-  # lane choice and must not hide this dispatch coverage.
-  (cd "$case_root" && env -u GITHUB_ACTIONS -u JAIN_RELEASE_CI \
-    bash "$fixture/legacy-dispatch.sh" "$audit_status" "$tools_status") >"$case_root/output" 2>&1 || result=$?
+  (cd "$case_root" && bash "$fixture/legacy-dispatch.sh" "$audit_status" "$tools_status") >"$case_root/output" 2>&1 || result=$?
   [[ $result == "$expected" ]]
   if [[ $expected == 0 ]]; then
     [[ -f "$case_root/advisory-ready" &&

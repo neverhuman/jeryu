@@ -92,6 +92,11 @@ The [local audit ledger](migration/AUDIT-LEDGER.md) preserves plans, attempts,
 failures, retries and explicit closure acknowledgements. Trusted hosted intake,
 execution admission and publication remain unfinished integrations.
 
+The [private publication preparer](migration/AUDIT-PUBLICATION.md) binds audit
+observations and their inputs in immutable owner-only bundles. It preserves
+PENDING, FAIL and ERROR states while keeping every publication admission gate
+closed. It does not publish score cards or authenticate supplied evidence.
+
 `jeryu-split audit-readme --readme README.md --image-url URL --report-url URL`
 checks Jankurai's managed marker block; `--write` inserts or updates that block.
 It preserves surrounding text and rejects ambiguous markers and unsafe links.

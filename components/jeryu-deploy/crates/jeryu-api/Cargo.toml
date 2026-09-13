@@ -7,6 +7,7 @@ rust-version.workspace = true
 build = "build.rs"
 
 [dependencies]
+rustix = { version = "1.1.4", features = ["fs"] }
 anyhow = { version = "1" }
 base64 = { version = "0.22", optional = true }
 chrono.workspace = true

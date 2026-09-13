@@ -98,7 +98,11 @@ impl Fixture {
                 login.to_string(),
                 state
                     .core
-                    .create_personal_access_token(login, "Git authorization fixture", None)
+                    .create_personal_access_token(
+                        &super::credential_actor(&state.core, login, "git-route-fixture-password"),
+                        "Git authorization fixture",
+                        None,
+                    )
                     .unwrap()
                     .secret,
             );
@@ -141,7 +145,11 @@ impl Fixture {
             .unwrap();
         fixture.writer_cookie = format!(
             "jeryu-session={}",
-            state.core.create_session("writer").unwrap().token
+            state
+                .core
+                .create_session("writer", "git-route-fixture-password")
+                .unwrap()
+                .token
         );
         fixture.app = Some(app(state.clone(), &fixture.root.join("absent-spa")));
         fixture

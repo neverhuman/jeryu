@@ -147,6 +147,11 @@ use input::{hash_binary, hold_binary, read_report};
 mod bootstrap;
 use bootstrap::{pin, verify_auditor};
 
+// Parsing preserves the owning pin grammar; it grants no qualification.
+pub(super) fn publication_pin(source: &str, name: &str) -> Result<String> {
+    bootstrap::parse_pin(source, name)
+}
+
 #[path = "audit_execution.rs"]
 mod execution;
 use execution::{Executor, execute};

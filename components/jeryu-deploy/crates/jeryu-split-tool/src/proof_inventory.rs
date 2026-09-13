@@ -20,7 +20,7 @@ fn source_kind(relative: &str) -> Option<&'static str> {
     } else if relative.starts_with("agent/")
         || relative.starts_with("policies/")
         || relative.contains("baseline")
-        || relative == "deny.toml"
+        || matches!(relative, "deny.toml" | ".gitleaksignore")
     {
         Some("threshold-policy")
     } else if [
@@ -172,6 +172,7 @@ mod tests {
             "crates/jeryu-runner-oci/tests/real_docker_smoke.rs",
             "agent/owner-map.json",
             "agent/coverage-sources.toml",
+            ".gitleaksignore",
             "crates/jeryu-tool-control/src/pin.rs",
             "scripts/ci.sh",
         ] {

@@ -9,6 +9,7 @@
 use std::fs::File;
 use std::io::Write;
 use std::net::SocketAddr;
+use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 use std::process::Command;
 use std::time::{Duration, Instant};
@@ -17,6 +18,13 @@ use flate2::Compression;
 use flate2::write::GzEncoder;
 use jeryu_api::web::{WebServerConfig, serve};
 use sha2::Digest;
+
+fn private_directory() -> tempfile::TempDir {
+    tempfile::Builder::new()
+        .permissions(std::fs::Permissions::from_mode(0o700))
+        .tempdir()
+        .expect("private live-HTTP fixture")
+}
 
 fn git_available() -> bool {
     Command::new("git")
@@ -178,13 +186,10 @@ fn assert_lfs_content_type(resp: &reqwest::Response) {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn s4_create_repo_to_disk_and_git_push_over_http_blocks_main() {
-    if !git_available() {
-        eprintln!("git unavailable; skipping s4 live-HTTP e2e");
-        return;
-    }
+    assert!(git_available(), "live-HTTP qualification requires Git");
 
-    let base = std::env::temp_dir().join(format!("jeryu-s4-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&base);
+    let directory = private_directory();
+    let base = directory.path();
     let data_dir = base.join("data");
     let git_root = base.join("git");
     let spa_dir = base.join("spa");
@@ -330,13 +335,14 @@ async fn s4_create_repo_to_disk_and_git_push_over_http_blocks_main() {
     );
 
     server.abort();
-    let _ = std::fs::remove_dir_all(&base);
+    assert!(server.await.unwrap_err().is_cancelled());
+    directory.close().unwrap();
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn s4_git_pack_rpc_routes_decode_gzip_before_git() {
-    let base = std::env::temp_dir().join(format!("jeryu-s4-gzip-rpc-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&base);
+    let directory = private_directory();
+    let base = directory.path();
     let data_dir = base.join("data");
     let git_root = base.join("git");
     let spa_dir = base.join("spa");
@@ -432,13 +438,14 @@ async fn s4_git_pack_rpc_routes_decode_gzip_before_git() {
     );
 
     server.abort();
-    let _ = std::fs::remove_dir_all(&base);
+    assert!(server.await.unwrap_err().is_cancelled());
+    directory.close().unwrap();
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn s4_git_lfs_batch_and_locks_verify_routes_return_protocol_json() {
-    let base = std::env::temp_dir().join(format!("jeryu-s4-lfs-routes-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&base);
+    let directory = private_directory();
+    let base = directory.path();
     let data_dir = base.join("data");
     let git_root = base.join("git");
     let spa_dir = base.join("spa");
@@ -522,18 +529,19 @@ async fn s4_git_lfs_batch_and_locks_verify_routes_return_protocol_json() {
     assert_eq!(locks_body["theirs"].as_array().unwrap().len(), 0);
 
     server.abort();
-    let _ = std::fs::remove_dir_all(&base);
+    assert!(server.await.unwrap_err().is_cancelled());
+    directory.close().unwrap();
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn s4_git_lfs_cpkt_versions_roundtrip_over_http() {
-    if !git_available() || !git_lfs_available() {
-        eprintln!("git or git-lfs unavailable; skipping s4 LFS live-HTTP e2e");
-        return;
-    }
+    assert!(
+        git_available() && git_lfs_available(),
+        "LFS live-HTTP qualification requires Git and Git LFS"
+    );
 
-    let base = std::env::temp_dir().join(format!("jeryu-s4-lfs-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&base);
+    let directory = private_directory();
+    let base = directory.path();
     let data_dir = base.join("data");
     let git_root = base.join("git");
     let spa_dir = base.join("spa");
@@ -658,5 +666,6 @@ async fn s4_git_lfs_cpkt_versions_roundtrip_over_http() {
     assert_eq!(std::fs::read(skip.join("model.cpkt")).unwrap(), v1);
 
     server.abort();
-    let _ = std::fs::remove_dir_all(&base);
+    assert!(server.await.unwrap_err().is_cancelled());
+    directory.close().unwrap();
 }

@@ -23,6 +23,15 @@ requirements. Runtime checks exercise source installation and the real server.
 Product, security, split and owning component proofs remain independently
 required until equivalent replacement coverage is demonstrated.
 
+The maintained root and split commands set `RUST_TEST_THREADS=1`. Process-custody
+tests inspect every process with their account's UID, including concurrent test
+children, and retain fixtures when any process cannot be inspected. Run those
+suites under a dedicated unprivileged account with no unrelated supervisor
+processes. The hosted Rust/runtime jobs prepare that identity and grant it only
+traversal through workspace ancestors; the Rust job also needs Docker access
+for the complete auditor build. Compiler parallelism remains two jobs. Explicit
+concurrency inside individual regressions remains exercised.
+
 Native sandbox and OCI lanes need disposable Linux environments with the
 required kernel and container capabilities. Read the owning command and
 admission checks before running them. Installing the forge does not require
@@ -62,3 +71,19 @@ and inspect links, mounts and open handles. The existing
 identity and symlink/mount boundaries; it does not supply test-success evidence
 or complete preservation admission. Do not re-record a replacement root as if
 it were the original fixture. The browser wrapper never invokes that remover.
+# Audit sandbox prerequisites
+
+`bash scripts/check-audit-sandbox.sh` checks Bubblewrap as an unprivileged user
+without changing host policy. It requires working user, network and PID
+namespaces. The real executor tests additionally prove read-only source mounts,
+cleared environment, producer exit propagation and bounded descendant cleanup.
+A capability probe alone does not qualify the executor or auditor.
+
+Disposable GitHub-hosted Ubuntu CI uses the explicit
+`--prepare-disposable-ci` mode. If the initial probe fails under Ubuntu's
+restricted user namespaces and no existing Bubblewrap policy is present, it
+adds the repository's named `/usr/bin/bwrap` profile and repeats the probe.
+It refuses policy conflicts and leaves the system-wide restriction enabled.
+This follows [Ubuntu's per-application admission contract](https://ubuntu.com/blog/ubuntu-23-10-restricted-unprivileged-user-namespaces).
+Shared or installed hosts require their owning maintainer's separate policy
+provisioning; the normal check does not install a profile.

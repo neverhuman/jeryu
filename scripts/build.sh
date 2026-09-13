@@ -4,7 +4,7 @@ root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)
 cd "$root"
 # shellcheck source=scripts/source-build.sh
 source "$root/scripts/source-build.sh"
-for tool in git cargo rustc node npm cc pkg-config sha256sum python3; do
+for tool in git cargo rustc node npm cc pkg-config sha256sum; do
   command -v "$tool" >/dev/null || { printf 'missing prerequisite: %s\n' "$tool" >&2; exit 1; }
 done
 [[ $(uname -s) == Linux && $(uname -m) == x86_64 ]] || {
@@ -15,7 +15,8 @@ node -e 'const [major, minor] = process.versions.node.split(".").map(Number); if
 }
 pkg-config --exists openssl || { printf 'OpenSSL development headers are required\n' >&2; exit 1; }
 [[ $# == 0 ]] || { printf 'usage: scripts/build.sh\n' >&2; exit 2; }
-bash "$root/scripts/fetch-family.sh" --lock "$root/family.lock.toml"
+# Components are tracked source in this monorepo. Mirror tags record exports;
+# building must never replace current source with a historical component tree.
 source_sha=$(source_digest "$root")
 npm ci
 npm run build

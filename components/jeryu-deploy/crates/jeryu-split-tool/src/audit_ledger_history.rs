@@ -94,9 +94,10 @@ pub(crate) fn status(connection: &Connection) -> Result<Value> {
             .collect::<rusqlite::Result<_>>()?;
         rows.into_iter().map(|(id,bytes,time)| Ok(json!({"plan_id":id,"plan":serde_json::from_slice::<Value>(&bytes)?,"imported_at":time}))).collect::<Result<_>>()?
     };
+    let intake = crate::audit_intake::status_snapshot(&transaction)?;
     transaction.commit()?;
     Ok(
         json!({"schema_version":"jeryu.audit-ledger-status/v1","publication_qualified":false,
-        "accepted_full_audits":0,"unresolved_jobs":jobs.len(),"plans":plans,"jobs":jobs}),
+        "accepted_full_audits":0,"unresolved_jobs":jobs.len(),"plans":plans,"jobs":jobs,"intake":intake}),
     )
 }

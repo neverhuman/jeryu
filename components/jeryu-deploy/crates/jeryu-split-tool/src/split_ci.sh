@@ -4,6 +4,7 @@ set -euo pipefail
 cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.."
 export CI=true
 export CARGO_BUILD_JOBS=${CARGO_BUILD_JOBS:-2}
+export RUST_TEST_THREADS=1
 jq -e '.schema_version == "jeryu.split-provenance/v1" and .lock_regeneration_required == false' .jeryu-source.json >/dev/null
 component=$(jq -r .component .jeryu-source.json)
 lane=${1:-ordinary}
@@ -105,11 +106,11 @@ case $lane in
       split_cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
       excluded=()
       if [[ $component == jeryu-ci-runner ]]; then excluded=(--exclude jeryu-sandbox-linux); fi
-      if [[ $component == jeryu-deploy && ${GITHUB_ACTIONS:-} == true && ${JAIN_RELEASE_CI:-0} != 1 ]]; then
-        # Public Actions shares one VM across the deploy web suite. Workcell
-        # stdout capture and writer leases flake under default libtest fan-out.
-        # Host and governed-legacy lanes keep full parallelism.
-        split_cargo test --locked --workspace --all-features -- --test-threads=1
+      if [[ $component == jeryu-ci-runner ]]; then
+        auditor_args=()
+        if [[ -n $prepare_local ]]; then auditor_args=(--prepare-local "$prepare_local"); fi
+        bash ops/ci/public-auditor.sh "${auditor_args[@]}" -- \
+          cargo test --locked --workspace --all-features "${excluded[@]}"
       else
         split_cargo test --locked --workspace --all-features "${excluded[@]}"
       fi

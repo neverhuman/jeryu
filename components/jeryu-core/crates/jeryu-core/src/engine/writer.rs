@@ -12,7 +12,11 @@ pub(super) struct BackingIdentity {
 
 #[cfg(unix)]
 mod unix {
+    use crate::core::{
+        PublisherHeldFileIdentity, PublisherResourceIdentity, RequiredPublisherCustody,
+    };
     use std::fs::{self, DirBuilder, File, Metadata, OpenOptions};
+    use std::os::fd::AsRawFd;
     use std::os::unix::fs::{DirBuilderExt, MetadataExt, OpenOptionsExt};
     use std::path::Component;
 
@@ -42,6 +46,56 @@ mod unix {
     }
 
     impl BoundFile {
+        #[cfg(target_os = "linux")]
+        fn validate_held_lock(&self) -> Result<()> {
+            self.validate()?;
+            let fdinfo = fs::read_to_string(format!("/proc/self/fdinfo/{}", self.file.as_raw_fd()))
+                .map_err(io_error)?;
+            let mut matches = 0;
+            for line in fdinfo.lines().filter(|line| line.starts_with("lock:")) {
+                let fields = line.split_whitespace().collect::<Vec<_>>();
+                if !fields.contains(&"FLOCK") {
+                    continue;
+                }
+                if fields.len() != 9
+                    || fields[2] != "FLOCK"
+                    || fields[3] != "ADVISORY"
+                    || fields[4] != "WRITE"
+                    || fields[5].parse::<u32>().ok() != Some(std::process::id())
+                    || fields[7] != "0"
+                    || fields[8] != "EOF"
+                {
+                    return Err(unavailable("held writer flock record changed"));
+                }
+                let identity = fields[6].split(':').collect::<Vec<_>>();
+                if identity.len() != 3
+                    || u64::from_str_radix(identity[0], 16).ok()
+                        != Some(u64::from(libc::major(self.identity.device)))
+                    || u64::from_str_radix(identity[1], 16).ok()
+                        != Some(u64::from(libc::minor(self.identity.device)))
+                    || identity[2].parse::<u64>().ok() != Some(self.identity.inode)
+                {
+                    return Err(unavailable("held writer flock resource differs"));
+                }
+                matches += 1;
+            }
+            if matches != 1 {
+                return Err(unavailable(
+                    "continuous exclusive writer flock is absent or ambiguous",
+                ));
+            }
+            self.validate()
+        }
+
+        fn publisher_identity(&self) -> Result<PublisherHeldFileIdentity> {
+            self.validate()?;
+            let metadata = self.file.metadata().map_err(io_error)?;
+            Ok(PublisherHeldFileIdentity {
+                resource: publisher_resource_identity(&self.path, &metadata),
+                descriptor: self.file.as_raw_fd(),
+            })
+        }
+
         fn open(path: &Path) -> Result<Self> {
             let parent = path
                 .parent()
@@ -126,6 +180,39 @@ mod unix {
     }
 
     impl WriterLease {
+        #[cfg(all(test, target_os = "linux"))]
+        pub(in super::super) fn release_lock_for_test(&self, index: usize) -> Result<()> {
+            let held = if index == 0 {
+                &self.database
+            } else {
+                &self.resources[index - 1]
+            };
+            held.file.unlock().map_err(io_error)
+        }
+
+        pub(in super::super) fn required_publisher_custody(
+            &self,
+        ) -> Result<RequiredPublisherCustody> {
+            require_publisher_lock_observation()?;
+            self.validate()?;
+            let (root, _) = self
+                .storage_root
+                .as_ref()
+                .ok_or_else(|| unavailable("publisher authority requires managed Git storage"))?;
+            let custody = RequiredPublisherCustody {
+                database: self.database.publisher_identity()?,
+                storage_root: publisher_resource_identity(root, &validate_directory_chain(root)?),
+                writer_leases: self
+                    .resources
+                    .iter()
+                    .map(BoundFile::publisher_identity)
+                    .collect::<Result<Vec<_>>>()?,
+                process_id: self.process_id,
+            };
+            self.validate()?;
+            Ok(custody)
+        }
+
         pub(in super::super) fn acquire(identity: &BackingIdentity) -> Result<Self> {
             let mut database_lock = identity.database.as_os_str().to_os_string();
             database_lock.push(".writer.lock");
@@ -184,14 +271,31 @@ mod unix {
             }
             for resource in &self.resources {
                 resource.validate()?;
+                #[cfg(target_os = "linux")]
+                resource.validate_held_lock()?;
             }
             self.database.validate()?;
+            #[cfg(target_os = "linux")]
+            self.database.validate_held_lock()?;
             if let Some((root, identity)) = &self.storage_root
                 && FileIdentity::from(&validate_directory_chain(root)?) != *identity
             {
                 return Err(unavailable("Git storage root identity changed"));
             }
             Ok(())
+        }
+    }
+
+    fn require_publisher_lock_observation() -> Result<()> {
+        #[cfg(target_os = "linux")]
+        {
+            Ok(())
+        }
+        #[cfg(not(target_os = "linux"))]
+        {
+            Err(unavailable(
+                "publisher custody requires supported live lock observation",
+            ))
         }
     }
 
@@ -273,6 +377,17 @@ mod unix {
         Ok(())
     }
 
+    fn publisher_resource_identity(path: &Path, metadata: &Metadata) -> PublisherResourceIdentity {
+        PublisherResourceIdentity {
+            path: path.into(),
+            device: metadata.dev(),
+            inode: metadata.ino(),
+            owner: metadata.uid(),
+            group: metadata.gid(),
+            mode: metadata.mode(),
+        }
+    }
+
     fn io_error(error: std::io::Error) -> ForgeError {
         unavailable(&error.to_string())
     }
@@ -301,6 +416,14 @@ mod unsupported {
     }
 
     impl WriterLease {
+        pub(in super::super) fn required_publisher_custody(
+            &self,
+        ) -> Result<crate::core::RequiredPublisherCustody> {
+            Err(ForgeError::WriterUnavailable(
+                "publisher custody requires Unix".into(),
+            ))
+        }
+
         pub(in super::super) fn acquire(_: &BackingIdentity) -> Result<Self> {
             Err(ForgeError::WriterUnavailable(
                 "persistent writer custody requires Unix".to_string(),

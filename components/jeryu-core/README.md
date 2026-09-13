@@ -7,6 +7,45 @@ for repository, pull-request, check, protection, and audit reads. Transport
 adapters consume those contracts without depending on the concrete `ForgeCore`
 store or introducing HTTP types into the domain crate.
 
+Authenticated reviews use `authenticate_actor` with an actual PAT or session
+credential, followed by a persisted `create_review_challenge` and exact-head
+`submit_bound_review`/`dismiss_bound_review`. Session mutations additionally
+require the session CSRF proof; `SessionReadOnly` is accepted only for reads.
+Actors are opaque and revalidated under Core's shared guards. Session issuance
+now requires the account password in the same guarded operation; PAT issuance
+derives its account from a live opaque actor. A login string or `AccountSummary`
+cannot be converted to a qualified actor. These are consumer API changes; adapt
+the actual transport callers and cut a fresh immutable dependency successor.
+
+The owning service must use `open_managed(database, storage_root)` and attach
+one `jeryu_gitd::ManagedReviewGitObserver` to that shared runtime. Configure an
+absolute approved Git executable, private managed storage and a private service
+umask. The observer rejects alternate/symbolic routing and returns actual direct
+refs, commits, trees and physical custody. It clears ambient Git configuration,
+limits subprocess output, and uses bounded process-group cleanup; unresolved
+child custody disables further observation pending administrative recovery.
+Installing exclusive storage and transport custody remains separate work.
+
+`bound_review_history` enforces live read authentication. `review_qualification`
+is the common read-model projection of effective bound verdicts and advisory
+history. Historical login-authored reviews and unbound checks cannot qualify.
+`evaluate_branch_protection_with` is an advisory pure calculation over supplied
+rows, not an authorization capability. Required-attempt publication and the
+Core-owned durable executor are still unavailable: legacy split readiness,
+caller-result finalization and synthetic merge methods all refuse before Git
+dispatch. A source-review result never asserts merge or installed qualification.
+
+Core now owns `reserve_required_attempt`, `complete_required_attempt` and
+`required_attempt_snapshot`. They require opaque current credentials, managed
+source custody and a separately verified publisher installation service.
+Publisher scope/runtime/origin come from durable enrollment, not request fields.
+The installation service starts absent, so ordinary callers receive unavailable
+until actual trust and enrollment are commissioned. The private enrollment
+installer is not exposed to transport. Snapshot satisfaction requires the newest
+attempt, exact enrolled bindings and current credential eligibility; legacy
+checks/statuses remain advisory. Deployment adapters and protected merge
+composition still require the complete successor and installed qualification.
+
 This repository was seeded from Jeryu source commit `cbecf7caa0e932c76a341b2521e66e911233860d` by
 `ops/split/materialize.py`. It is part of the independent Jeryu split family and keeps source paths
 stable where practical so ownership remains auditable; family membership is derived from the
@@ -69,3 +108,17 @@ by `ops/ci/security.sh`.
 - `just score`
 - `just security`
 - `just artifact-support`
+
+## Restoration admission
+
+Core retains commissioning restoration as a durable operation with immutable
+step and outcome history. Ordinary writes remain unavailable until the complete
+operation is verified and closed; restart does not clear the barrier. Current
+credentials can read recovery state through the typed controller when its
+separately installed authority is present. Missing authority refuses operation.
+
+The source includes custody, replay, corruption, expiry and read-only no-op
+regressions. Production signing, effect dispatch, protected merge and installed
+recovery qualification remain pending. These library hooks do not activate a
+service or authorize installed changes. See [database constraints](db/constraints.md)
+for recovery and migration custody.

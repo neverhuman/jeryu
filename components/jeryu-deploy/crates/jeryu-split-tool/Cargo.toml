@@ -12,15 +12,19 @@ path = "src/main.rs"
 
 [dependencies]
 anyhow = { version = "1" }
+axum = "0.7"
 clap.workspace = true
+hmac.workspace = true
 jeryu-repogate = { workspace = true }
 rusqlite.workspace = true
+rustix = { version = "1.1.4", features = ["fs"] }
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
 libc = "0.2"
 toml.workspace = true
 tempfile.workspace = true
+tokio = { version = "1", features = ["macros", "net", "rt-multi-thread", "signal", "sync", "time"] }
 
 [dev-dependencies]
 tempfile.workspace = true

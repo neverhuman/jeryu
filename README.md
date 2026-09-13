@@ -1,9 +1,5 @@
 # Jeryu
 
-<!-- jankurai-badge:start -->
-[![Jankurai score: 92/100](agent/jankurai-badge.svg)](.jankurai/repo-score.md)
-<!-- jankurai-badge:end -->
-
 Jeryu is a self-hosted forge for Git repositories, issues, pull requests,
 reviews and protected merges, with a browser interface and optional CI runners.
 
@@ -12,12 +8,15 @@ Complete CI, anonymous public-origin installation and the central release
 are still unqualified. Read [current status](docs/migration/STATUS.md) and
 the [dependency and audit dashboard](docs/dependencies.md).
 
+Protected merge execution is currently unavailable while the authenticated
+review, required-check and durable Git executor are integrated and qualified.
+Legacy name-only reviews and check submissions remain advisory. The old split
+merge path refuses execution; completing the real protected-merge journey
+remains a release requirement.
+
 ## Quick start
 
-Install the prerequisites below, then use the source installation contract.
-After this candidate is fast-forwarded to GitHub `main`, clone the default
-branch. The proven stranger lock remains the unmoved tag
-`jeryu-public-candidate-lock-72035eaf`.
+Install the prerequisites below, then use the source installation contract:
 
 ```bash
 git clone https://github.com/neverhuman/jeryu.git
@@ -44,9 +43,9 @@ remains closed until central signed releases qualify.
 ### Prerequisites and platforms
 
 The source installation currently targets Linux x86_64. Install Git, a C
-compiler, pkg-config, OpenSSL development headers, rustup, Python 3, and
+compiler, pkg-config, OpenSSL development headers, rustup, and
 Node.js with npm. On Ubuntu, the native packages are
-`build-essential pkg-config libssl-dev git python3`.
+`build-essential pkg-config libssl-dev git`.
 
 The root [Rust toolchain](rust-toolchain.toml) pins the compiler. Node.js
 22.19+ on the 22.x line or Node.js 24+ is supported by the web toolchain
@@ -61,6 +60,9 @@ in `bootstrap-credentials.json` inside the data directory with owner-only
 access. The server prints that path once (never the password). Default data
 dir is `~/.local/share/jeryu`. Log in, change the password and remove that
 credential receipt.
+If first start is interrupted after writing the receipt, the next start reuses
+it before creating the account. An incomplete or unsafe receipt stops bootstrap
+and remains available for operator recovery.
 An explicit `JERYU_BOOTSTRAP_ADMIN_PASSWORD` retains the operator provisioning
 and reset flow; unset it after provisioning.
 
@@ -122,86 +124,25 @@ Read the [architecture](docs/architecture.md) for ownership and dependency
 boundaries, and the [split publication contract](docs/migration/SPLIT-PUBLICATION.md)
 for deterministic exports.
 
-## Family pins
+## Component exports
 
-`./scripts/build.sh` runs `scripts/fetch-family.sh` first. That script reads
-[`family.lock.toml`](family.lock.toml) and is a no-op when each
-`components/<name>` tree already matches the pin (the fast local path).
+The monorepo contains its complete component source. Build it directly with
+`scripts/build.sh`; component repositories receive downstream exports.
+[`family.lock.toml`](family.lock.toml) preserves historical immutable export
+tags. It does not select build inputs or authorize replacement of current source.
+The compatibility `scripts/fetch-family.sh --plan` command verifies embedded
+source through the owning Rust command and never reconstructs components.
 
-If a tree is missing or stale, it clones the matching
-`https://github.com/neverhuman/<name>.git` **tag** with
-`git clone --no-local --branch <tag>`, verifies the tree SHA, and replaces
-only that component. It does not use GitHub `main`. Localhost remotes,
-dirty substitutions, pending tags, and tag/commit/tree mismatches fail
-closed. Git worktrees are not used.
+The auditor identity is owned by
+[`tool-manifest.toml`](components/jeryu-tool/tool-manifest.toml).
+`bash scripts/ci.sh auditor` acquires its public source, verifies the full
+build and executable contract, and writes a source-bound installation receipt.
+Matching a downloaded binary hash alone does not qualify the producer.
 
-Support repositories:
-
-| Repository | GitHub |
-|---|---|
-| jeryu-core | https://github.com/neverhuman/jeryu-core |
-| jeryu-cache | https://github.com/neverhuman/jeryu-cache |
-| jeryu-ci-runner | https://github.com/neverhuman/jeryu-ci-runner |
-| jeryu-intelligence | https://github.com/neverhuman/jeryu-intelligence |
-| jeryu-jira (Work) | https://github.com/neverhuman/jeryu-jira |
-| jeryu-web | https://github.com/neverhuman/jeryu-web |
-| jeryu-tool | https://github.com/neverhuman/jeryu-tool |
-| jeryu-tool-finder | https://github.com/neverhuman/jeryu-tool-finder |
-| jeryu-deploy | https://github.com/neverhuman/jeryu-deploy |
-| jeryu-release-ops | https://github.com/neverhuman/jeryu-release-ops |
-
-Do not clone those repositories by hand for a normal source install. One
-`git clone https://github.com/neverhuman/jeryu.git` plus `./scripts/build.sh`
-is the stranger path.
-
-## How this repository is scored
-
-The family auditor is **Jankurai 1.6.11**, binary SHA-256
-`9e6b8857a26f6004d4c74e510e13b06d880f2e2ae0c89502698889ed690c5d6c`.
-That is the Jeryu pin. Do not treat v1.7.0 as the family pin.
-
-```bash
-curl -fsSL \
-  -o jankurai-1.6.11-deadlang-precision-split.3-x86_64-unknown-linux-gnu.tar.gz \
-  https://github.com/neverhuman/jankurai/releases/download/v1.6.11-deadlang-precision-split.3/jankurai-1.6.11-deadlang-precision-split.3-x86_64-unknown-linux-gnu.tar.gz
-curl -fsSL -O \
-  https://github.com/neverhuman/jankurai/releases/download/v1.6.11-deadlang-precision-split.3/jankurai-1.6.11-deadlang-precision-split.3-x86_64-unknown-linux-gnu.tar.gz.sha256
-sha256sum -c jankurai-1.6.11-deadlang-precision-split.3-x86_64-unknown-linux-gnu.tar.gz.sha256
-tar -xzf jankurai-1.6.11-deadlang-precision-split.3-x86_64-unknown-linux-gnu.tar.gz
-sha256sum jankurai-1.6.11-deadlang-precision-split.3-x86_64-unknown-linux-gnu/jankurai
-# 9e6b8857a26f6004d4c74e510e13b06d880f2e2ae0c89502698889ed690c5d6c
-```
-
-Do not `cargo install jankurai`. To put the same standard on another repository:
-
-```bash
-jankurai init --apply --yes --level full --bootstrap-commit
-jankurai audit . --full --mode standard --no-score-history
-jankurai badge --update-readme
-```
-
-Pull requests run `jankurai audit` then `jankurai badge --check --update-readme`.
-The SVG is generated; a stale badge fails CI. The Jeryu binary installer stays
-closed until signed Jeryu releases exist.
-
-## Family scores
-
-| Identity | Badge | Notes |
-|---|---|---|
-| jeryu (this repo) | [![score](agent/jankurai-badge.svg)](.jankurai/repo-score.md) | Product monorepo |
-| jeryu-web | [![score](https://raw.githubusercontent.com/neverhuman/jeryu-web/main/agent/jankurai-badge.svg)](https://github.com/neverhuman/jeryu-web) | Hold ≥90 |
-| jeryu-cache | [![score](https://raw.githubusercontent.com/neverhuman/jeryu-cache/main/agent/jankurai-badge.svg)](https://github.com/neverhuman/jeryu-cache) | Hold ≥90 |
-| jeryu-release-ops | [![score](https://raw.githubusercontent.com/neverhuman/jeryu-release-ops/main/agent/jankurai-badge.svg)](https://github.com/neverhuman/jeryu-release-ops) | Hold ≥90 |
-| jeryu-jira | [![score](https://raw.githubusercontent.com/neverhuman/jeryu-jira/main/agent/jankurai-badge.svg)](https://github.com/neverhuman/jeryu-jira) | Hold ≥90 |
-| jeryu-tool | [![score](https://raw.githubusercontent.com/neverhuman/jeryu-tool/main/agent/jankurai-badge.svg)](https://github.com/neverhuman/jeryu-tool) | Hold ≥90 |
-| jeryu-intelligence | [![score](https://raw.githubusercontent.com/neverhuman/jeryu-intelligence/main/agent/jankurai-badge.svg)](https://github.com/neverhuman/jeryu-intelligence) | Clean-SHA 90 / 0 caps on `score/raise-90` (PR open; `main` not overwritten) |
-| jeryu-tool-finder | [![score](https://raw.githubusercontent.com/neverhuman/jeryu-tool-finder/main/agent/jankurai-badge.svg)](https://github.com/neverhuman/jeryu-tool-finder) | Clean-SHA 93 / 0 caps on `score/raise-90` (PR open; `main` not overwritten) |
-| jeryu-core | — | Family pin is nested tag `jeryu-core-family-bb7cb7fb`. Standalone checkout is Codex-dirty; unused. |
-| jeryu-deploy | [![score](https://raw.githubusercontent.com/neverhuman/jeryu-deploy/main/agent/jankurai-badge.svg)](https://github.com/neverhuman/jeryu-deploy) | Thin CI PR score 87 / 0 caps (floor 85); `main` not overwritten |
-| jeryu-ci-runner | — | Family pin is nested tag `jeryu-ci-runner-family-install-quiet`. Standalone hosted `main` CI historically red; unused. |
-
-Candidate metadata stays fail-closed. This branch does not claim GA, GitHub
-branch protection, or service cutover.
+Maintained-head and release-pinned audits are tracked on the
+[dependency dashboard](docs/dependencies.md). Live cards remain pending until
+the separate maintainer service authenticates execution and publishes all
+report formats together. Historical numeric badge files do not qualify this head.
 
 ## Dependencies, audits and releases
 

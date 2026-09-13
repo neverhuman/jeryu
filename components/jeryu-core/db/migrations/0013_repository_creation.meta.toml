@@ -1,0 +1,18 @@
+# jankurai:migration v1
+id = "0013_repository_creation"
+owner = "jeryu-core"
+reviewer = "independent-review-required"
+change_type = "expand"
+safety = "online"
+transaction = "required"
+lock_timeout = "5s"
+statement_timeout = "60s"
+estimated_rows = 0
+deploy_phase = "expand"
+app_compatibility = "new_app_old_db"
+requires = ["0012_review_dismissal_target"]
+rollback = "db/rollbacks/0013_repository_creation.sql"
+backfill = "none; legacy repositories have no authenticated creation UUID"
+data_classification = "internal"
+tenant_impact = "none"
+tests = ["db-migration-analyze", "core::repository_creation::tests"]

@@ -21,19 +21,31 @@ use crate::model::*;
 use crate::webhooks::{should_deliver, sign_webhook_payload};
 
 mod accounts;
+mod actors;
 mod audit;
 mod auth;
+mod bound_reviews;
 mod branch_protection;
 mod check_runs;
+mod commissioning_canonical;
+mod commissioning_controller;
+mod commissioning_effects;
 mod commit_status;
 mod coordinator;
 mod issues;
 mod jankurai;
+mod mutation;
+mod publisher_custody;
+mod publisher_enrollment;
 mod pull_requests;
 mod readmes;
+mod ref_operations;
 mod repositories;
+mod repository_creation;
 mod repository_transfer;
 mod repository_transfer_state;
+mod required_attempts;
+mod required_publisher_controller;
 mod reviews;
 mod runtime;
 mod storage;
@@ -43,10 +55,24 @@ mod writer;
 #[cfg(test)]
 mod tests;
 
+pub use actors::{ActorCredential, AuthenticatedActor};
 pub use audit::AuditEntry;
+pub use bound_reviews::*;
+pub use commissioning_controller::*;
+pub use commissioning_effects::*;
 pub use coordinator::MutationCoordinator;
+pub use publisher_custody::*;
+pub use publisher_enrollment::*;
 pub use pull_requests::MergeReadiness;
+pub use ref_operations::{
+    DurableRefOperation, DurableRefOperationKind, DurableRefOperationState, MergeOperationReadback,
+    ObservedRef, RefChangeIntent, RefOperationEvent, RefOperationIntent, RefOperationObservation,
+    RefOperationOutcome, RefValue,
+};
 pub use repositories::RepositoryDeletion;
+pub use repository_creation::RepositoryCreation;
+pub use required_attempts::*;
+pub use required_publisher_controller::*;
 
 #[derive(Debug, Clone, Default)]
 struct Counters {
@@ -67,11 +93,14 @@ struct State {
     organizations: HashMap<String, Organization>,
     teams: HashMap<(String, String), Team>,
     repos: HashMap<(String, String), Repository>,
+    repository_creations: HashMap<Uuid, RepositoryCreation>,
     labels: HashMap<(String, String, String), Label>,
     issues: HashMap<(String, String, u64), Issue>,
     issue_comments: HashMap<(String, String, u64), Vec<IssueComment>>,
     pulls: HashMap<(String, String, u64), PullRequest>,
     reviews: HashMap<(String, String, u64), Vec<Review>>,
+    // Read cache only: these immutable rows have independent persistence ownership.
+    bound_reviews: Vec<BoundReviewEvent>,
     review_comments: HashMap<(String, String, u64), Vec<ReviewComment>>,
     branch_protections: HashMap<(String, String, String), BranchProtectionRule>,
     codeowners: HashMap<(String, String), String>,
@@ -84,6 +113,7 @@ struct State {
     jankurai_scores: HashMap<(String, String), Vec<JankuraiScore>>,
     repository_aliases: HashMap<(String, String), RepositoryAlias>,
     repository_transfers: HashMap<String, RepositoryTransferJournal>,
+    repository_mutation_blocks: HashMap<Uuid, RepositoryMutationBlock>,
 }
 
 fn default_branch_protection_rule(owner: &str, repo: &str, branch: &str) -> BranchProtectionRule {
@@ -135,10 +165,23 @@ fn backfill_default_branch_protections(state: &mut State) -> usize {
 /// [`ForgeCore::with_repo_materializer`]. With no materializer set (the default,
 /// e.g. in unit tests) repository creation stays metadata-only.
 pub trait RepoMaterializer: std::fmt::Debug + Send + Sync {
+    /// Validate transport/storage names before Core commits a creation intent.
+    fn validate(&self, _owner: &str, _name: &str, _default_branch: &str) -> Result<()> {
+        Ok(())
+    }
+
     /// Create the bare repository for `owner/name` with `default_branch` as its
-    /// initial `HEAD`. Implementations MUST be idempotent: an already-present
-    /// repository is success, not an error.
+    /// initial `HEAD`. Implementations must refuse unrelated existing storage.
     fn materialize(&self, owner: &str, name: &str, default_branch: &str) -> Result<()>;
+
+    /// Resume materialization using Core's durable, non-reusable identity.
+    fn materialize_repository(&self, repository: &Repository) -> Result<()> {
+        self.materialize(
+            &repository.owner,
+            &repository.name,
+            &repository.default_branch,
+        )
+    }
 }
 
 #[derive(Debug, Clone, Default)]
@@ -179,8 +222,10 @@ impl ForgeCore {
         })
     }
 
-    /// Shared coordination primitives. Existing mutation methods do not yet acquire
-    /// these guards; callers must not infer complete mutation exclusion from them.
+    /// Shared coordination primitives used by public Core mutation methods.
+    /// Guards are not reentrant: callers must not wrap a public mutator in a
+    /// coordinator closure. Internal composition uses private admitted helpers.
+    /// Git transport and database/Git recovery require their separate integration.
     pub fn coordinator(&self) -> &MutationCoordinator {
         &self.runtime.coordinator
     }
@@ -271,29 +316,10 @@ fn evaluate_locked(
         pr.repo.clone(),
         pr.base.ref_name.clone(),
     ));
-    let reviews = match state
-        .reviews
-        .get(&(pr.owner.clone(), pr.repo.clone(), pr.number))
-    {
-        Some(reviews) => reviews.clone(),
-        None => Vec::new(),
-    };
-    let statuses =
-        match state
-            .statuses
-            .get(&(pr.owner.clone(), pr.repo.clone(), pr.head.sha.clone()))
-        {
-            Some(statuses) => statuses.clone(),
-            None => Vec::new(),
-        };
-    let check_runs = match state.check_runs.get(&(pr.owner.clone(), pr.repo.clone())) {
-        Some(check_runs) => check_runs
-            .iter()
-            .filter(|check| check.head_sha == pr.head.sha)
-            .cloned()
-            .collect::<Vec<_>>(),
-        None => Vec::new(),
-    };
+    // A supplied reviewer login or legacy publisher row is advisory evidence.
+    let reviews = bound_reviews::bound_reviews_for_evaluation(state, pr);
+    let statuses = Vec::new();
+    let check_runs = Vec::new();
     let codeowners = state.codeowners.get(&(pr.owner.clone(), pr.repo.clone()));
     let context = EvaluationContext {
         codeowners: codeowners.map(String::as_str),

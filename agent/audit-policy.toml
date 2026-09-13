@@ -22,12 +22,8 @@ required_tool_version = "1.6.11"
 #   placeholder -> the HTML `<input placeholder>` attribute / React prop name.
 #   fallback    -> the React `<Suspense fallback>` / ErrorBoundary prop name.
 #   old         -> unified-diff side labels + git ref-update `<old-oid> <new-oid>`.
-#   deprecated  -> closed tools-registry.toml status token and its Rust
-#                  validator (`VALID_TOOL_STATUS`). Same wire justification as
-#                  components/jeryu-tool/agent/audit-policy.toml. Not a process
-#                  marker and not an unfinished implementation.
 [dead_language]
-allow_terms = ["stale", "placeholder", "fallback", "old", "deprecated"]
+allow_terms = ["stale", "placeholder", "fallback", "old"]
 
 [scan]
 # Excluded from scanning because it is NOT product code (carried over from the

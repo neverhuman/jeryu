@@ -1,0 +1,18 @@
+# jankurai:migration v1
+id = "0014_ref_operation_journal"
+owner = "jeryu-core"
+reviewer = "independent-review-required"
+change_type = "expand"
+safety = "online"
+transaction = "required"
+lock_timeout = "5s"
+statement_timeout = "60s"
+estimated_rows = 0
+deploy_phase = "expand"
+app_compatibility = "new_app_old_db"
+requires = ["0013_repository_creation", "0013_repository_mutation_blocks"]
+rollback = "db/rollbacks/0014_ref_operation_journal.sql"
+backfill = "none; historical Git outcomes cannot supply authenticated operation intents"
+data_classification = "internal"
+tenant_impact = "none"
+tests = ["db-migration-analyze", "core::ref_operations::tests", "stable_persistence"]

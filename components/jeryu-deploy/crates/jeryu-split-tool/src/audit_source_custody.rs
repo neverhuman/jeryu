@@ -87,103 +87,65 @@ fn mount_path(encoded: &str) -> Result<std::path::PathBuf> {
     Ok(std::ffi::OsString::from_vec(bytes).into())
 }
 
-fn hosted_github_actions_lane() -> bool {
-    std::env::var_os("GITHUB_ACTIONS").is_some_and(|value| value == "true")
-        && std::env::var_os("JAIN_RELEASE_CI").is_none_or(|value| value != "1")
-}
-
-fn ignore_vanished_proc(error: &std::io::Error) -> bool {
-    matches!(
-        error.kind(),
-        std::io::ErrorKind::NotFound | std::io::ErrorKind::PermissionDenied
-    )
-}
-
 pub(super) fn remove(root: &Path, identity: (u64, u64, u32)) -> Result<()> {
     ensure!(
         owned_directory(root)? == identity,
         "retaining changed public source directory"
     );
-    let mountinfo = match fs::read_to_string("/proc/self/mountinfo") {
-        Ok(text) => Some(text),
-        Err(error) if ignore_vanished_proc(&error) && hosted_github_actions_lane() => None,
-        Err(error) => return Err(error.into()),
-    };
-    if let Some(text) = mountinfo {
-        for line in text.lines() {
-            let mount = mount_path(
-                line.split_whitespace()
-                    .nth(4)
-                    .ok_or_else(|| anyhow::anyhow!("mount record unavailable"))?,
-            )?;
-            ensure!(!mount.starts_with(root), "retaining mounted public source");
-        }
+    for line in fs::read_to_string("/proc/self/mountinfo")?.lines() {
+        let mount = mount_path(
+            line.split_whitespace()
+                .nth(4)
+                .ok_or_else(|| anyhow::anyhow!("mount record unavailable"))?,
+        )?;
+        ensure!(!mount.starts_with(root), "retaining mounted public source");
     }
     inspect(root, super::MAX_SOURCE_BYTES, super::MAX_SOURCE_ENTRIES)?;
     // Refuse cleanup while any same-user process still references this clone.
-    // Host stays fail-closed. Public GHA may deny sibling /proc entries.
-    let proc_entries = match fs::read_dir("/proc") {
-        Ok(entries) => Some(entries),
-        Err(error) if ignore_vanished_proc(&error) && hosted_github_actions_lane() => None,
-        Err(error) => return Err(error.into()),
-    };
-    if let Some(proc_entries) = proc_entries {
-        for entry in proc_entries {
-            let path = match entry {
-                Ok(entry) => entry.path(),
-                Err(error) if ignore_vanished_proc(&error) => continue,
+    for entry in fs::read_dir("/proc")? {
+        let path = entry?.path();
+        if !path
+            .file_name()
+            .is_some_and(|name| name.as_encoded_bytes().iter().all(u8::is_ascii_digit))
+        {
+            continue;
+        }
+        let metadata = match fs::metadata(&path) {
+            Ok(metadata) => metadata,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
+            Err(error) => return Err(error.into()),
+        };
+        if metadata.uid() != identity.2 {
+            continue;
+        }
+        for name in ["cwd", "root", "exe"] {
+            match fs::read_link(path.join(name)) {
+                Ok(target) => ensure!(
+                    !target.starts_with(root),
+                    "retaining referenced public source"
+                ),
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
                 Err(error) => return Err(error.into()),
-            };
-            if !path
-                .file_name()
-                .is_some_and(|name| name.as_encoded_bytes().iter().all(u8::is_ascii_digit))
-            {
-                continue;
             }
-            let metadata = match fs::metadata(&path) {
-                Ok(metadata) => metadata,
-                Err(error) if ignore_vanished_proc(&error) => continue,
+        }
+        let maps = match fs::read_to_string(path.join("maps")) {
+            Ok(maps) => maps,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
+            Err(error) => return Err(error.into()),
+        };
+        for line in maps.lines() {
+            check_mapping(line, root)?;
+        }
+        let handles = match fs::read_dir(path.join("fd")) {
+            Ok(handles) => handles,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
+            Err(error) => return Err(error.into()),
+        };
+        for handle in handles {
+            match fs::read_link(handle?.path()) {
+                Ok(target) => ensure!(!target.starts_with(root), "retaining open public source"),
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
                 Err(error) => return Err(error.into()),
-            };
-            if metadata.uid() != identity.2 {
-                continue;
-            }
-            for name in ["cwd", "root", "exe"] {
-                match fs::read_link(path.join(name)) {
-                    Ok(target) => ensure!(
-                        !target.starts_with(root),
-                        "retaining referenced public source"
-                    ),
-                    Err(error) if ignore_vanished_proc(&error) => {}
-                    Err(error) => return Err(error.into()),
-                }
-            }
-            let maps = match fs::read_to_string(path.join("maps")) {
-                Ok(maps) => maps,
-                Err(error) if ignore_vanished_proc(&error) => continue,
-                Err(error) => return Err(error.into()),
-            };
-            for line in maps.lines() {
-                check_mapping(line, root)?;
-            }
-            let handles = match fs::read_dir(path.join("fd")) {
-                Ok(handles) => handles,
-                Err(error) if ignore_vanished_proc(&error) => continue,
-                Err(error) => return Err(error.into()),
-            };
-            for handle in handles {
-                let handle = match handle {
-                    Ok(handle) => handle,
-                    Err(error) if ignore_vanished_proc(&error) => continue,
-                    Err(error) => return Err(error.into()),
-                };
-                match fs::read_link(handle.path()) {
-                    Ok(target) => {
-                        ensure!(!target.starts_with(root), "retaining open public source")
-                    }
-                    Err(error) if ignore_vanished_proc(&error) => {}
-                    Err(error) => return Err(error.into()),
-                }
             }
         }
     }

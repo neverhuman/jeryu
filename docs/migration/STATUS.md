@@ -6,6 +6,12 @@ installed service have not been cut over. The published GitHub identity is
 `neverhuman/jeryu`; clone a published candidate tag rather than assuming
 `main` is current.
 
+The current closeout is tracked in the [release gap register](RELEASE-GAPS.md),
+including the exact public PR/job readback, accepted-change dispositions and
+the remaining service, producer, mirror and artifact obligations. The public
+commits through `da8868da` are integrated with the preserved local pending
+slice. Corrective source and targeted checks do not establish release-ready main.
+
 The historical source readback below is bound to
 `679d9cff275973ce0357d5e1db12118166c1d6a7`, tree
 `cfb8642e3e401513d2537ba5ba05b0c389d63bda`, and public readbacks on
@@ -37,7 +43,7 @@ complete passing census for `679d9cff` in this checkpoint.
 | Auxiliary proofs | PENDING: authentic protected predecessor, complete changed paths/hunks, proof binding/marking, negative tests, coverage and conformance |
 | Public verification | PENDING: portable Work/Cache security admission, public tool/artifact acquisition and exact dependency receipts |
 | Complete CI | PENDING: complete local matrix, hosted matrix and resulting-main qualification at one final revision |
-| Installation | PROVED on published lock tag `jeryu-public-candidate-lock-72035eaf`: `./scripts/build.sh` exit 0, `./scripts/install.sh --from-source` exit 0, `jeryu serve --bind 127.0.0.1:8788` listens, `bootstrap-credentials.json` mode 0600, HTTP 200 SPA. Default data directory must be owner-only (0700); a group-writable leftover is refused. Release/cutover still PENDING. |
+| Installation | PENDING: anonymous public-origin build/install/runtime sequence at the final public candidate |
 | Optional runner image | PENDING: immutable public inputs and actual product-image tests, separate from native/OCI probes |
 | Mirrors | PENDING: actual standalone export builds/tests/audits and protected publication |
 | Every-commit audits | PENDING: full commit accounting, retries, reconciliation and governing-policy enforcement |
@@ -59,6 +65,13 @@ README marker blocks. Actual automatic scheduling, qualified SVG rendering,
 trusted publication and authenticated governing-policy admission remain open.
 The census aggregate deliberately remains failed until those required inputs
 are admitted; no source availability or synthetic fixture is an audit pass.
+
+The separate maintainer [HTTP receiver](AUDIT-SERVICE.md) now commits exact raw
+webhook bodies before acknowledgement and replays interrupted classifications
+on restart. All 20 intake tests pass, including five real HTTP/restart tests;
+package Clippy passes with warnings denied. The product binary has no dependency
+on this process. Deployment, persistent executor dispatch, missed-delivery
+reconciliation and verified publication still require their own completion.
 
 Work now writes security evidence through its owning Rust package. The scanner
 commands and failure outcome remain required. The complete selected source,
@@ -93,6 +106,22 @@ Initial incorrect API test selectors and six corrected Clippy warnings remain
 in the retained attempt history. No hosted intake, audit execution, score
 publication or complete matrix is qualified by these selected tests.
 
+At local checkpoint `752f8ce680f549794d70a57d52d7f3c5791b5d35`, the public
+auditor bootstrap failed before any full audit executed. The first attempt
+rejected an inherited Git environment override. A second attempt with a closed
+environment acquired the public inputs, but Docker creation returned without
+the required private CID file. Cleanup retained the stopped container and build
+inputs because ownership could not be admitted. All 51 census rows therefore
+remain explicitly unexecuted, including all 22 required scopes. No fresh score
+is inferred from those rows or the already installed binary.
+
+The next source slice adds private immutable audit-package preparation, Cache
+source-root validation and more precise builder failure diagnostics. It is
+awaiting its owning verification. Publication preparation preserves rejected and
+failed observations as data; it cannot grant a verified PASS or publish SVGs.
+The Cache correction does not yet qualify its public scanner bundle, API
+baseline or complete monorepo security and artifact receipts.
+
 ## Public repositories and dependencies
 
 GitHub `neverhuman/jeryu` main was still
@@ -125,30 +154,16 @@ gap remains documented in the historical record.
 
 ## Public candidate (GitHub)
 
-After this candidate is fast-forwarded to GitHub `main`, clone the default
-branch:
+GitHub `main` may lag this source candidate. Until `main` fast-forwards,
+clone by tag:
 
-`git clone https://github.com/neverhuman/jeryu.git`
-
-The proven stranger lock tag `jeryu-public-candidate-lock-72035eaf` remains
-published and is not moved. It proved build/install/serve and family
-reconstruct. Do not treat that lock as `main` until the SHAs match.
+`git clone --branch jeryu-public-candidate-lock-72035eaf https://github.com/neverhuman/jeryu.git`
 
 Published 2026-09-11:
 - Close-out commit `72035eaf281f0b2cf459ac8d271b162c046a6d29` (tree `dcd977b23ee5a223eb5635a2b068a6a25e4fc965`), tag `jeryu-public-candidate-20260911t021229z`
 - Family-lock follow-up tag `jeryu-public-candidate-lock-72035eaf` rewrites every `family.lock.toml` pin to a GitHub `*-family-72035eaf` tag whose tree equals `72035eaf:components/<name>`
-- Standalone `jeryu-core` remains dirty/claimed; the family pin is nested tag `jeryu-core-family-bb7cb7fb`, not the dirty checkout
-- Runner family pin is nested tag `jeryu-ci-runner-family-install-quiet`; standalone hosted `main` CI is historically red
-
-Throwaway `git clone --no-local` of that lock tag also reconstructed a
-deleted `jeryu-cache` tree via `scripts/fetch-family.sh`; `diff -rq`
-matched the published `jeryu-cache-family-72035eaf` pin (tree
-`522b20981b97c7f2557f2be2c253e52c812dfa88`).
-
-Hosted PR 65 required lanes on `5c881aaa` were still red (source inventory,
-rustfmt, web a11y gate, runtime `/proc` EACCES, hermetic image-ID, standard
-score 60). Successor commits on `public/candidate-72035ea` repair those
-without moving the two published tags.
+- Standalone `jeryu-core` remains dirty/claimed; the family pin is the **monorepo nested tree**, not the dirty checkout
+- Runner family tag is the nested tree; standalone hosted-green of `48406af` is still a footnote
 
 Do not infer qualification from a green diagnostic job.
 

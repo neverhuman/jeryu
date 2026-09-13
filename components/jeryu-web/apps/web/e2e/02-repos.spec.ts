@@ -12,6 +12,7 @@ import { loginBff } from './bff-auth';
 import { AppShellPage } from './pages/AppShellPage';
 import { RepositoriesPage } from './pages/RepositoriesPage';
 import { mockBootstrap, mockRepoList } from './fixtures/mocks';
+import type { CreateRepositoryPreview, CreateRepositoryRequest } from '../src/api/types';
 
 test.describe.configure({ retries: 1 });
 
@@ -35,6 +36,59 @@ const REPOS = [
 ];
 
 test.describe('Repositories list (W-T-10)', () => {
+  test.describe('Creation recovery', () => {
+    test.describe.configure({ retries: 0 });
+    test('creation retry keeps its request identity after a server interruption @action:repos.create_dialog', async ({ page }, testInfo) => {
+      await mockBootstrap(page);
+      await mockRepoList(page, REPOS);
+      await page.route('**/api/v1/repos/preview', async (route) => {
+        const request = route.request().postDataJSON() as CreateRepositoryRequest;
+        const preview: CreateRepositoryPreview = {
+          normalized_name: request.name,
+          target_owner: request.owner,
+          visibility: request.visibility,
+          initial_files: ['README.md'],
+          settings_to_apply: ['Default branch: main'],
+          side_effects: ['Create a repository'],
+          warnings: [],
+        };
+        await route.fulfill({ json: preview });
+      });
+      const attempts: { key: string | undefined; body: string | null }[] = [];
+      await page.route('**/api/v1/repos', async (route) => {
+        if (route.request().method() !== 'POST') {
+          await route.fallback();
+          return;
+        }
+        attempts.push({ key: route.request().headers()['idempotency-key'], body: route.request().postData() });
+        await route.fulfill({ status: 500, json: { error: { code: 'creation_failed', message: 'Creation is pending. Retry with the same settings.' } } });
+      });
+      await page.goto('/repos');
+      await page.getByRole('button', { name: /create repository/i }).click();
+      const dialog = page.getByRole('dialog');
+      await dialog.getByLabel('Owner', { exact: true }).fill('neverhuman');
+      await dialog.getByLabel('Name', { exact: true }).fill('recoverable');
+      await dialog.getByRole('button', { name: /preview/i }).click();
+      const create = dialog.getByRole('button', { name: 'Create', exact: true });
+      await create.click();
+      await expect(dialog).toContainText('Creation is pending. Retry with the same settings.');
+      await create.click();
+      await expect.poll(() => attempts.length).toBe(2);
+      expect(attempts[0].key).toMatch(/^[a-zA-Z0-9-]{16,128}$/);
+      expect(attempts[1]).toEqual(attempts[0]);
+      await expect(create).toBeEnabled();
+      await testInfo.attach('repository-creation-pending-retry', {
+        body: await page.screenshot({ fullPage: true }), contentType: 'image/png',
+      });
+      await dialog.getByRole('button', { name: 'Back', exact: true }).click();
+      await dialog.getByLabel('Name', { exact: true }).fill('another-request');
+      await dialog.getByRole('button', { name: /preview/i }).click();
+      await create.click();
+      await expect.poll(() => attempts.length).toBe(3);
+      expect(attempts[2].key).not.toBe(attempts[0].key);
+    });
+  });
+
   test('BFF /api/v1/repos returns the durable repository list @bff', async ({
     request,
   }) => {

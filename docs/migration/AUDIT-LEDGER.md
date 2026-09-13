@@ -34,6 +34,13 @@ must remain an unresolved intake event; the eventual hosted intake adapter still
 needs durable accounting for events that fail before a plan can be produced.
 The ledger does not fetch source or authenticate webhook events.
 
+PR and release plans resolve the exact referenced commit, including an annotated
+release tag's target, and include its entire ancestry through both merge parents.
+The `exact_revision` disposition identifies that pinned endpoint; it does not
+limit the plan to one commit. This covers history first observed through a forked
+PR or release. The ledger deduplicates only identical source/auditor/policy and
+execution inputs; an earlier plan that omitted ancestry must be backfilled.
+
 Import the plan with its exact validation inputs:
 
 ```sh

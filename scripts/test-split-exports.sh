@@ -144,7 +144,6 @@ for component in "${components[@]}"; do
 CHECK
   then
     printf 'Split verification failed: %s; see %s/%s.log\n' "$component" "$evidence" "$component" >&2
-    tail -n 80 "$evidence/$component.log" >&2 || true
     failed=1
   else
     printf 'Split checks completed: %s\n' "$component"

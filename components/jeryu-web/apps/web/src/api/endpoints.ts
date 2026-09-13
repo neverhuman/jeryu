@@ -70,6 +70,8 @@ export const endpoints = {
     `/api/v1/repos/${encodeURIComponent(id)}/pulls/${encodeURIComponent(prNumber)}/reviews`,
   pullComments: (id: string, prNumber: string): string =>
     `/api/v1/repos/${encodeURIComponent(id)}/pulls/${encodeURIComponent(prNumber)}/comments`,
+  pullReviewChallenge: (id: string, prNumber: string): string =>
+    `/api/v1/repos/${encodeURIComponent(id)}/pulls/${encodeURIComponent(prNumber)}/review-challenges`,
   pullApprove: (id: string, prNumber: string): string =>
     `/api/v1/repos/${encodeURIComponent(id)}/pulls/${encodeURIComponent(prNumber)}/approve`,
   pullMerge: (id: string, prNumber: string): string =>

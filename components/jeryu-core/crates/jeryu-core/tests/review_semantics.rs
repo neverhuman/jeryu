@@ -1,5 +1,7 @@
 //! Review verdicts, targeted dismissal and their persistence boundary.
 
+#[path = "support/policy.rs"]
+mod policy;
 mod support;
 
 use support::private_directory;
@@ -157,6 +159,16 @@ fn comments_preserve_each_explicit_verdict_and_its_qualification() {
         let before = core
             .evaluate_pull_request("alice", "demo", number, Some(HEAD))
             .unwrap();
+        let policy_before =
+            policy::evaluate_advisory(&core, "alice", "demo", number, Some(HEAD)).unwrap();
+        match verdict {
+            ReviewState::Approved => assert!(policy_before.mergeable),
+            ReviewState::ChangesRequested => assert!(policy_before.blockers.iter().any(|blocker| {
+                matches!(blocker, MergeBlocker::ChangesRequested { reviewers } if reviewers == &["reviewer"])
+            })),
+            _ => unreachable!("the fixture supplies only explicit verdicts"),
+        }
+        assert!(!before.mergeable);
         submit(&core, number, "reviewer", ReviewState::Commented);
         let reviews = core.list_reviews("alice", "demo", number).unwrap();
         assert_eq!(effective_reviews_for_head(&reviews, HEAD), vec![&explicit]);
@@ -165,6 +177,13 @@ fn comments_preserve_each_explicit_verdict_and_its_qualification() {
                 .unwrap(),
             before
         );
+        assert_eq!(
+            policy::evaluate_advisory(&core, "alice", "demo", number, Some(HEAD)).unwrap(),
+            policy_before
+        );
+        let qualification = core.review_qualification("alice", "demo", number).unwrap();
+        assert!(qualification.effective_reviews.is_empty());
+        assert_eq!(qualification.advisory_reviews, reviews);
         assert_eq!(reviews.len(), 2);
         assert_eq!(
             core.list_review_comments("alice", "demo", number)
@@ -199,9 +218,8 @@ fn targeted_dismissal_does_not_resurrect_an_earlier_verdict() {
         let reviews = core.list_reviews("alice", "demo", number).unwrap();
         assert_eq!(&reviews[..history.len()], history.as_slice());
         assert!(effective_reviews_for_head(&reviews, HEAD).is_empty());
-        let evaluation = core
-            .evaluate_pull_request("alice", "demo", number, Some(HEAD))
-            .unwrap();
+        let evaluation =
+            policy::evaluate_advisory(&core, "alice", "demo", number, Some(HEAD)).unwrap();
         assert!(
             evaluation
                 .blockers
@@ -218,10 +236,19 @@ fn targeted_dismissal_does_not_resurrect_an_earlier_verdict() {
         let reviews = core.list_reviews("alice", "demo", number).unwrap();
         assert_eq!(effective_reviews_for_head(&reviews, HEAD), vec![&accepted]);
         assert!(
-            core.get_pull_request("alice", "demo", number)
+            policy::evaluate_advisory(&core, "alice", "demo", number, Some(HEAD))
                 .unwrap()
                 .mergeable
         );
+        assert!(
+            !core
+                .get_pull_request("alice", "demo", number)
+                .unwrap()
+                .mergeable
+        );
+        let qualification = core.review_qualification("alice", "demo", number).unwrap();
+        assert!(qualification.effective_reviews.is_empty());
+        assert_eq!(qualification.advisory_reviews, reviews);
     }
 }
 
@@ -238,12 +265,22 @@ fn dismissal_preserves_another_reviewers_rejection() {
     );
     core.dismiss_review("alice", "demo", number, "reviewer", dismissal(&target))
         .unwrap();
-    let evaluation = core
-        .evaluate_pull_request("alice", "demo", number, Some(HEAD))
-        .unwrap();
+    let evaluation = policy::evaluate_advisory(&core, "alice", "demo", number, Some(HEAD)).unwrap();
     assert!(evaluation.blockers.iter().any(|blocker| matches!(
         blocker, MergeBlocker::ChangesRequested { reviewers } if reviewers == &["second-reviewer"]
     )));
+    let qualification = core.review_qualification("alice", "demo", number).unwrap();
+    assert!(qualification.effective_reviews.is_empty());
+    assert_eq!(
+        qualification.advisory_reviews,
+        core.list_reviews("alice", "demo", number).unwrap()
+    );
+    assert!(
+        !core
+            .get_pull_request("alice", "demo", number)
+            .unwrap()
+            .mergeable
+    );
 }
 
 #[test]

@@ -28,12 +28,13 @@ Migration 0005-0007 notes:
 - `repositories.family` (0005) is UI grouping data; its seed backfill runs only
   when the column is first added and must never overwrite operator edits.
 - `forge_audit_log` (0006) deliberately has NO repository FK and is excluded
-  from the full-rewrite persist (`delete_all`/`persist_state`) so delete
+  from the State snapshot so delete
   receipts survive both repository deletion and every state rewrite.
 - `jankurai_scores` (0007) allows NULL `score` (decision `tool-failed` records
-  an unscoreable audit); any new per-repo table MUST be threaded through
-  `State`, `load_state`, `persist_state`, and `delete_all`, or the next
-  mutation silently wipes it.
+  an unscoreable audit). State-owned tables must be threaded through `State`,
+  `load_state`, `stage_state`, and the explicit `snapshot::OWNED_TABLES` list.
+  Independently owned journals stay outside that list. Ordinary saves retain
+  unchanged parent keys, rowids, unknown columns and independent FK children.
 
 Live-readiness note:
 - When migrations or constraints change, include this guidance file in the
@@ -41,8 +42,117 @@ Live-readiness note:
 
 Migration 0012 review dismissal notes:
 - Preserve every nullable historical target; never infer a verdict UUID.
-- Persist and reload new dismissal targets through every full-state rewrite.
+- Persist and reload new dismissal targets through every State transaction.
 - Keep incompatible older writers stopped: their rewrite loses target bindings.
 - Exercise migration_0012_preserves_unbound_dismissals and
   review_dismissal_survives_sqlite_reopen_and_unrelated_write with two Cargo jobs
   in the allocated CI window, then run the migration analysis lane above.
+
+Migration 0013 creation journal:
+- Keep receipts after repository deletion; they prevent creation UUID reuse.
+- Thread the journal through State, load and atomic snapshot reconciliation.
+- Never infer retry authority for legacy rows. Stop older writers after adoption.
+- Run the complete core::repository_creation::tests scope and migration analysis.
+
+Migration 0013 mutation restrictions:
+- Preserve both independently named 0013 migrations; apply each idempotently.
+- Restrictions reference immutable repository UUIDs and survive unrelated saves.
+- Ordinary calls, including creation retries and administrator calls, cannot
+  clear a restriction. Read-only rows may supply fork source reads; unresolved
+  reconciliation blocks deny that use until the owning recovery lifecycle acts.
+- Retain restrictions on rollback and keep incompatible older writers stopped.
+- Run mutation_custody, core::mutation::tests, all creation controls, SQLite
+  persistence and migration analysis under the allocated native CI window.
+
+Migration 0014 operation journal notes:
+- `forge_ref_operations` and `forge_ref_operation_outbox` are independently
+  persisted, outside State loading/staging/save ownership. Repository UUIDs are
+  retained values, without catalog FKs, so deletion cannot erase recovery custody.
+- New private Core hooks compose a proposed State snapshot, immutable terminal
+  operation, audit and committed-event insertion in one SQLite transaction. Only
+  a successful commit publishes the proposed shared State. Lost-return retries
+  preserve original operation, audit and event IDs without repeating the closure.
+- There is no historical intent/event backfill. Keep older writers stopped and
+  preserve/restore-test the complete state package before installed migration.
+  Never discard the journal or roll Git backward to reconcile metadata failure.
+- This is persistence groundwork: no public mutation endpoint, Git backend,
+  authenticated qualification, ordinary-writer recovery admission or outbox
+  dispatcher is activated. Reconciliation-required outcomes cannot be cleared
+  by ordinary retries; their separate authority procedure remains pending.
+
+Migration 0015 authenticated-review notes:
+- `forge_review_challenges` and `forge_bound_review_events` have independent
+  persistence ownership, with no catalog FK. `State.bound_reviews` is only a
+  loaded read cache; never add these rows to snapshot staging or reconciliation.
+- Bind the full independently observed source/base refs, commits/trees, physical
+  storage/executable identity, policy, evidence and actual credential identity.
+  Consume a nonce once and append its immutable event, compatibility review,
+  inline comments and audit in the same transaction. Publish State only after
+  commit. Preserve exact event IDs on lost-return retries and preserve failures.
+- No historical review receives an authentication backfill, including rows that
+  already carry a head SHA. Ordinary statuses/check runs remain advisory. The
+  pure policy calculator does not authenticate its inputs or authorize merges.
+- Keep incompatible writers stopped and retain a consistent restore-tested
+  full-state package before installed migration. Roll forward after accepted
+  effects; do not drop retained event/challenge rows or run the old split merge
+  dispatcher against the new authority. The old readiness/finalization/synthetic
+  entrypoints now refuse before Git dispatch; the new executor and authoritative
+  attempt stream are still required before merge activation.
+- In an allocated two-job window, run the authenticated Core review cases and
+  Gitd real observer/timeout cases, full affected Core/Gitd targets, the migration
+  backfill test and the migration analysis lane above. Recipe/test success is
+  separate from an authenticated hosted approval or installed qualification.
+
+Migration 0016 required-attempt notes:
+- Attempt reservations, received artifact bytes and terminal outbox rows have
+  independent persistence ownership, without catalog FKs or State staging.
+- Server UUID/ordinal allocation and reservation audit are one transaction.
+  Terminal result, received bytes, completion audit and outbox are another single
+  transaction. Identical retries retain original IDs/expiry/result bytes; changed
+  bindings or terminal payloads conflict. Every readback uses one SQLite snapshot.
+- No historical check/status row receives an authoritative attempt backfill.
+  These private store hooks require the future enrolled publisher/controller;
+  no publication transport or ordinary merge authority is activated here.
+- Keep incompatible writers stopped and retain a complete restore-tested state
+  package before installed migration. Never drop attempts/artifacts/outbox or
+  reverse accepted Git to undo this additive schema. Run the owning attempt,
+  actor/review, snapshot persistence and migration lanes with two Cargo jobs in
+  the admitted allocation; installed qualification remains separate.
+
+Migration 0017 required-publisher notes:
+- `forge_required_publishers` is independent of State saves and has no catalog
+  foreign key. Immutable revision/hash/installation identity and targeted
+  revocation remain durable after unrelated saves and runtime restarts.
+- Installation requires expected absence at revision one or an exact previous
+  enrollment hash with the next revision. Installation/revocation and audit
+  commit atomically. Replays cannot change accepted content or revive revocation.
+- The private installer requires the future root-owned commissioning verifier
+  under the authority guard, with actual independent actors and detached trust
+  acceptance. Shape-valid JSON and a test fixture do not supply that authority.
+- This forward-only additive migration invents no historical enrollment. Keep
+  incompatible writers stopped and retain a complete consistent restore-tested
+  backup before installed migration. Preserve the journal and recover forward
+  after accepted effects; never drop the table to bypass a prior enrollment.
+- Run required-publisher controller, required-attempt persistence, actor/review
+  and migration analysis lanes in an admitted two-job allocation. Real signing,
+  transport, managed Git and installed recovery campaigns remain mandatory.
+
+Migration 0018 commissioning notes:
+- Operations and hash-chained immutable records are independently persisted,
+  outside State ownership. A completed step never releases the operation barrier.
+- Retain original UUIDs/revisions/receiving bytes on identical retries; reject
+  changed requests, incomplete/corrupt chains and forged terminal projections.
+- Reserve under exclusive authority, after existing ordinary effects drain.
+  Active operations block ordinary State/Git callbacks, audit writes, schema
+  migrations and startup backfills. Installation attachment and authenticated
+  recovery readback remain available without granting effect authority.
+- Observe ordinary admission with a custody-checked read-only connection, even
+  for no-op writes. Late/failed/unknown or recovery-recorder outcomes are retained
+  without authorizing progress. Closure requires the complete verified sequence.
+- This additive migration backfills no trust or restoration history. Preserve a
+  consistent restore-tested package, keep incompatible writers stopped, retain
+  every record and recover forward after accepted effects. Never remove a barrier
+  to make an older writer run. Signing/dispatcher installation is separate.
+- Run commissioning/controller/canonical, mutation, review, required-attempt,
+  SQLite/stable persistence and migration analysis in an admitted two-job window;
+  source or fixture success cannot qualify installed recovery.

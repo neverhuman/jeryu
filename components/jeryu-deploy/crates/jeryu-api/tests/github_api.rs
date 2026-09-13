@@ -24,6 +24,22 @@ fn router_with_repo() -> GithubRouter {
     router
 }
 
+fn register_fork_source(router: &GithubRouter) {
+    let response = router.post(
+        "/repos",
+        r#"{"owner":"fork-owner","name":"jeryu","private":false,"default_branch":"main"}"#,
+    );
+    assert_eq!(
+        response.status, 201,
+        "create fork source: {}",
+        response.body
+    );
+    let source = router.core().get_repository("fork-owner", "jeryu").unwrap();
+    let destination = router.core().get_repository("alice", "jeryu").unwrap();
+    assert_ne!(source.id, destination.id);
+    assert_eq!(source.full_name, "fork-owner/jeryu");
+}
+
 #[test]
 fn version_and_health_are_github_shaped() {
     let router = GithubRouter::new();
@@ -94,6 +110,7 @@ fn new_repository_exposes_linear_history_branch_protection() {
 #[test]
 fn full_pull_request_lifecycle_create_check_status_protect_and_merge() {
     let router = router_with_repo();
+    register_fork_source(&router);
 
     // Open a PR. GitHub-shaped: `number`, `head`/`base` refs, `state` = open.
     let opened = router.post(
@@ -207,8 +224,26 @@ fn full_pull_request_lifecycle_create_check_status_protect_and_merge() {
 }
 
 #[test]
+fn pull_creation_requires_an_existing_fork_source() {
+    let router = router_with_repo();
+    let request = r#"{"title":"forked change","head":"feature","base":"main","actor":"alice","source_repository":"fork-owner/jeryu"}"#;
+    let refused = router.post("/repos/alice/jeryu/pulls", request);
+    assert_eq!(refused.status, 404, "missing source: {}", refused.body);
+    let listed = router.get("/repos/alice/jeryu/pulls");
+    assert_eq!(listed.status, 200);
+    assert!(body(&listed).as_array().unwrap().is_empty());
+
+    register_fork_source(&router);
+    let accepted = router.post("/repos/alice/jeryu/pulls", request);
+    assert_eq!(accepted.status, 201, "registered source: {}", accepted.body);
+    assert_eq!(body(&accepted)["number"], 1);
+    assert_eq!(body(&accepted)["source_repository"], "fork-owner/jeryu");
+}
+
+#[test]
 fn fork_source_repository_still_requires_signed_commits() {
     let router = router_with_repo();
+    register_fork_source(&router);
 
     let protect = router.put(
         "/repos/alice/jeryu/branches/main/protection",

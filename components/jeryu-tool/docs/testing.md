@@ -66,6 +66,17 @@ inputs and content-addressed receipts are its only durable data boundaries, and
 diagnostic workflows stop after ten minutes. Do not invent migrations, spend
 records, or service kill switches merely to satisfy a generic product rubric.
 
+## Historical scanner findings
+
+The full-history scanner retains its default rules and required exit status.
+`.gitleaksignore` lists two exact historical fingerprints: a password for the
+temporary in-memory account in
+`forced_password_change_blocks_other_authenticated_routes_until_changed`
+(`043765916`), and an `Idempotency-Key` API documentation example (`270aff85`).
+Their source context was reviewed; neither grants access to an external account.
+The exclusions bind commit, path, rule and line. Every other fingerprint remains
+subject to the default scan, including matching content in a new commit.
+
 ## Agent-readable control errors
 
 `jeryu-toolctl` maps its closed `Usage`, `Registry`, and `Renderer` error
@@ -108,6 +119,32 @@ marker proves only container cleanup, including cleanup after a failed build;
 installation and source qualification still require their own successful results. Synthetic
 fixtures cannot qualify the auditor binary; the real network-disabled build
 must reproduce the manifest's unchanged binary digest separately.
+
+Image admission requires the pinned repository digest and Linux amd64 platform
+from the trusted local engine. The resulting engine image ID may be an OCI
+index digest or a configuration digest; container inspection must match that
+admitted ID before start and cleanup. The `image_identity::` tests exercise both
+representations and reject wrong repositories, platforms, malformed inspection
+data and a changed container image. This does not qualify a real image build.
+
+Container creation has a separate 120-second bound plus two seconds of kill
+grace. Before dispatch, the builder records the exact command array, executable
+digests and timeout in private `create-request.json`. After dispatch,
+`create-response.json` retains the actual command exit, UTC observations and
+output hashes. These diagnostics do not establish container ownership. Missing
+private CID data still prevents start and cleanup; a name or ID printed to
+stdout is insufficient. A failed build retains scratch and staged output after
+attempting the existing container cleanup. Its original create exit remains
+separate from an uncertain-cleanup failure.
+
+The focused `create_attempt::` integration tests use synthetic Docker responses
+and retain every fixture. They cover command binding, failed/timeout responses,
+missing CID, refused overwrite and retained staged output. They do not establish
+real daemon timing. Run them with
+`cargo test --locked -p jeryu-tool-control --test hermetic_builder create_attempt:: -- --nocapture`.
+Other historical tests still have successful-fixture cleanup paths that need
+separate custody review before use on a shared host. The changed builder requires
+a new real build receipt; an older matching auditor binary is insufficient.
 
 The load-bearing test is the pin drift check. Editing `tool-manifest.toml` and
 running `ops/render-tool-manifest.sh` must update every consumer; `--check` must

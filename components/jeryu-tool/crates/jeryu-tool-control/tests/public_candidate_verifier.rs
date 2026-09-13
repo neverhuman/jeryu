@@ -418,3 +418,24 @@ fi
 "#,
     );
 }
+
+#[test]
+fn hosted_environment_and_matching_binary_cannot_replace_provenance() {
+    custody(
+        r#"
+source "$1/ops/render-assets/require-jankurai.sh"
+mkdir "$test_root/bin"
+printf '#!/bin/sh\nprintf "synthetic fixture auditor\\n"\n' > "$test_root/bin/jankurai"
+chmod 500 "$test_root/bin/jankurai"
+export JERYU_GOVERNED_JANKURAI_BIN="$test_root/bin/jankurai"
+export JERYU_JANKURAI_VERSION='synthetic fixture auditor'
+export JERYU_JANKURAI_SHA256="$(sha256sum "$test_root/bin/jankurai" | cut -d' ' -f1)"
+export JERYU_MONOREPO_CANDIDATE=0 JAIN_RELEASE_CI=0
+unset JERYU_JANKURAI_RECEIPT JERYU_JANKURAI_RECEIPT_SHA256 JERYU_JANKURAI_ALLOW_TEST_RECEIPT
+for environment in false true; do
+  export GITHUB_ACTIONS="$environment"
+  refused 'non-governed jankurai requires an explicit installation receipt' require_jankurai
+done
+"#,
+    );
+}

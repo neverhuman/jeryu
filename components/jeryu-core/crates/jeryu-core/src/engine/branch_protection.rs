@@ -18,30 +18,32 @@ impl ForgeCore {
         branch: &str,
         request: SetBranchProtectionRequest,
     ) -> Result<BranchProtectionRule> {
-        self.ensure_repo_exists(owner, repo)?;
-        require_name("branch", branch)?;
-        let rule = BranchProtectionRule {
-            owner: owner.to_string(),
-            repo: repo.to_string(),
-            branch: branch.to_string(),
-            required_status_checks: request.required_status_checks,
-            required_approving_review_count: request.required_approving_review_count,
-            enforce_admins: request.enforce_admins,
-            required_linear_history: request.required_linear_history,
-            allow_force_pushes: request.allow_force_pushes,
-            allow_deletions: request.allow_deletions,
-            require_signed_commits: request.require_signed_commits,
-            require_jankurai_proof: request.require_jankurai_proof,
-            updated_at: Utc::now(),
-        };
-        let mut state = self.runtime.state.write();
-        let previous = state.clone();
-        state.branch_protections.insert(
-            (owner.to_string(), repo.to_string(), branch.to_string()),
-            rule.clone(),
-        );
-        self.persist_after_mutation(&mut state, previous)?;
-        Ok(rule)
+        self.with_repository_mutation(owner, repo, || {
+            self.ensure_repo_exists(owner, repo)?;
+            require_name("branch", branch)?;
+            let rule = BranchProtectionRule {
+                owner: owner.to_string(),
+                repo: repo.to_string(),
+                branch: branch.to_string(),
+                required_status_checks: request.required_status_checks,
+                required_approving_review_count: request.required_approving_review_count,
+                enforce_admins: request.enforce_admins,
+                required_linear_history: request.required_linear_history,
+                allow_force_pushes: request.allow_force_pushes,
+                allow_deletions: request.allow_deletions,
+                require_signed_commits: request.require_signed_commits,
+                require_jankurai_proof: request.require_jankurai_proof,
+                updated_at: Utc::now(),
+            };
+            let mut state = self.runtime.state.write();
+            let previous = state.clone();
+            state.branch_protections.insert(
+                (owner.to_string(), repo.to_string(), branch.to_string()),
+                rule.clone(),
+            );
+            self.persist_after_mutation(&mut state, previous)?;
+            Ok(rule)
+        })
     }
 
     pub fn get_branch_protection(
@@ -68,14 +70,16 @@ impl ForgeCore {
     /// Stores the repository's CODEOWNERS file contents. Used by branch
     /// protection to require code-owner approval of changed paths.
     pub fn set_codeowners(&self, owner: &str, repo: &str, contents: &str) -> Result<()> {
-        self.ensure_repo_exists(owner, repo)?;
-        let mut state = self.runtime.state.write();
-        let previous = state.clone();
-        state
-            .codeowners
-            .insert((owner.to_string(), repo.to_string()), contents.to_string());
-        self.persist_after_mutation(&mut state, previous)?;
-        Ok(())
+        self.with_repository_mutation(owner, repo, || {
+            self.ensure_repo_exists(owner, repo)?;
+            let mut state = self.runtime.state.write();
+            let previous = state.clone();
+            state
+                .codeowners
+                .insert((owner.to_string(), repo.to_string()), contents.to_string());
+            self.persist_after_mutation(&mut state, previous)?;
+            Ok(())
+        })
     }
 
     pub fn get_codeowners(&self, owner: &str, repo: &str) -> Result<String> {
@@ -152,21 +156,23 @@ impl ForgeCore {
         branch: &str,
         actor_is_admin: bool,
     ) -> Result<()> {
-        let evaluation = self.evaluate_ref_operation(
-            owner,
-            repo,
-            branch,
-            RefOperation::ForcePush,
-            actor_is_admin,
-        )?;
-        if evaluation.allowed {
-            Ok(())
-        } else {
-            Err(ForgeError::BranchProtection(format!(
-                "{:?}",
-                evaluation.blockers
-            )))
-        }
+        self.with_repository_mutation(owner, repo, || {
+            let evaluation = self.evaluate_ref_operation(
+                owner,
+                repo,
+                branch,
+                RefOperation::ForcePush,
+                actor_is_admin,
+            )?;
+            if evaluation.allowed {
+                Ok(())
+            } else {
+                Err(ForgeError::BranchProtection(format!(
+                    "{:?}",
+                    evaluation.blockers
+                )))
+            }
+        })
     }
 
     /// Attempts to delete the branch ref, honoring `allow_deletions`.
@@ -177,15 +183,22 @@ impl ForgeCore {
         branch: &str,
         actor_is_admin: bool,
     ) -> Result<()> {
-        let evaluation =
-            self.evaluate_ref_operation(owner, repo, branch, RefOperation::Delete, actor_is_admin)?;
-        if evaluation.allowed {
-            Ok(())
-        } else {
-            Err(ForgeError::BranchProtection(format!(
-                "{:?}",
-                evaluation.blockers
-            )))
-        }
+        self.with_repository_mutation(owner, repo, || {
+            let evaluation = self.evaluate_ref_operation(
+                owner,
+                repo,
+                branch,
+                RefOperation::Delete,
+                actor_is_admin,
+            )?;
+            if evaluation.allowed {
+                Ok(())
+            } else {
+                Err(ForgeError::BranchProtection(format!(
+                    "{:?}",
+                    evaluation.blockers
+                )))
+            }
+        })
     }
 }

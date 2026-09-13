@@ -17,3 +17,8 @@ cargo_members = [
 [rust]
 binary = "jeryu-tool-finder"
 contract = "contracts/cli-help.txt"
+
+[db]
+root_paths = ["db"]
+migration_paths = ["db/migrations"]
+constraint_paths = ["db/constraints"]

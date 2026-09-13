@@ -11,6 +11,9 @@ use crate::model::*;
 use crate::webhooks::event_payload;
 
 impl ForgeCore {
+    /// Compatibility advisory history from a trusted-name caller. Even a row
+    /// carrying a head SHA is not an authenticated source-review event. Use
+    /// the credential/challenge API for qualified review submissions.
     pub fn create_review(
         &self,
         owner: &str,
@@ -28,7 +31,7 @@ impl ForgeCore {
     }
 
     /// The caller supplies an actor login; this method does not authenticate a
-    /// credential. Transport and internal callers must establish actor custody.
+    /// credential. The result is advisory and cannot dismiss a bound verdict.
     pub fn dismiss_review(
         &self,
         owner: &str,
@@ -76,138 +79,143 @@ impl ForgeCore {
         request: CreateReviewRequest,
         dismissed_review_id: Option<Uuid>,
     ) -> Result<Review> {
-        super::auth::require_login(author)?;
-        let mut state = self.runtime.state.write();
-        let key = (owner.to_string(), repo.to_string(), number);
-        let head_sha = match state.pulls.get(&key) {
-            Some(pr) => {
-                if request.event == ReviewState::Approved && pr.author.eq_ignore_ascii_case(author)
-                {
-                    return Err(ForgeError::Forbidden(
-                        "pull request authors cannot approve their own changes".to_string(),
-                    ));
+        self.with_profile_mutation(owner, repo, author, || {
+            super::auth::require_login(author)?;
+            let mut state = self.runtime.state.write();
+            let key = (owner.to_string(), repo.to_string(), number);
+            let head_sha = match state.pulls.get(&key) {
+                Some(pr) => {
+                    if request.event == ReviewState::Approved
+                        && pr.author.eq_ignore_ascii_case(author)
+                    {
+                        return Err(ForgeError::Forbidden(
+                            "pull request authors cannot approve their own changes".to_string(),
+                        ));
+                    }
+                    if request
+                        .expected_head_sha
+                        .as_deref()
+                        .is_some_and(|expected| expected != pr.head.sha)
+                    {
+                        return Err(ForgeError::Conflict(format!(
+                            "pull request {owner}/{repo}#{number} head changed"
+                        )));
+                    }
+                    pr.head.sha.clone()
                 }
-                if request
-                    .expected_head_sha
-                    .as_deref()
-                    .is_some_and(|expected| expected != pr.head.sha)
-                {
-                    return Err(ForgeError::Conflict(format!(
-                        "pull request {owner}/{repo}#{number} head changed"
+                None => {
+                    return Err(ForgeError::NotFound(format!(
+                        "pull request {owner}/{repo}#{number}"
                     )));
                 }
-                pr.head.sha.clone()
-            }
-            None => {
-                return Err(ForgeError::NotFound(format!(
-                    "pull request {owner}/{repo}#{number}"
-                )));
-            }
-        };
-        if let Some(target_id) = dismissed_review_id {
-            let reviews = state.reviews.get(&key).map(Vec::as_slice).unwrap_or(&[]);
-            let target = reviews
-                .iter()
-                .find(|review| review.id == target_id)
-                .ok_or_else(|| {
-                    ForgeError::NotFound(format!("review {target_id} in {owner}/{repo}#{number}"))
-                })?;
-            if target.author != author {
-                return Err(ForgeError::Forbidden(
-                    "reviewers may dismiss only their own verdicts".to_string(),
-                ));
-            }
-            if !matches!(
-                target.state,
-                ReviewState::Approved | ReviewState::ChangesRequested
-            ) {
-                return Err(ForgeError::Validation(
-                    "dismissal target must be an explicit review verdict".to_string(),
-                ));
-            }
-            if target.head_sha.as_deref() != Some(head_sha.as_str())
-                || !effective_reviews_for_head(reviews, &head_sha)
+            };
+            if let Some(target_id) = dismissed_review_id {
+                let reviews = state.reviews.get(&key).map(Vec::as_slice).unwrap_or(&[]);
+                let target = reviews
                     .iter()
-                    .any(|review| review.id == target_id)
-            {
-                return Err(ForgeError::Conflict(
-                    "dismissal target is not the reviewer's current-head verdict".to_string(),
-                ));
+                    .find(|review| review.id == target_id)
+                    .ok_or_else(|| {
+                        ForgeError::NotFound(format!(
+                            "review {target_id} in {owner}/{repo}#{number}"
+                        ))
+                    })?;
+                if target.author != author {
+                    return Err(ForgeError::Forbidden(
+                        "reviewers may dismiss only their own verdicts".to_string(),
+                    ));
+                }
+                if !matches!(
+                    target.state,
+                    ReviewState::Approved | ReviewState::ChangesRequested
+                ) {
+                    return Err(ForgeError::Validation(
+                        "dismissal target must be an explicit review verdict".to_string(),
+                    ));
+                }
+                if target.head_sha.as_deref() != Some(head_sha.as_str())
+                    || !effective_reviews_for_head(reviews, &head_sha)
+                        .iter()
+                        .any(|review| review.id == target_id)
+                {
+                    return Err(ForgeError::Conflict(
+                        "dismissal target is not the reviewer's current-head verdict".to_string(),
+                    ));
+                }
             }
-        }
-        let previous = state.clone();
-        // Preserve the existing trusted-caller profile behavior in the same
-        // transaction as the review. A profile is not an authenticated account.
-        state
-            .users
-            .entry(author.to_string())
-            .or_insert_with(|| User {
-                id: Uuid::new_v4(),
-                login: author.to_string(),
-                name: None,
-                email: None,
-                created_at: Utc::now(),
-            });
-        let review_id = Uuid::new_v4();
-        let review = Review {
-            id: review_id,
-            owner: owner.to_string(),
-            repo: repo.to_string(),
-            pull_number: number,
-            author: author.to_string(),
-            state: request.event,
-            body: request.body,
-            head_sha: Some(head_sha),
-            dismissed_review_id,
-            submitted_at: Utc::now(),
-        };
-        let comments: Vec<_> = request
-            .comments
-            .into_iter()
-            .map(|comment| ReviewComment {
-                id: Uuid::new_v4(),
-                review_id,
+            let previous = state.clone();
+            // Preserve the existing trusted-caller profile behavior in the same
+            // transaction as the review. A profile is not an authenticated account.
+            state
+                .users
+                .entry(author.to_string())
+                .or_insert_with(|| User {
+                    id: Uuid::new_v4(),
+                    login: author.to_string(),
+                    name: None,
+                    email: None,
+                    created_at: Utc::now(),
+                });
+            let review_id = Uuid::new_v4();
+            let review = Review {
+                id: review_id,
                 owner: owner.to_string(),
                 repo: repo.to_string(),
                 pull_number: number,
-                path: comment.path,
-                line: comment.line,
                 author: author.to_string(),
-                body: comment.body,
-                created_at: Utc::now(),
-            })
-            .collect();
-        state
-            .reviews
-            .entry((owner.to_string(), repo.to_string(), number))
-            .or_default()
-            .push(review.clone());
-        state
-            .review_comments
-            .entry((owner.to_string(), repo.to_string(), number))
-            .or_default()
-            .extend(comments);
-        if let Some(pr) = state
-            .pulls
-            .get(&(owner.to_string(), repo.to_string(), number))
-            .cloned()
-        {
-            let mut updated = pr;
-            let evaluation = evaluate_locked(&state, &updated, None);
-            apply_evaluation(&mut updated, evaluation);
+                state: request.event,
+                body: request.body,
+                head_sha: Some(head_sha),
+                dismissed_review_id,
+                submitted_at: Utc::now(),
+            };
+            let comments: Vec<_> = request
+                .comments
+                .into_iter()
+                .map(|comment| ReviewComment {
+                    id: Uuid::new_v4(),
+                    review_id,
+                    owner: owner.to_string(),
+                    repo: repo.to_string(),
+                    pull_number: number,
+                    path: comment.path,
+                    line: comment.line,
+                    author: author.to_string(),
+                    body: comment.body,
+                    created_at: Utc::now(),
+                })
+                .collect();
             state
+                .reviews
+                .entry((owner.to_string(), repo.to_string(), number))
+                .or_default()
+                .push(review.clone());
+            state
+                .review_comments
+                .entry((owner.to_string(), repo.to_string(), number))
+                .or_default()
+                .extend(comments);
+            if let Some(pr) = state
                 .pulls
-                .insert((owner.to_string(), repo.to_string(), number), updated);
-        }
-        emit_event_locked(
-            &mut state,
-            owner,
-            repo,
-            "pull_request_review",
-            event_payload("submitted", "review", json!(review.clone())),
-        );
-        self.persist_after_mutation(&mut state, previous)?;
-        Ok(review)
+                .get(&(owner.to_string(), repo.to_string(), number))
+                .cloned()
+            {
+                let mut updated = pr;
+                let evaluation = evaluate_locked(&state, &updated, None);
+                apply_evaluation(&mut updated, evaluation);
+                state
+                    .pulls
+                    .insert((owner.to_string(), repo.to_string(), number), updated);
+            }
+            emit_event_locked(
+                &mut state,
+                owner,
+                repo,
+                "pull_request_review",
+                event_payload("submitted", "review", json!(review.clone())),
+            );
+            self.persist_after_mutation(&mut state, previous)?;
+            Ok(review)
+        })
     }
 
     pub fn list_reviews(&self, owner: &str, repo: &str, number: u64) -> Result<Vec<Review>> {

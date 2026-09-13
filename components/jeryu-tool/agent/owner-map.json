@@ -2,6 +2,7 @@
   "owners": {
     ".github/": "ops",
     ".github/**": "ops",
+    ".gitleaksignore": "ops",
     ".gitignore": "workspace",
     ".jankurai/": "audit",
     ".jankurai/**": "audit",

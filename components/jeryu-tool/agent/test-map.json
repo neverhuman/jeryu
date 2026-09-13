@@ -1,5 +1,10 @@
 {
   "tests": {
+    ".gitleaksignore": {
+      "command": "just security",
+      "lane": "security",
+      "purpose": "verify exact historical synthetic findings while retaining default secret detection"
+    },
     ".github/": {
       "command": "just fast && just check && just score",
       "lane": "ci",

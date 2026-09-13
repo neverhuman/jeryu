@@ -20,7 +20,6 @@ mkdir -p .jankurai target/jankurai
 jankurai audit . --full --mode standard --no-score-history --fail-on critical,high \
   --json .jankurai/repo-score.json --md .jankurai/repo-score.md \
   --repair-queue-jsonl target/jankurai/repair-queue.jsonl
-bash ops/ci/jankurai-catalog.sh
 cargo run --locked --offline --quiet -p jeryu-split-tool --bin jeryu-split -- \
   audit-score-check --owner jeryu --policy agent/audit-policy.toml \
   --report .jankurai/repo-score.json >/dev/null

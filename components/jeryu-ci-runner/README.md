@@ -115,6 +115,18 @@ identity. Host CI sources `ops/ci/hosted-git-env.sh` before every Cargo entrypoi
 caller-supplied Git configuration is accepted only when it is byte-identical to
 the checked-in policy, then canonicalized to that reviewed path.
 
+Generated public exports use `bash scripts/split-ci.sh ordinary`. Their auditor
+tests acquire the exact originating public monorepo as a Tool dependency in a
+private Git clone. The unchanged Tool bootstrap verifies the immutable producer,
+hermetic build, executable and installation receipt. Child login shells recheck
+the exported Runner library and policy against that source before using the
+held executable. This requires Docker access, rustup, Git, jq, lsof and GNU
+timeout as an unprivileged user. The product tests still run from the actual
+exported source. A failed or uncertain attempt retains its private scratch.
+Explicit `--prepare-local SOURCE` remains preparatory evidence. This candidate
+path does not qualify an installed auditor or the product image; both keep their
+separate required proofs. The acquisition adapter awaits full export execution.
+
 `just contract-drift` binds the checked JSON Schema to all serialized Rust fields,
 message discriminators, wire enums, and public collection bounds. Rust serde
 and `ValidateWire` remain the runtime authority for cross-field, identity,

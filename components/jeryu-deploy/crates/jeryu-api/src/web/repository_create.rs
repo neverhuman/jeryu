@@ -1,8 +1,8 @@
 //! Authenticated repository creation for the browser's preview/execute contract.
 
-use std::fs::{self, OpenOptions};
+#[cfg(test)]
+use std::fs;
 use std::io::Write;
-use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt};
 use std::path::Path;
 use std::process::{Command, Stdio};
 use std::sync::Arc;
@@ -19,8 +19,10 @@ use jeryu_readmodel::contracts::{
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use uuid::Uuid;
 
 use super::{WebState, api_error, repositories::repo_summary};
+use crate::git_materializer::{GitMaterializer, storage::Directory};
 
 #[cfg(test)]
 mod tests;
@@ -130,9 +132,14 @@ pub(super) async fn preview(
 }
 
 #[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct Receipt {
     request_sha256: String,
     repository_id: Option<String>,
+    #[serde(default)]
+    creation_id: Option<Uuid>,
+    #[serde(default)]
+    initial_commit: Option<String>,
 }
 
 pub(super) async fn create(
@@ -185,7 +192,7 @@ pub(super) async fn create(
             api_error(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "creation_failed",
-                "repository creation did not complete; inspect the server log before retrying",
+                "repository creation is pending; retry with the same settings; contact an administrator if it continues to fail",
             )
         }
     }
@@ -199,89 +206,99 @@ fn execute(
 ) -> Result<Response> {
     let digest = hex::encode(Sha256::digest(serde_json::to_vec(request)?));
     let name = hex::encode(Sha256::digest(format!("{}\0{key}", account.login)));
-    let directory = state
+    let directory_path = state
         .repo_manager
         .config()
         .storage_root
         .join(".jeryu-create-receipts");
-    fs::DirBuilder::new()
-        .recursive(true)
-        .mode(0o700)
-        .create(&directory)?;
-    let path = directory.join(format!("{name}.json"));
-    let mut reservation = match OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .mode(0o600)
-        .open(&path)
-    {
-        Ok(file) => file,
-        Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
-            let previous: Receipt = match serde_json::from_slice(&fs::read(&path)?) {
-                Ok(receipt) => receipt,
-                Err(_) => {
-                    return Ok(api_error(
-                        StatusCode::CONFLICT,
-                        "creation_incomplete",
-                        "this creation is still in progress or requires recovery",
-                    ));
+    let directory = Directory::open(&directory_path)?;
+    let _lock = directory.lock(&format!("{name}.lock"))?;
+    let filename = format!("{name}.json");
+    let mut receipt = if directory.exists(&filename)? {
+        let previous: Receipt = directory.read(&filename)?;
+        if previous.request_sha256 != digest {
+            return Ok(api_error(
+                StatusCode::CONFLICT,
+                "idempotency_conflict",
+                "Idempotency-Key was used with a different request",
+            ));
+        }
+        ensure!(
+            previous
+                .initial_commit
+                .as_ref()
+                .is_none_or(|commit| request.initialize_readme
+                    && commit.len() == 40
+                    && commit.bytes().all(|byte| byte.is_ascii_hexdigit())),
+            "invalid creation commit receipt"
+        );
+        if let Some(id) = &previous.repository_id {
+            if let Ok(repo) = state.core.get_repository(&request.owner, &request.name)
+                && repo.id.to_string() == *id
+            {
+                if let Some(identity) = previous.creation_id {
+                    ensure!(identity == repo.id, "creation receipt identity mismatch");
+                    ensure!(
+                        !request.initialize_readme || previous.initial_commit.is_some(),
+                        "completed creation lacks its planned commit"
+                    );
+                    ensure!(
+                        state
+                            .core
+                            .repository_creations()
+                            .iter()
+                            .any(|entry| entry.repository_id == identity && entry.materialized),
+                        "Core creation is still pending"
+                    );
+                    GitMaterializer::new(state.repo_manager.clone()).verify_published(&repo)?;
                 }
-            };
-            if previous.request_sha256 != digest {
-                return Ok(api_error(
-                    StatusCode::CONFLICT,
-                    "idempotency_conflict",
-                    "Idempotency-Key was used with a different request",
-                ));
-            }
-            if let Some(id) = previous.repository_id {
-                if let Ok(repo) = state.core.get_repository(&request.owner, &request.name)
-                    && repo.id.to_string() == id
-                {
-                    return Ok(Json(repo_summary(state, &repo)).into_response());
-                }
-                return Ok(api_error(
-                    StatusCode::CONFLICT,
-                    "repository_changed",
-                    "the original repository no longer exists",
-                ));
+                return Ok(Json(repo_summary(state, &repo)).into_response());
             }
             return Ok(api_error(
                 StatusCode::CONFLICT,
-                "creation_incomplete",
-                "this creation is still in progress or requires recovery",
+                "repository_changed",
+                "the original repository no longer exists",
             ));
         }
-        Err(error) => return Err(error.into()),
-    };
-    serde_json::to_writer(
-        &mut reservation,
-        &Receipt {
-            request_sha256: digest.clone(),
+        if previous.creation_id.is_none() {
+            return Ok(api_error(
+                StatusCode::CONFLICT,
+                "creation_incomplete",
+                "legacy interrupted creation has no durable identity; retain it for maintainer recovery",
+            ));
+        }
+        previous
+    } else {
+        let receipt = Receipt {
+            request_sha256: digest,
             repository_id: None,
-        },
-    )?;
-    reservation.sync_all()?;
-    fs::File::open(&directory)?.sync_all()?;
-
-    if state
-        .core
-        .get_repository(&request.owner, &request.name)
-        .is_ok()
-    {
-        return Ok(api_error(
-            StatusCode::CONFLICT,
-            "already_exists",
-            "repository already exists",
-        ));
-    }
+            creation_id: Some(Uuid::new_v4()),
+            initial_commit: None,
+        };
+        directory.write(&filename, &receipt, false)?;
+        receipt
+    };
+    let creation_id = receipt.creation_id.context("missing creation identity")?;
+    ensure!(!creation_id.is_nil(), "invalid creation identity");
     let id = RepoId::new(&request.owner, &request.name)?;
-    // Never adopt orphaned storage or initialize a ref in an existing repository.
-    ensure!(
-        !state.repo_manager.resolve(&id)?.path.exists(),
-        "repository storage already exists"
-    );
-    let mut repo = state.core.create_repository(
+    if let Ok(existing) = state.core.get_repository(&request.owner, &request.name) {
+        if existing.id != creation_id {
+            return Ok(api_error(
+                StatusCode::CONFLICT,
+                "repository_changed",
+                "repository belongs to another creation",
+            ));
+        }
+    } else {
+        // Core did not start this request. It cannot adopt an orphaned Git path.
+        match std::fs::symlink_metadata(state.repo_manager.resolve(&id)?.path) {
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => return Err(error.into()),
+            Ok(_) => anyhow::bail!("repository storage already exists"),
+        }
+    }
+    let mut repo = state.core.create_repository_with_id(
+        creation_id,
         &request.owner,
         jeryu_core::CreateRepositoryRequest {
             name: request.name.clone(),
@@ -290,67 +307,90 @@ fn execute(
             default_branch: request.default_branch.clone(),
         },
     )?;
-    let bare = match state.repo_manager.open(&id) {
-        Ok(bare) => bare,
-        Err(_) => state.repo_manager.create_bare(&id)?,
-    };
-    state.repo_manager.install_pre_receive_hook(&bare)?;
+    // Embedded/test callers may use metadata-only Core. The same identity-bound
+    // materializer is safe to replay after production Core already completed it.
+    GitMaterializer::new(state.repo_manager.clone()).resume(&repo)?;
+    let bare = state.repo_manager.open(&id)?;
     let branch = format!("refs/heads/{}", repo.default_branch);
-    git(state, &bare.path, &["symbolic-ref", "HEAD", &branch], b"")?;
     if request.initialize_readme {
-        let content = format!("# {}\n", request.name);
-        let blob = git(
-            state,
-            &bare.path,
-            &["hash-object", "-w", "--stdin"],
-            content.as_bytes(),
-        )?;
-        let tree = git(
-            state,
-            &bare.path,
-            &["mktree"],
-            format!("100644 blob {blob}\tREADME.md\n").as_bytes(),
-        )?;
-        let commit = git(
-            state,
-            &bare.path,
-            &["commit-tree", &tree],
-            b"Initialize repository\n",
-        )?;
-        // Compare-and-swap only the absent initial ref; this cannot replace a pushed commit.
-        git(
-            state,
-            &bare.path,
-            &[
-                "update-ref",
-                &branch,
-                &commit,
-                "0000000000000000000000000000000000000000",
-            ],
-            b"",
-        )?;
+        if receipt.initial_commit.is_none() {
+            let content = format!("# {}\n", request.name);
+            let blob = git(
+                state,
+                &bare.path,
+                &["hash-object", "-w", "--stdin"],
+                content.as_bytes(),
+            )?;
+            let tree = git(
+                state,
+                &bare.path,
+                &["mktree"],
+                format!("100644 blob {blob}\tREADME.md\n").as_bytes(),
+            )?;
+            let commit = git(
+                state,
+                &bare.path,
+                &["commit-tree", &tree],
+                b"Initialize repository\n",
+            )?;
+            // Persist the exact object before touching a visible ref. A crash
+            // after update-ref resumes this commit instead of creating another.
+            receipt.initial_commit = Some(commit);
+            crate::git_materializer::sync_repository(&bare.path)?;
+            directory.write(&filename, &receipt, true)?;
+        }
+        let commit = receipt
+            .initial_commit
+            .as_deref()
+            .context("missing initial commit")?;
+        ensure!(
+            commit.len() == 40 && commit.bytes().all(|byte| byte.is_ascii_hexdigit()),
+            "invalid planned initial commit"
+        );
+        // Compare-and-swap only the absent initial ref. On replay, require that
+        // this exact initialization survived, possibly beneath later pushes.
+        let observed = git_command(state)
+            .current_dir(&bare.path)
+            .args(["show-ref", "--verify", "--quiet", &branch])
+            .output()?;
+        if observed.status.success() {
+            git(
+                state,
+                &bare.path,
+                &["merge-base", "--is-ancestor", commit, &branch],
+                b"",
+            )?;
+        } else {
+            ensure!(
+                observed.status.code() == Some(1),
+                "cannot read the initial repository ref"
+            );
+            git(
+                state,
+                &bare.path,
+                &[
+                    "update-ref",
+                    &branch,
+                    commit,
+                    "0000000000000000000000000000000000000000",
+                ],
+                b"",
+            )?;
+        }
+        // update-ref is logically atomic; fsync objects and refs before the
+        // browser receipt can acknowledge durable completion.
+        crate::git_materializer::sync_repository(&bare.path)?;
     }
     if request.family.is_some() {
-        repo = state
-            .core
-            .set_repository_family(&repo.owner, &repo.name, request.family.clone())?;
+        repo = state.core.set_repository_family_with_id(
+            &repo.owner,
+            &repo.name,
+            repo.id,
+            request.family.clone(),
+        )?;
     }
-    let complete = directory.join(format!("{name}.complete"));
-    let mut file = OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .mode(0o600)
-        .open(&complete)?;
-    serde_json::to_writer(
-        &mut file,
-        &Receipt {
-            request_sha256: digest,
-            repository_id: Some(repo.id.to_string()),
-        },
-    )?;
-    file.sync_all()?;
-    fs::rename(complete, path)?;
-    fs::File::open(&directory)?.sync_all()?;
+    receipt.repository_id = Some(repo.id.to_string());
+    directory.write(&filename, &receipt, true)?;
     Ok((StatusCode::CREATED, Json(repo_summary(state, &repo))).into_response())
 }
 
