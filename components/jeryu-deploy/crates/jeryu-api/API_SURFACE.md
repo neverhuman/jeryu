@@ -33,7 +33,9 @@ Jeryu's own parity assertions, not vendored from any external spec. The
 - `GET /repos/{o}/{r}/commits/{ref}/status`, `POST /repos/{o}/{r}/statuses/{sha}`
 - `GET|POST /repos/{o}/{r}/check-runs`
 - `GET|PUT /repos/{o}/{r}/branches/{branch}/protection`
-- `GET|POST /repos/{o}/{r}/releases`
+- `GET /repos/{o}/{r}/releases` returns an empty compatibility collection.
+  Hosted release creation and assets are unavailable; `POST` returns `501`
+  after authentication and repository-access checks. Git tags are separate.
 - `GET|POST /repos/{o}/{r}/hooks`
 - `GET /repos/{o}/{r}/actions/runs`, `GET /repos/{o}/{r}/actions/runs/{id}`,
   `GET /repos/{o}/{r}/actions/runs/{id}/jobs`,

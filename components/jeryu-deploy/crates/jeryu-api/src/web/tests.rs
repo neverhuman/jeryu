@@ -3669,6 +3669,86 @@ async fn github_rest_repo_edge_requires_auth_and_filters_grants() {
 }
 
 #[tokio::test]
+async fn github_release_creation_checks_auth_and_access_before_unavailable() {
+    use axum::body::Body;
+    use axum::http::Request;
+    use tower::ServiceExt;
+
+    let core = ForgeCore::new();
+    core.create_repository(
+        "alice",
+        CreateRepositoryRequest {
+            name: "release-test".to_string(),
+            private: true,
+            description: None,
+            default_branch: Some("main".to_string()),
+        },
+    )
+    .unwrap();
+    core.create_account("release-admin", "admin-password", UserRole::Admin)
+        .unwrap();
+    core.create_account("release-reader", "reader-password", UserRole::User)
+        .unwrap();
+    core.grant_repo_access(
+        "release-admin",
+        "release-reader",
+        "alice",
+        "release-test",
+        RepoAccessLevel::Read,
+    )
+    .unwrap();
+    let admin = core
+        .create_personal_access_token(
+            &credential_actor(&core, "release-admin", "admin-password"),
+            "release-test",
+            None,
+        )
+        .unwrap()
+        .secret;
+    let reader = core
+        .create_personal_access_token(
+            &credential_actor(&core, "release-reader", "reader-password"),
+            "release-test",
+            None,
+        )
+        .unwrap()
+        .secret;
+    let app = app(
+        WebState::new(core).with_auth(true, false, false),
+        std::path::Path::new("/tmp/jeryu-no-spa"),
+    );
+    for prefix in ["", "/api/v3"] {
+        for (token, expected) in [
+            (None, StatusCode::UNAUTHORIZED),
+            (Some("invalid-token"), StatusCode::UNAUTHORIZED),
+            (Some(reader.as_str()), StatusCode::FORBIDDEN),
+            (Some(admin.as_str()), StatusCode::NOT_IMPLEMENTED),
+        ] {
+            let mut request = Request::builder()
+                .method("POST")
+                .uri(format!("{prefix}/repos/alice/release-test/releases"))
+                .header(header::CONTENT_TYPE, "application/json");
+            if let Some(token) = token {
+                request = request.header(header::AUTHORIZATION, format!("Bearer {token}"));
+            }
+            let response = app
+                .clone()
+                .oneshot(
+                    request
+                        .body(Body::from(r#"{"tag_name":"v1.0.0","name":"Release"}"#))
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(response.status(), expected);
+            let body = response_json(response).await;
+            assert!(body.get("tag_name").is_none());
+            assert!(body.get("html_url").is_none());
+        }
+    }
+}
+
+#[tokio::test]
 async fn github_rest_binds_mutation_actor_to_authenticated_principal() {
     use axum::body::Body;
     use axum::http::Request;
