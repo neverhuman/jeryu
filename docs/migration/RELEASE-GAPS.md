@@ -687,8 +687,8 @@ claim. Missing maintained commands remain explicit gaps.
 | R26 | Resulting-main qualification / maintainers | Complete `scripts/ci.sh all` at every maintained final head | Open. PR execution alone never qualifies merge output. Optional Redline remains separate from SQLite readiness. | All below |
 | R27 | Signed candidate archives and binary installation / Release Ops+Deploy | Central artifact/installer qualification | Signatures, checksums, SPDX/CycloneDX, provenance, install evidence and tampering/platform rejection remain open. Binary install stays closed. | Release followup |
 | R28 | Exact original-directory dispositions / family owners | `DISPOSITION.md`; preservation/restoration gates | Original checkouts, duplicate Redline and failed-build custody retained. No directory retirement or installed-service activation performed. | Separate custody work |
-| R29 | Truthful durable MCP / Core+Deploy+Tool | Authenticated HTTP/MCP campaigns and installed adapter discovery | OPEN: production MemoryBackend fallback observed; durable resources, authenticated per-request principal revalidation, scoped status, qualified execution and stable unavailable errors require implementation and proof. | Foundation successor |
-| R30 | Hosted release API correctness / Deploy | GitHub route and authenticated HTTP release refusal tests | OPEN: existing POST returns a request echo with 201 despite no durable release. Require 501 after auth/access checks, no advertised creation capability and explicit Git-tag/resource distinction. | Foundation successor |
+| R29 | Truthful durable MCP / Core+Deploy+Tool | Authenticated HTTP/MCP campaigns and installed adapter discovery | OPEN: 0842b09c removes production MemoryBackend fallback and excludes unsupported tools from backend discovery; stable tool_unavailable errors and transport regression are authored. Owning execution, durable resources, authenticated per-request principal revalidation, scoped status, qualified execution and remaining capability guidance are pending. | Foundation successor |
+| R30 | Hosted release API correctness / Deploy | GitHub route and authenticated HTTP release refusal tests | SOURCE IMPLEMENTED at 9f720843: POST returns guided 501 after existing auth/access checks, no request echo, creation advertisement removed and Git-tag/resource distinction documented. Route and HTTP authorization regressions are authored; execution and resulting-main evidence remain pending. | Foundation successor |
 
 ## Public PR dispositions
 
@@ -711,3 +711,36 @@ and merged replacements across all eleven repositories.
 
 Core and Runner had no open public PRs at this readback. Their source
 and final-head qualification obligations still apply.
+
+## Foundation successor verification, 2026-09-13
+
+[Draft PR67](https://github.com/neverhuman/jeryu/pull/67) starts at PR65
+`b50dc1f1` with forward corrective integration `cba0cb75`; the full source
+dispositions are in PR-RECONCILIATION.md. Native compute remains held by the
+coordinated App/Core/Ops campaigns; no competing native build was launched.
+
+Local full workspace formatting, 45 matrix controls, 128 dispatch controls,
+65-package/17-projection source validation, manifest paths, complete Tool
+renderer check and proof-inventory check passed. Existing Rust generator
+binaries produced the outputs; fresh producer build/test qualification remains
+required. An initial inventory check failed because generator stdout was not
+yet written to the tracked inventory; the actual owning output was then
+installed and rechecked. No invented test execution credit applies.
+
+Hosted run [34734091739](https://github.com/neverhuman/jeryu/actions/runs/34734091739)
+is bound to `6caa6566`. Rust job103662221479 failed before tests: the inherited
+Tool regression had been inserted inside a raw shell fixture, alongside
+inherited audit-service format drift. Correction `fd36319f` moves the test into
+Rust scope and formats owning files; original failure retained. Auxiliary
+job103662221484 failed on missing authenticated protected predecessor/policy
+and complete auxiliary admission. Auditor job103662221545 failed with score60
+against floor85 and46 hard findings. These failures remain blocking, with no
+threshold change or replacement of actual producer output. Later source must
+receive new evidence. Other lanes and the aggregate remain distinct.
+
+The requested independent reviewer is dr-seth; dennis99393 is the intended
+merger, jeppsontaylor the fallback. All ten component repositories retain
+pending write invitations for all three; only neverhuman has accepted access.
+Invitations do not establish independent approval or a protected merge.
+No release publication, original-checkout retirement, production activation or
+authority handover has occurred.
