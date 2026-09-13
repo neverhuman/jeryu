@@ -1,5 +1,4 @@
 //! Axum HTTP/WebSocket edge for the local live Jeryu API.
-#![allow(unused_imports)] // child modules (`http`, bootstrap, tests) import these through `use super::*`.
 
 #[cfg(test)]
 mod test_databases;
@@ -38,18 +37,21 @@ use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
-use axum::extract::{DefaultBodyLimit, Extension, Path as AxumPath, Request, State};
-use axum::http::{HeaderName, HeaderValue, Method as HttpMethod, StatusCode, header};
-use axum::middleware::{Next, from_fn, from_fn_with_state};
+#[cfg(test)]
+use axum::extract::{Path as AxumPath, Request, State};
+#[cfg(test)]
+use axum::http::{Method as HttpMethod, StatusCode, header};
+#[cfg(test)]
 use axum::response::{IntoResponse, Response as AxumResponse};
-use axum::routing::{any, get, post};
+#[cfg(test)]
 use axum::{Json, Router as AxumRouter};
 use jeryu_codegraph::CodeGraphStore;
-use jeryu_core::{AccountSummary, ForgeCore, UserRole};
+use jeryu_core::{ForgeCore, UserRole};
 use jeryu_jira::WorkStore;
 use jeryu_readmodel::TuiReadModel;
 use jeryu_readmodel::contracts::{RepositoryRole, ServerWsMessage, WebEvent};
 use serde::{Deserialize, Serialize};
+#[cfg(test)]
 use serde_json::{Value, json};
 use tokio::net::TcpListener;
 use tokio::sync::mpsc::UnboundedSender;
@@ -444,11 +446,14 @@ pub async fn serve(config: WebServerConfig) -> Result<(), Box<dyn std::error::Er
     // Share one RepoManager between the create-repo materializer (so a created
     // repo gets a bare repo on disk) and the smart-HTTP transport (so it can be
     // cloned/pushed) — both rooted at the same git storage root.
-    let repo_manager = Arc::new(RepoManager::new(GitdConfig::new(
-        config.git_storage_root.clone(),
-    )));
+    let mut git_config = GitdConfig::new(config.git_storage_root.clone());
+    git_config.git_bin =
+        std::env::var("GITD_GIT_BIN").unwrap_or_else(|_| "/usr/bin/git".to_string());
+    let repo_manager = Arc::new(RepoManager::new(git_config));
     let core = ForgeCore::open_managed(&db_path, &config.git_storage_root)?
         .with_repo_materializer(Arc::new(GitMaterializer::new(repo_manager.clone())));
+    let observer = jeryu_gitd::ManagedReviewGitObserver::new(repo_manager.as_ref().clone())?;
+    let core = core.with_review_git_observer(Arc::new(observer))?;
     let split_catalog = SplitCatalog::load(&config.split_manifests);
     let tool_registry_path = resolve_tool_registry_path(&config.split_manifests);
     // Merge-to-GitHub mirroring: targets come from the same manifest; with no
@@ -493,11 +498,6 @@ use bootstrap::bootstrap_public_accounts;
 #[cfg(test)]
 use bootstrap::bootstrap_public_accounts_with_admin_password;
 
-#[cfg(test)]
-use http::{
-    HDR_API, HDR_FAST_PATH, HDR_TOOL, advisory_headers, bootstrap_tui, capabilities_payload,
-    is_automation_agent, suggested_tool,
-};
 use http::{api_error, app, server_time};
 
 #[cfg(test)]

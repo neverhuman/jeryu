@@ -23,62 +23,64 @@ impl ForgeCore {
         repo: &str,
         request: RecordJankuraiScoreRequest,
     ) -> Result<JankuraiScore> {
-        require_name("branch", &request.branch)?;
-        require_name("commit sha", &request.commit_sha)?;
-        require_name("decision", &request.decision)?;
-        if let Some(score) = request.score
-            && score > 100
-        {
-            return Err(ForgeError::Validation(format!(
-                "score must be 0-100, got {score}"
-            )));
-        }
-        self.ensure_repo_exists(owner, repo)?;
-        let report_json = match (&request.report, request.tool_exit) {
-            (Some(report), _) => Some(report.to_string()),
-            (None, Some(exit)) => Some(json!({ "tool_exit": exit }).to_string()),
-            (None, None) => None,
-        };
-        let record = JankuraiScore {
-            id: Uuid::new_v4(),
-            owner: owner.to_string(),
-            repo: repo.to_string(),
-            branch: request.branch.trim().to_string(),
-            commit_sha: request.commit_sha.trim().to_string(),
-            score: request.score,
-            hard_findings: request.hard_findings.unwrap_or(0),
-            decision: request.decision.trim().to_string(),
-            caps_applied: request.caps_applied,
-            report_json,
-            created_at: Utc::now(),
-        };
-        let mut state = self.runtime.state.write();
-        let previous = state.clone();
-        let scores = state
-            .jankurai_scores
-            .entry((owner.to_string(), repo.to_string()))
-            .or_default();
-        scores.retain(|existing| {
-            !(existing.branch == record.branch && existing.commit_sha == record.commit_sha)
-        });
-        scores.push(record.clone());
-        while scores
-            .iter()
-            .filter(|existing| existing.branch == record.branch)
-            .count()
-            > MAX_SCORES_PER_BRANCH
-        {
-            let oldest = scores
+        self.with_repository_mutation(owner, repo, || {
+            require_name("branch", &request.branch)?;
+            require_name("commit sha", &request.commit_sha)?;
+            require_name("decision", &request.decision)?;
+            if let Some(score) = request.score
+                && score > 100
+            {
+                return Err(ForgeError::Validation(format!(
+                    "score must be 0-100, got {score}"
+                )));
+            }
+            self.ensure_repo_exists(owner, repo)?;
+            let report_json = match (&request.report, request.tool_exit) {
+                (Some(report), _) => Some(report.to_string()),
+                (None, Some(exit)) => Some(json!({ "tool_exit": exit }).to_string()),
+                (None, None) => None,
+            };
+            let record = JankuraiScore {
+                id: Uuid::new_v4(),
+                owner: owner.to_string(),
+                repo: repo.to_string(),
+                branch: request.branch.trim().to_string(),
+                commit_sha: request.commit_sha.trim().to_string(),
+                score: request.score,
+                hard_findings: request.hard_findings.unwrap_or(0),
+                decision: request.decision.trim().to_string(),
+                caps_applied: request.caps_applied,
+                report_json,
+                created_at: Utc::now(),
+            };
+            let mut state = self.runtime.state.write();
+            let previous = state.clone();
+            let scores = state
+                .jankurai_scores
+                .entry((owner.to_string(), repo.to_string()))
+                .or_default();
+            scores.retain(|existing| {
+                !(existing.branch == record.branch && existing.commit_sha == record.commit_sha)
+            });
+            scores.push(record.clone());
+            while scores
                 .iter()
-                .enumerate()
-                .filter(|(_, existing)| existing.branch == record.branch)
-                .min_by_key(|(_, existing)| existing.created_at)
-                .map(|(index, _)| index)
-                .expect("count > cap implies at least one entry");
-            scores.remove(oldest);
-        }
-        self.persist_after_mutation(&mut state, previous)?;
-        Ok(record)
+                .filter(|existing| existing.branch == record.branch)
+                .count()
+                > MAX_SCORES_PER_BRANCH
+            {
+                let oldest = scores
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, existing)| existing.branch == record.branch)
+                    .min_by_key(|(_, existing)| existing.created_at)
+                    .map(|(index, _)| index)
+                    .expect("count > cap implies at least one entry");
+                scores.remove(oldest);
+            }
+            self.persist_after_mutation(&mut state, previous)?;
+            Ok(record)
+        })
     }
 
     /// Scores for a repo, newest first, optionally filtered by branch and/or

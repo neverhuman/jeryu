@@ -25,23 +25,14 @@ struct Auditor {
 struct CandidateAuditor {
     head: String,
     receipt: PathBuf,
+    source_root: Option<PathBuf>,
 }
 
 impl Auditor {
     fn selected() -> Self {
         match std::env::var("JERYU_MONOREPO_CANDIDATE").as_deref() {
             Err(std::env::VarError::NotPresent) | Ok("0") => Self {
-                // Host default is the governed receipt path. Public GHA uses
-                // the SHA-pinned Release binary at /usr/local/bin/jankurai.
-                binary: std::env::var_os("JERYU_GOVERNED_JANKURAI_BIN")
-                    .map(PathBuf::from)
-                    .unwrap_or_else(|| {
-                        if std::env::var("GITHUB_ACTIONS").as_deref() == Ok("true") {
-                            PathBuf::from("/usr/local/bin/jankurai")
-                        } else {
-                            PathBuf::from(GOVERNED_JANKURAI)
-                        }
-                    }),
+                binary: PathBuf::from(GOVERNED_JANKURAI),
                 candidate: None,
             },
             Ok("1") => {
@@ -60,6 +51,8 @@ impl Auditor {
                         .expect("candidate tests require the verified installation binary"),
                     candidate: Some(CandidateAuditor {
                         head,
+                        source_root: std::env::var_os("JERYU_PUBLIC_AUDITOR_SOURCE_ROOT")
+                            .map(PathBuf::from),
                         receipt: std::env::var_os("JERYU_JANKURAI_RECEIPT")
                             .map(PathBuf::from)
                             .expect("candidate tests require the verified installation receipt"),
@@ -207,20 +200,6 @@ fn run_library_jankurai(
 ) -> Output {
     let root = root();
     let mut command = Command::new("bash");
-    // Public Actions `require_jankurai` resolves with `type -P`. Keep the
-    // SHA-pinned Release directory first there; the host still prepends the
-    // hostile directory and relies on the receipt-bound absolute path.
-    let path_prefix = if std::env::var("GITHUB_ACTIONS").as_deref() == Ok("true")
-        && auditor.candidate.is_none()
-    {
-        auditor
-            .binary
-            .parent()
-            .expect("governed Jankurai parent")
-            .to_owned()
-    } else {
-        earlier_path.to_owned()
-    };
     command
         .args([
             "-lc",
@@ -237,7 +216,7 @@ printf 'version='
 jankurai --version"#,
             "_",
             root.to_str().expect("UTF-8 workspace root"),
-            path_prefix.to_str().expect("UTF-8 PATH prefix"),
+            earlier_path.to_str().expect("UTF-8 hostile PATH"),
         ])
         .env("JERYU_JANKURAI_BIN", earlier_path.join("jankurai"))
         .env(
@@ -247,6 +226,7 @@ jankurai --version"#,
         .env_remove("JAIN_RELEASE_CI")
         .env_remove("JERYU_MONOREPO_CANDIDATE")
         .env_remove("JERYU_MONOREPO_EXPECTED_HEAD")
+        .env_remove("JERYU_PUBLIC_AUDITOR_SOURCE_ROOT")
         .env_remove("JERYU_CANDIDATE_JANKURAI_DESCRIPTOR")
         .env_remove("JERYU_INSTALL_TEST_MODE")
         .env_remove("JERYU_GOVERNED_JANKURAI_BIN")
@@ -272,6 +252,9 @@ jankurai --version"#,
             .env("JERYU_MONOREPO_EXPECTED_HEAD", &candidate.head)
             .env("JERYU_GOVERNED_JANKURAI_BIN", &auditor.binary)
             .env("JERYU_JANKURAI_RECEIPT", &candidate.receipt);
+        if let Some(source_root) = &candidate.source_root {
+            command.env("JERYU_PUBLIC_AUDITOR_SOURCE_ROOT", source_root);
+        }
     }
     if let Some(path) = receipt_override {
         command.env("JERYU_JANKURAI_RECEIPT", path);
@@ -559,12 +542,6 @@ fn governed_jankurai_custody_identity_and_receipt_fail_closed() {
     // Every isolated invocation first proves that its selected actual authority
     // succeeds. Hostile receipt refusals therefore cannot pass on a missing tool.
     assert_selected_auditor(&auditor, &hostile_bin, &hostile_marker);
-    if std::env::var("GITHUB_ACTIONS").as_deref() == Ok("true") {
-        // Public Actions admits the SHA-pinned Release binary and does not
-        // replay host receipt-bound custody of a caller-supplied
-        // JERYU_GOVERNED_JANKURAI_BIN. Those refusals stay on the host lane.
-        return;
-    }
 
     let missing = scratch.0.join("missing-jankurai");
     let missing_result = run_library_jankurai(&auditor, &hostile_bin, Some(&missing), None, false);

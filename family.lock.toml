@@ -1,6 +1,6 @@
-# Family pins for the Jeryu product monorepo.
-# Trees are the integrated component trees at this monorepo revision.
-# fetch-family.sh is a no-op when components/<name> already matches tree.
+# Historical export inventory for 72035eaf; these immutable tags never move.
+# This is provenance, not build input or release authority. Current component
+# source is tracked in the monorepo; fetch-family.sh only verifies that source.
 schema_version = "jeryu.split.lock/v3"
 family = "jeryu-split"
 manifest_authority = "repos.manifest.toml"
@@ -19,8 +19,8 @@ required_check = "jeryu-cache/required"
 name = "jeryu-ci-runner"
 path = "components/jeryu-ci-runner"
 github = "https://github.com/neverhuman/jeryu-ci-runner.git"
-tag = "jeryu-ci-runner-family-install-quiet"
-tree = "75ae12b1c788b56be828792985d97d24fe287599"
+tag = "jeryu-ci-runner-family-osstr"
+tree = "bd368a2ab5c435ec668bf6ab0e21b51781b15ded"
 required_check = "jeryu-ci-runner/required"
 
 [[repo]]
@@ -35,8 +35,8 @@ required_check = "jeryu-core/required"
 name = "jeryu-deploy"
 path = "components/jeryu-deploy"
 github = "https://github.com/neverhuman/jeryu-deploy.git"
-tag = "jeryu-deploy-family-gha-serial"
-tree = "04d8369457e1a6d97dc6738122f2c14767b25241"
+tag = "jeryu-deploy-family-bb7cb7fb"
+tree = "e46a9e47c84729390e3dd2af7547c4d0b5f2e8e4"
 required_check = "jeryu-deploy/required"
 
 [[repo]]
@@ -67,8 +67,8 @@ required_check = "jeryu-release-ops/required"
 name = "jeryu-tool"
 path = "components/jeryu-tool"
 github = "https://github.com/neverhuman/jeryu-tool.git"
-tag = "jeryu-tool-family-hermetic"
-tree = "ae129c84fdc7b9a317910348dfa12f9f0b2edf66"
+tag = "jeryu-tool-family-72035eaf"
+tree = "cc544ff524c5bedeb779191ac49ddfb78ce5e60d"
 required_check = "jeryu-tool/required"
 
 [[repo]]

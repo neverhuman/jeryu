@@ -163,5 +163,5 @@ requires_network = false
 [[lane]]
 name = "family-fetch"
 command = "bash scripts/fetch-family.sh --plan"
-purpose = "family.lock.toml trees match the current monorepo index"
+purpose = "embedded monorepo source validates without replacing component trees"
 requires_network = false

@@ -110,7 +110,11 @@ impl Fixture {
                 login.to_string(),
                 state
                     .core
-                    .create_personal_access_token(login, "Work route fixture", None)
+                    .create_personal_access_token(
+                        &super::credential_actor(&state.core, login, "work-route-fixture-password"),
+                        "Work route fixture",
+                        None,
+                    )
                     .unwrap()
                     .secret,
             );

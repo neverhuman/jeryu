@@ -190,10 +190,18 @@ fn activation_has_exactly_one_winner_and_requires_mfa_before_credentials() {
         core.authenticate_password("alice", "correct horse battery")
             .is_err()
     );
-    assert!(core.create_session("alice").is_err());
     assert!(
-        core.create_personal_access_token("alice", "cli", None)
+        core.create_session("alice", "correct horse battery")
             .is_err()
+    );
+    assert!(
+        core.authenticate_actor(jeryu_core::ActorCredential::PersonalAccessToken("unissued"))
+            .is_err()
+    );
+    assert!(
+        core.list_personal_access_tokens("alice")
+            .unwrap()
+            .is_empty()
     );
 
     let active = core
@@ -212,9 +220,18 @@ fn disable_lock_and_reactivation_revoke_every_existing_credential() {
     let created = core
         .create_account("alice", "correct horse battery", UserRole::User)
         .unwrap();
-    let session = core.create_session("alice").unwrap().token;
+    let receipt = core
+        .create_session("alice", "correct horse battery")
+        .unwrap();
+    let actor = core
+        .authenticate_actor(jeryu_core::ActorCredential::Session {
+            token: &receipt.token,
+            csrf_token: &receipt.session.csrf_token,
+        })
+        .unwrap();
+    let session = receipt.token;
     let pat = core
-        .create_personal_access_token("alice", "cli", None)
+        .create_personal_access_token(&actor, "cli", None)
         .unwrap()
         .secret;
 
@@ -230,9 +247,15 @@ fn disable_lock_and_reactivation_revoke_every_existing_credential() {
 
     let pending = core.reactivate_account("alice").unwrap();
     assert_eq!(pending.status, AccountStatus::PendingMfa);
-    assert!(core.create_session("alice").is_err());
+    assert!(
+        core.create_session("alice", "correct horse battery")
+            .is_err()
+    );
     core.mark_account_mfa_active("alice").unwrap();
-    let replacement = core.create_session("alice").unwrap().token;
+    let replacement = core
+        .create_session("alice", "correct horse battery")
+        .unwrap()
+        .token;
     let locked = core.lock_account("alice").unwrap();
     assert_eq!(locked.status, AccountStatus::Locked);
     assert!(core.authenticate_session(&replacement).is_none());

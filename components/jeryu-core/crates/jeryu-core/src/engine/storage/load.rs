@@ -18,6 +18,8 @@ pub(super) fn load_state(conn: &Connection) -> Result<State> {
     load_organizations(conn, &mut state)?;
     load_teams(conn, &mut state)?;
     load_repositories(conn, &mut state)?;
+    load_repository_creations(conn, &mut state)?;
+    load_repository_mutation_blocks(conn, &mut state)?;
     load_repository_transfers(conn, &mut state)?;
     load_repository_aliases(conn, &mut state)?;
     load_repo_grants(conn, &mut state)?;
@@ -26,6 +28,7 @@ pub(super) fn load_state(conn: &Connection) -> Result<State> {
     load_issue_comments(conn, &mut state)?;
     load_pull_requests(conn, &mut state)?;
     load_reviews(conn, &mut state)?;
+    state.bound_reviews = super::bound_reviews::load_bound_reviews(conn)?;
     load_review_comments(conn, &mut state)?;
     load_branch_protection(conn, &mut state)?;
     load_codeowners(conn, &mut state)?;
@@ -37,6 +40,40 @@ pub(super) fn load_state(conn: &Connection) -> Result<State> {
     load_webhook_deliveries(conn, &mut state)?;
     load_counters(conn, &mut state)?;
     Ok(state)
+}
+
+fn load_repository_creations(conn: &Connection, state: &mut State) -> Result<()> {
+    let mut statement = conn
+        .prepare("SELECT repository_id, receipt_json FROM repository_creation_journal")
+        .map_err(storage_error)?;
+    let mut rows = statement.query([]).map_err(storage_error)?;
+    while let Some(row) = rows.next().map_err(storage_error)? {
+        let id: String = row.get(0).map_err(storage_error)?;
+        let journal: super::super::RepositoryCreation =
+            parse_json(row.get(1).map_err(storage_error)?)?;
+        if journal.repository_id.is_nil() || journal.repository_id.to_string() != id {
+            return Err(crate::ForgeError::Storage(
+                "creation journal UUID mismatch".into(),
+            ));
+        }
+        state
+            .repository_creations
+            .insert(journal.repository_id, journal);
+    }
+    Ok(())
+}
+
+fn load_repository_mutation_blocks(conn: &Connection, state: &mut State) -> Result<()> {
+    let mut statement = conn
+        .prepare("SELECT repo_id, block_json FROM repository_mutation_blocks")
+        .map_err(storage_error)?;
+    let mut rows = statement.query([]).map_err(storage_error)?;
+    while let Some(row) = rows.next().map_err(storage_error)? {
+        let id = parse_uuid(row.get(0).map_err(storage_error)?)?;
+        let block = parse_json(row.get(1).map_err(storage_error)?)?;
+        state.repository_mutation_blocks.insert(id, block);
+    }
+    Ok(())
 }
 
 fn load_users(conn: &Connection, state: &mut State) -> Result<()> {

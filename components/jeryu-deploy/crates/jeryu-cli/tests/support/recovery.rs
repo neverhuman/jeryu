@@ -65,30 +65,9 @@ impl RecoveryFixture {
         Ok(())
     }
 
-    fn hosted_github_actions_lane() -> bool {
-        std::env::var_os("GITHUB_ACTIONS").is_some_and(|value| value == "true")
-            && std::env::var_os("JAIN_RELEASE_CI").is_none_or(|value| value != "1")
-    }
-
-    fn ignore_vanished_proc(error: &io::Error) -> bool {
-        matches!(
-            error.kind(),
-            io::ErrorKind::NotFound | io::ErrorKind::PermissionDenied
-        )
-    }
-
     fn check_mounts(&self) -> io::Result<()> {
         // A bind mount can retain the same device; device checks alone are insufficient.
-        let mountinfo = match fs::read_to_string("/proc/self/mountinfo") {
-            Ok(text) => text,
-            Err(error)
-                if Self::ignore_vanished_proc(&error) && Self::hosted_github_actions_lane() =>
-            {
-                return Ok(());
-            }
-            Err(error) => return Err(error),
-        };
-        for line in mountinfo.lines() {
+        for line in fs::read_to_string("/proc/self/mountinfo")?.lines() {
             let encoded = line
                 .split_whitespace()
                 .nth(4)
@@ -251,21 +230,8 @@ impl RecoveryFixture {
         // This excludes ordinary live consumers, not hostile same-user races.
         let this_process = std::process::id().to_string();
         let held_descriptor = self.held.as_raw_fd().to_string();
-        let proc_entries = match fs::read_dir("/proc") {
-            Ok(entries) => entries,
-            Err(error)
-                if Self::ignore_vanished_proc(&error) && Self::hosted_github_actions_lane() =>
-            {
-                return Ok(());
-            }
-            Err(error) => return Err(error),
-        };
-        for entry in proc_entries {
-            let path = match entry {
-                Ok(entry) => entry.path(),
-                Err(error) if Self::ignore_vanished_proc(&error) => continue,
-                Err(error) => return Err(error),
-            };
+        for entry in fs::read_dir("/proc")? {
+            let path = entry?.path();
             if !path
                 .file_name()
                 .is_some_and(|name| name.as_encoded_bytes().iter().all(u8::is_ascii_digit))
@@ -274,12 +240,7 @@ impl RecoveryFixture {
             }
             let metadata = match fs::metadata(&path) {
                 Ok(metadata) => metadata,
-                Err(error)
-                    if error.kind() == io::ErrorKind::NotFound
-                        || error.kind() == io::ErrorKind::PermissionDenied =>
-                {
-                    continue;
-                }
+                Err(error) if error.kind() == io::ErrorKind::NotFound => continue,
                 Err(error) => return Err(error),
             };
             if metadata.uid() != self.identity.uid() {
@@ -291,9 +252,7 @@ impl RecoveryFixture {
                         return Err(io::Error::other("live process references runtime fixture"));
                     }
                     Ok(_) => {}
-                    Err(error)
-                        if error.kind() == io::ErrorKind::NotFound
-                            || error.kind() == io::ErrorKind::PermissionDenied => {}
+                    Err(error) if error.kind() == io::ErrorKind::NotFound => {}
                     Err(error) => return Err(error),
                 }
             }
@@ -303,32 +262,16 @@ impl RecoveryFixture {
                         check_mapping(line, &self.root)?;
                     }
                 }
-                Err(error)
-                    if error.kind() == io::ErrorKind::NotFound
-                        || error.kind() == io::ErrorKind::PermissionDenied => {}
+                Err(error) if error.kind() == io::ErrorKind::NotFound => {}
                 Err(error) => return Err(error),
             }
             let handles = match fs::read_dir(path.join("fd")) {
                 Ok(handles) => handles,
-                Err(error)
-                    if error.kind() == io::ErrorKind::NotFound
-                        || error.kind() == io::ErrorKind::PermissionDenied =>
-                {
-                    continue;
-                }
+                Err(error) if error.kind() == io::ErrorKind::NotFound => continue,
                 Err(error) => return Err(error),
             };
             for handle in handles {
-                let handle = match handle {
-                    Ok(handle) => handle,
-                    Err(error)
-                        if error.kind() == io::ErrorKind::NotFound
-                            || error.kind() == io::ErrorKind::PermissionDenied =>
-                    {
-                        continue;
-                    }
-                    Err(error) => return Err(error),
-                };
+                let handle = handle?;
                 match fs::read_link(handle.path()) {
                     Ok(target) => {
                         let own_held_root = path.file_name() == Some(this_process.as_ref())
@@ -347,9 +290,7 @@ impl RecoveryFixture {
                             return Err(io::Error::other("open runtime fixture handle"));
                         }
                     }
-                    Err(error)
-                        if error.kind() == io::ErrorKind::NotFound
-                            || error.kind() == io::ErrorKind::PermissionDenied => {}
+                    Err(error) if error.kind() == io::ErrorKind::NotFound => {}
                     Err(error) => return Err(error),
                 }
             }
@@ -390,24 +331,6 @@ impl RecoveryFixture {
         self.cleanup()
             .expect("successful runtime fixture cleanup refused; retained remaining state");
     }
-}
-
-fn assert_open_handle_refused(fixture: &mut RecoveryFixture) {
-    let error = fixture
-        .cleanup()
-        .expect_err("open runtime fixture handle must refuse cleanup");
-    let message = error.to_string();
-    if RecoveryFixture::hosted_github_actions_lane()
-        && !message.contains("open runtime fixture handle")
-    {
-        assert!(
-            error.kind() == io::ErrorKind::PermissionDenied
-                || message.contains("Permission denied"),
-            "GHA cleanup without a readable /proc handle scan must not invent success: {message}"
-        );
-        return;
-    }
-    assert!(message.contains("open runtime fixture handle"), "{message}");
 }
 
 fn check_mapping(line: &str, root: &Path) -> io::Result<()> {
@@ -490,11 +413,23 @@ fn successful_cleanup_refuses_links_and_live_handles_before_removing_owned_bytes
     );
     fs::remove_file(&link).unwrap(); // Only our verified extra hard link.
     let open_file = File::open(&data).unwrap();
-    assert_open_handle_refused(&mut fixture);
+    assert!(
+        fixture
+            .cleanup()
+            .unwrap_err()
+            .to_string()
+            .contains("open runtime fixture handle")
+    );
     assert!(fs::read(&data).unwrap() == b"synthetic cleanup state");
     drop(open_file);
     let extra_root = fixture.held.try_clone().unwrap();
-    assert_open_handle_refused(&mut fixture);
+    assert!(
+        fixture
+            .cleanup()
+            .unwrap_err()
+            .to_string()
+            .contains("open runtime fixture handle")
+    );
     assert!(data.is_file());
     drop(extra_root);
     fixture.finish();

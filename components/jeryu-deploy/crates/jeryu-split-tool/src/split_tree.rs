@@ -116,6 +116,12 @@ pub(super) fn export_tree(
             git(root, &["show", &format!("{source}:{path}")], None)?,
         );
     }
+    if component == "jeryu-ci-runner" {
+        files.insert(
+            "tests/scratch.sh".into(),
+            git(root, &["show", &format!("{source}:tests/scratch.sh")], None)?,
+        );
+    }
     // Shared score transport is source-owned, not compiled into the exporter.
     // Generated mirrors receive the same source/directory custody helpers.
     let score_transport = matches!(

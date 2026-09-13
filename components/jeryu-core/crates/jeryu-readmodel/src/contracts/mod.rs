@@ -17,6 +17,7 @@ pub mod entity;
 pub mod pulls;
 pub mod repository;
 pub mod review;
+pub mod review_preparation;
 pub mod settings;
 pub mod source;
 pub mod tool_finder;
@@ -41,6 +42,10 @@ pub use repository::{
 pub use review::{
     CreateReviewCommentRequest, DismissPullReviewRequest, ReviewComment, ReviewEvidence,
     ReviewSuggestion, ReviewThread, ReviewVerdict, SubmitReviewRequest,
+};
+pub use review_preparation::{
+    PreparePullReviewRequest, PullApproveRequest, PullReviewActor, PullReviewChallenge,
+    PullReviewGitObservation, PullReviewObservedRef, PullReviewSnapshot,
 };
 pub use settings::{
     AccessSettings, AgentSettings, AuditSettings, BranchProtectionRule, CiSettings,
@@ -133,6 +138,13 @@ contract_exports!(
     MergeSettings,
     Mergeability,
     NotificationSettings,
+    PreparePullReviewRequest,
+    PullApproveRequest,
+    PullReviewActor,
+    PullReviewChallenge,
+    PullReviewGitObservation,
+    PullReviewObservedRef,
+    PullReviewSnapshot,
     PullRequestDetail,
     PullRequestReview,
     PullRequestState,

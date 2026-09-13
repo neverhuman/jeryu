@@ -1,0 +1,18 @@
+# jankurai:migration v1
+id = "0015_authenticated_reviews"
+owner = "jeryu-core"
+reviewer = "independent-review-required"
+change_type = "expand"
+safety = "online"
+transaction = "required"
+lock_timeout = "5s"
+statement_timeout = "60s"
+estimated_rows = 0
+deploy_phase = "expand"
+app_compatibility = "new_app_old_db"
+requires = ["0014_ref_operation_journal"]
+rollback = "db/rollbacks/0015_authenticated_reviews.sql"
+backfill = "none; historical reviewer names do not prove authenticated review authority"
+data_classification = "internal"
+tenant_impact = "none"
+tests = ["db-migration-analyze", "core::bound_reviews::tests", "review_observer", "review_semantics"]

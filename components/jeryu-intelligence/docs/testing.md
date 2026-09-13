@@ -17,6 +17,15 @@ Use the local CI entrypoints before pushing changes:
 
 `scripts/ci-doctor.sh` checks the required local tools.
 
+`just check` always runs all Codegraph test targets, including snapshot storage,
+query behavior and drift of the generated symbol-row contract. Regenerate from
+this component root with
+`cargo run --locked -p jeryu-codegraph --example symbol-schema > contracts/codegraph.schema.json`.
+The Rust serialization uses `crate_name`, accepts empty strings and unknown input
+fields, and bounds `line` to an unsigned 32-bit integer. The schema preserves
+those existing semantics. Storage helper/type extraction changes source routing
+without changing the public reexports or database schema.
+
 Agent-readable exception guidance:
 
 - purpose: every typed error documents the caller-facing failure purpose

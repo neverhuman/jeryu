@@ -6,6 +6,9 @@ use crate::error::{GitdError, Result};
 use crate::hooks::PRE_RECEIVE_HOOK;
 use crate::path::{normalize_repo_name, safe_join, validate_segment};
 use std::fmt::{Display, Formatter};
+use std::io::Write;
+#[cfg(unix)]
+use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt};
 use std::path::{Path, PathBuf};
 
 /// Logical repository identifier.
@@ -101,9 +104,13 @@ impl RepoManager {
             .path
             .parent()
             .ok_or_else(|| GitdError::InvalidPath("missing repository parent".to_string()))?;
-        std::fs::create_dir_all(parent)?;
+        private_directory(parent)?;
         let path_arg = repo.path.to_string_lossy().to_string();
-        run_capture(&self.config.git_bin, &["init", "--bare", &path_arg], None)?;
+        run_capture(
+            &self.config.git_bin,
+            &["init", "--bare", "--shared=0600", &path_arg],
+            None,
+        )?;
         self.write_metadata(&repo)?;
         Ok(repo)
     }
@@ -146,22 +153,40 @@ impl RepoManager {
     /// materializers can opt into the durable receive guard after creation.
     pub fn install_pre_receive_hook(&self, repo: &Repository) -> Result<()> {
         let hooks = repo.path.join("hooks");
-        std::fs::create_dir_all(&hooks)?;
+        private_directory(&hooks)?;
         let hook = hooks.join("pre-receive");
-        std::fs::write(&hook, PRE_RECEIVE_HOOK.as_bytes())?;
+        private_file(&hook, PRE_RECEIVE_HOOK.as_bytes())?;
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
-            std::fs::set_permissions(&hook, std::fs::Permissions::from_mode(0o755))?;
+            std::fs::set_permissions(&hook, std::fs::Permissions::from_mode(0o700))?;
         }
         Ok(())
     }
 
     fn write_metadata(&self, repo: &Repository) -> Result<()> {
         let jf = repo.path.join("jeryu");
-        std::fs::create_dir_all(&jf)?;
-        std::fs::write(jf.join("phase"), b"phase1-git-server-core\n")?;
-        std::fs::write(jf.join("repo-id"), repo.id.to_string())?;
+        private_directory(&jf)?;
+        private_file(&jf.join("phase"), b"phase1-git-server-core\n")?;
+        private_file(&jf.join("repo-id"), repo.id.to_string().as_bytes())?;
         Ok(())
     }
+}
+
+// Set modes at creation; a process-wide umask change would race other requests.
+// Existing paths retain their permissions for the caller's storage admission.
+fn private_directory(path: &Path) -> std::io::Result<()> {
+    let mut builder = std::fs::DirBuilder::new();
+    builder.recursive(true);
+    #[cfg(unix)]
+    builder.mode(0o700);
+    builder.create(path)
+}
+
+fn private_file(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
+    let mut options = std::fs::OpenOptions::new();
+    options.write(true).create(true).truncate(true);
+    #[cfg(unix)]
+    options.mode(0o600);
+    options.open(path)?.write_all(bytes)
 }

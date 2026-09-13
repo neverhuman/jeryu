@@ -5,6 +5,8 @@ source ops/ci/lib.sh
 bash ops/ci/test-governed-jankurai-path.sh
 # shellcheck source=ops/ci/cargo-scope.sh
 source ops/ci/cargo-scope.sh
+cargo test --locked --manifest-path "$member_manifest" --package jeryu-codegraph \
+  --all-targets --jobs "${JERYU_CI_JOBS:-2}"
 if [[ "${JERYU_SPLIT_FULL_CHECK:-0}" == "1" ]]; then
   check_scope=(--workspace)
   if [[ $component_root != "$git_root" ]]; then

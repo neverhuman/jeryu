@@ -305,4 +305,19 @@ fn transfer_preserves_uuid_scoped_state_alias_and_journal_across_reopen() {
         core.prepare_repository_transfer(wrong_repository),
         Err(ForgeError::Conflict(_))
     ));
+
+    let mut missing_repository = transfer(uuid::Uuid::new_v4(), "sha256:request");
+    missing_repository.idempotency_key = "unknown-repository-unused-key".to_string();
+    assert!(matches!(
+        core.prepare_repository_transfer(missing_repository),
+        Err(ForgeError::NotFound(_))
+    ));
+    assert!(
+        core.get_repository_transfer("unknown-repository-unused-key")
+            .is_none()
+    );
+    assert_eq!(
+        core.get_repository_transfer("redline-to-veox-1"),
+        Some(replay)
+    );
 }

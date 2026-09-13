@@ -1472,6 +1472,7 @@ dependencies = [
  "jeryu-runnerd",
  "jeryu-wsversion",
  "reqwest",
+ "rustix",
  "serde",
  "serde_json",
  "sha2",
@@ -1712,9 +1713,13 @@ version = "5.0.0"
 name = "jeryu-gitd"
 version = "5.0.0"
 dependencies = [
+ "jeryu-core",
+ "rustix",
  "serde",
  "serde_json",
  "sha2",
+ "tempfile",
+ "uuid",
 ]
 
 [[package]]
@@ -2019,14 +2024,18 @@ name = "jeryu-split-tool"
 version = "5.0.0"
 dependencies = [
  "anyhow",
+ "axum",
  "clap",
+ "hmac",
  "jeryu-repogate",
  "libc",
  "rusqlite",
+ "rustix",
  "serde",
  "serde_json",
  "sha2",
  "tempfile",
+ "tokio",
  "toml",
 ]
 

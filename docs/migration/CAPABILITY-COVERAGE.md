@@ -68,7 +68,8 @@ explicit unavailable label. Public/private selection and the existing private
 creation journey remain covered by amended existing Playwright scenarios.
 Selected rendered scenarios and the real-backend creation scenario passed,
 with retained screenshots inspected. The later Work-page wording and link-style
-change still needs rendered replay; the complete web lane remains open.
+change also passed its selected rendered replay in the acquisition/recovery
+slice. The complete web lane remains open.
 
 The [mocked repository scenario][browser-repos] retains its screenshot and
 checks available selections. The Work action matrix in `e2e/24-work-tracker.spec.ts`
@@ -94,9 +95,10 @@ The install test rejects modified binaries, changed source, missing/malformed
 receipts and exercises installation transaction recovery. The
 [operator guide](../recovery.md) now documents whole-directory stopped backup,
 restoration, upgrades, failed creation and remote TLS. The extended standalone
-scenario will verify same-binary restoration of authentication, Git, issues and
-Work plus a post-restore write and restart. Its execution, cross-version
-upgrades, actual TLS deployment and interrupted-creation repair remain open.
+scenario passed same-binary restoration of authentication, Git, issues and
+Work plus a post-restore write and restart in the selected acquisition/recovery
+run. Cross-version upgrades, actual TLS deployment and interrupted-creation
+repair remain open.
 Fresh unprivileged empty-cache qualification, anonymous public-origin testing,
 and the full local/hosted matrix remain required at the exact release source.
 

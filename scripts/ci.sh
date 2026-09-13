@@ -6,6 +6,9 @@ cd "$root"
 export CI=true
 export CARGO_BUILD_JOBS=${CARGO_BUILD_JOBS:-2}
 export JERYU_CI_JOBS=$CARGO_BUILD_JOBS
+# Whole-account process-custody assertions need serial suite execution. Tests
+# that exercise concurrency still create their own explicit concurrent actors.
+export RUST_TEST_THREADS=1
 export JERYU_WEB_DIST="$root/components/jeryu-web/apps/web/dist"
 export PATH="$root/target/ci-tools/bin:$PATH"
 
@@ -35,27 +38,12 @@ case ${1:-all} in
     bash ops/ci/score.sh
     ;;
   audit)
-    # Host census stays fail-closed for release admission. Public GHA cannot
-    # produce a hermetic public-candidate receipt, so the hosted lane is the
-    # same SHA-pinned Release auditor + standard-mode score as `auditor`.
-    if [[ ${GITHUB_ACTIONS:-} == true && ${JAIN_RELEASE_CI:-0} != 1 ]]; then
-      source scripts/bootstrap-jankurai.sh
-      bootstrap_public_jankurai
-      bash ops/ci/score.sh
-    else
-      bash scripts/audit.sh
-    fi
+    bash scripts/audit.sh
     ;;
   auxiliary)
     source scripts/bootstrap-jankurai.sh
     bootstrap_public_jankurai
-    # `full` always records missing predecessor/proofbind gates and exits 1.
-    # Hosted required CI runs the executable independent producers only.
-    if [[ ${GITHUB_ACTIONS:-} == true && ${JAIN_RELEASE_CI:-0} != 1 && $# -lt 2 ]]; then
-      bash scripts/auxiliary-proofs.sh independent
-    else
-      bash scripts/auxiliary-proofs.sh "${@:2}"
-    fi
+    bash scripts/auxiliary-proofs.sh "${@:2}"
     ;;
   rust)
     web_build
@@ -67,18 +55,14 @@ case ${1:-all} in
     # on a fresh host. Absence or verification failure is a lane failure.
     source scripts/bootstrap-jankurai.sh
     bootstrap_public_jankurai
-    if [[ ${GITHUB_ACTIONS:-} == true && ${JAIN_RELEASE_CI:-0} != 1 ]]; then
-      # Public Actions shares one VM. jeryu-api workcell stdout capture flakes
-      # under default libtest fan-out. Host stays fully parallel.
-      cargo test --locked --workspace --all-features --exclude jeryu-sandbox-linux \
-        --exclude jeryu-api
-      cargo test --locked -p jeryu-api --all-features -- --test-threads=1
-    else
-      cargo test --locked --workspace --all-features --exclude jeryu-sandbox-linux
-    fi
+    # Retain every target's diagnostics and both supported API configurations.
+    # Any failure remains a lane failure after the remaining checks finish.
+    rust_result=0
+    cargo test --locked --workspace --all-features --exclude jeryu-sandbox-linux --no-fail-fast || rust_result=$?
     # Workspace feature unification otherwise hides the supported API without Web.
-    cargo test --locked -p jeryu-api --no-default-features
-    cargo clippy --locked -p jeryu-api --all-targets --no-default-features -- -D warnings
+    cargo test --locked -p jeryu-api --no-default-features --no-fail-fast || rust_result=$?
+    cargo clippy --locked -p jeryu-api --all-targets --no-default-features -- -D warnings || rust_result=$?
+    exit "$rust_result"
     ;;
   runner-governed)
     # Separately mandatory installed-authority handover proof. No candidate
@@ -151,21 +135,15 @@ case ${1:-all} in
     source scripts/bootstrap-jankurai.sh
     bootstrap_public_jankurai
     export JERYU_TOOL_RENDER="$root/components/jeryu-tool/ops/ci/check-rendered-identity.sh"
-    # Keep the original proof union active on the host until each replacement
-    # is verified. Public GHA already runs the portable matrix lanes; the host
-    # pr-ci / ci-local union needs offline vendor, gitleaks, and syft.
-    if [[ "${GITHUB_ACTIONS:-}" == "true" && "${JAIN_RELEASE_CI:-}" != "1" ]]; then
-      printf 'legacy host pr-ci union remains host-only; GITHUB_ACTIONS uses the matrix lanes\n'
-    else
-      bash ops/ci/pr-ci.sh
-      for component in components/*; do
-        if [[ -f "$component/scripts/ci-local.sh" ]]; then
-          (cd "$component" && bash scripts/ci-local.sh required)
-        else
-          (cd "$component" && bash ops/ci/pr-ci.sh)
-        fi
-      done
-    fi
+    # Keep the original proof union active until each replacement is verified.
+    bash ops/ci/pr-ci.sh
+    for component in components/*; do
+      if [[ -f "$component/scripts/ci-local.sh" ]]; then
+        (cd "$component" && bash scripts/ci-local.sh required)
+      else
+        (cd "$component" && bash ops/ci/pr-ci.sh)
+      fi
+    done
     ;;
   all)
     source scripts/ci-lanes.sh

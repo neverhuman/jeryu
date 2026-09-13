@@ -50,30 +50,32 @@ impl ForgeCore {
         phase: &str,
         detail: Value,
     ) -> Result<String> {
-        if action.trim().is_empty() {
-            return Err(ForgeError::Validation(
-                "audit action cannot be empty".to_string(),
-            ));
-        }
-        if !AUDIT_PHASES.contains(&phase) {
-            return Err(ForgeError::Validation(format!(
-                "audit phase must be one of requested/completed/failed, got {phase:?}"
-            )));
-        }
-        let entry = AuditEntry {
-            id: Uuid::new_v4().to_string(),
-            occurred_at: Utc::now().to_rfc3339(),
-            actor: "local".to_string(),
-            action: action.to_string(),
-            subject: subject.to_string(),
-            phase: phase.to_string(),
-            detail,
-        };
-        let Some(storage) = &self.runtime.storage else {
-            return Ok(entry.id);
-        };
-        storage.append_audit(&entry)?;
-        Ok(entry.id)
+        self.with_audit_mutation(subject, || {
+            if action.trim().is_empty() {
+                return Err(ForgeError::Validation(
+                    "audit action cannot be empty".to_string(),
+                ));
+            }
+            if !AUDIT_PHASES.contains(&phase) {
+                return Err(ForgeError::Validation(format!(
+                    "audit phase must be one of requested/completed/failed, got {phase:?}"
+                )));
+            }
+            let entry = AuditEntry {
+                id: Uuid::new_v4().to_string(),
+                occurred_at: Utc::now().to_rfc3339(),
+                actor: "local".to_string(),
+                action: action.to_string(),
+                subject: subject.to_string(),
+                phase: phase.to_string(),
+                detail,
+            };
+            let Some(storage) = &self.runtime.storage else {
+                return Ok(entry.id);
+            };
+            storage.append_audit(&entry)?;
+            Ok(entry.id)
+        })
     }
 
     /// All audit entries recorded for one subject, oldest first.

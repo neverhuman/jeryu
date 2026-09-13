@@ -337,11 +337,7 @@ pub(super) fn acquire(
             &commit,
         ],
     )?;
-    // This input repository was just created. No original or remote ref moves.
-    session.run(
-        &input,
-        &["update-ref", "--no-deref", "HEAD", &commit, &"0".repeat(40)],
-    )?;
+    detach_initial_head(&mut session, &input, &commit)?;
     let (path, graph, source_identity) =
         clone_input(&mut session, &scratch, input_identity, &commit, &public_url)?;
     let tree = prove(&mut session, &path, &commit)?;
@@ -371,6 +367,25 @@ pub(super) fn acquire(
         timeout_seconds,
         receipt,
     })
+}
+
+fn detach_initial_head(session: &mut Session, input: &Path, commit: &str) -> Result<()> {
+    // This is the exclusively owned, newly initialized bare input. Its HEAD is
+    // still symbolic: a zero expected direct object is not a portable CAS for
+    // that state (Git 2.55 refuses it). Admit the initial shape explicitly.
+    ensure!(
+        session.run(input, &["for-each-ref"])?.is_empty()
+            && session
+                .run(input, &["symbolic-ref", "HEAD"])?
+                .starts_with("refs/heads/"),
+        "public input is no longer the initial bare repository"
+    );
+    session.run(input, &["update-ref", "--no-deref", "HEAD", commit])?;
+    ensure!(
+        session.run(input, &["rev-parse", "HEAD"])? == commit,
+        "public input HEAD does not match the selected commit"
+    );
+    Ok(())
 }
 
 fn clone_input(

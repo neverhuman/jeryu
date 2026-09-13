@@ -160,9 +160,17 @@ fn launch_session_runs_the_hardened_container_spec() {
     // The launched argv carries the FULL lock-down, not the loose OCI-compat args.
     assert!(argv.contains(&"--read-only".to_string()), "argv: {argv:?}");
     assert!(argv.contains(&"--cap-drop=ALL".to_string()));
-    assert!(
-        argv.windows(2)
-            .any(|w| w[0] == "--network" && w[1] == "bridge")
+    let networks: Vec<&str> = argv
+        .windows(2)
+        .filter(|pair| pair[0] == "--network")
+        .map(|pair| pair[1].as_str())
+        .collect();
+    assert_eq!(networks, ["none"], "argv: {argv:?}");
+    let mut expected = vec![session.container.runtime.clone()];
+    expected.extend(session.container.args());
+    assert_eq!(
+        argv, &expected,
+        "session dispatch must preserve its exact spec"
     );
     let binds: Vec<&String> = argv
         .iter()
@@ -230,4 +238,73 @@ fn oci_spec_rejects_dangerous_workspace() {
         .err()
         .unwrap_or_else(|| panic!("expected host path denial"));
     assert_eq!(err.code(), "host_path_denied");
+}
+
+#[test]
+fn agent_network_admission_checks_requested_and_effective_policies() {
+    let policies = [
+        NetworkPolicy::Deny,
+        NetworkPolicy::LoopbackOnly,
+        NetworkPolicy::EgressOnly,
+    ];
+    for requested in policies {
+        for effective in policies {
+            let mut job = oci_agent_job();
+            let decision = select_runner(&job).unwrap_or_else(|err| panic!("{err}"));
+            let mut plan = SandboxPlan::from_decision(&job.workspace, &decision);
+            job.network_policy = requested;
+            plan.network_policy = effective;
+            let result = OciSpec::from_agent_job(&job, &plan);
+            if requested == NetworkPolicy::Deny && effective == NetworkPolicy::Deny {
+                let spec = result.unwrap_or_else(|err| panic!("{err}"));
+                assert_eq!(spec.network, "none");
+            } else {
+                let err = result.expect_err("unsupported agent network policy must be rejected");
+                assert_eq!(err.code(), "invalid_agent_network_policy");
+                let message = err.to_string();
+                assert!(message.contains(&format!("requested={}", requested.as_str())));
+                assert!(message.contains(&format!("effective={}", effective.as_str())));
+            }
+        }
+    }
+}
+
+#[test]
+fn rejected_agent_network_policies_never_reach_the_runtime() {
+    let policies = [
+        NetworkPolicy::Deny,
+        NetworkPolicy::LoopbackOnly,
+        NetworkPolicy::EgressOnly,
+    ];
+    for requested in policies {
+        for effective in policies {
+            if requested == NetworkPolicy::Deny && effective == NetworkPolicy::Deny {
+                continue;
+            }
+            let mut job = oci_agent_job();
+            let decision = select_runner(&job).unwrap_or_else(|err| panic!("{err}"));
+            let mut plan = SandboxPlan::from_decision(&job.workspace, &decision);
+            job.network_policy = requested;
+            plan.network_policy = effective;
+            let fake = Arc::new(FakeContainerRuntime::default());
+            let runner = OciRunner::with_runtime(fake.clone());
+            let result = plan_agent_session(
+                "jeryu",
+                "jeryu",
+                "agent-7",
+                "run-42",
+                "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+                "https://forge.invalid/jeryu/jeryu.git",
+                &job,
+                &plan,
+            )
+            .and_then(|session| runner.launch_session(&session));
+            let err = result.expect_err("unsupported network must stop session dispatch");
+            assert_eq!(err.code(), "invalid_agent_network_policy");
+            assert!(
+                fake.recorded().is_empty(),
+                "rejected policy reached runtime"
+            );
+        }
+    }
 }

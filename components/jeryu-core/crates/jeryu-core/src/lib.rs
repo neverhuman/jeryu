@@ -20,10 +20,37 @@ mod webhooks;
 pub use crate::branch_protection::{
     BranchProtectionEvaluation, EvaluationContext, MergeBlocker, RefOperation, RefOperationBlocker,
     RefOperationEvaluation, effective_reviews_for_head, effective_reviews_for_pull_request,
+    evaluate_branch_protection_with,
 };
 pub use crate::core::{
-    AuditEntry, ForgeCore, MergeReadiness, MutationCoordinator, RepoMaterializer,
-    RepositoryDeletion,
+    ActorCredential, AuditEntry, AuthenticatedActor, BoundReviewEvent, BoundReviewHistory,
+    DismissBoundReviewRequest, DurableRefOperation, DurableRefOperationKind,
+    DurableRefOperationState, ForgeCore, ManagedGitIdentity, MergeGitChange, MergeGitObservation,
+    MergeOperationReadback, MergeReadiness, MutationCoordinator, ObservedRef, ObservedReviewRef,
+    RefChangeIntent, RefOperationEvent, RefOperationIntent, RefOperationObservation,
+    RefOperationOutcome, RefValue, RepoMaterializer, RepositoryCreation, RepositoryDeletion,
+    ReviewActorBinding, ReviewChallenge, ReviewCredentialKind, ReviewGitObservation,
+    ReviewGitObserver, ReviewGitRepository, ReviewGitTarget, ReviewQualification, ReviewSnapshot,
+    SubmitBoundReviewRequest,
+};
+pub use crate::core::{
+    COMMISSIONING_TARGETS, CommissioningAction, CommissioningAdmittedStep, CommissioningAuthority,
+    CommissioningCompletionRequest, CommissioningEffectOutcome, CommissioningOperationAddress,
+    CommissioningRecordingAuthority, CommissioningRestoreKind, CommissioningRestoreOperation,
+    CommissioningRestoreRequest, CommissioningRestoreScope, CommissioningRevision,
+    CommissioningSource, CommissioningStep, CommissioningStepCompletion, CommissioningStepRequest,
+};
+pub use crate::core::{
+    CompleteRequiredAttemptRequest, DurableRequiredPublisher, PublisherHeldFileIdentity,
+    PublisherResourceIdentity, RequiredArtifactUpload, RequiredAttemptSnapshot,
+    RequiredContextSnapshot, RequiredPublisherAction, RequiredPublisherAuthority,
+    RequiredPublisherCustody, RequiredPublisherEnrollment, RequiredPublisherRevocation,
+    RequiredPublisherScope, ReserveRequiredAttemptRequest,
+};
+pub use crate::core::{
+    DurableRequiredAttempt, ReceivedRequiredArtifact, RequiredAttemptBinding,
+    RequiredAttemptCompletion, RequiredAttemptConclusion, RequiredAttemptReservation,
+    RequiredAttemptStatus, RequiredAuthorityOrigin,
 };
 pub use crate::error::{AgentRepairHint, JeryuError, JeryuResult};
 pub use crate::errors::{ForgeError, Result};

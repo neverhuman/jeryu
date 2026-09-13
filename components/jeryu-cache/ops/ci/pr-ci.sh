@@ -64,6 +64,7 @@ fi
 echo "[pr-ci] local lane dispatch contract" >&2
 tests/ci_local_dispatch_test.sh
 tests/pr_ci_order_test.sh
+bash tests/source_authority_test.sh
 
 echo "[pr-ci] (jobs=$JOBS) standard lanes" >&2
 bash ops/ci/fast.sh

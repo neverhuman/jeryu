@@ -10,9 +10,12 @@ use jeryu_core::{
     CheckConclusion, CheckRunStatus, CommitStatusState, CreateCheckRunRequest,
     CreateCommitStatusRequest, CreatePullRequestRequest, CreateRepositoryRequest,
     CreateReviewRequest, CreateUserRequest, ForgeCore, ForgeError, IssueState, MergeBlocker,
-    MergePullRequestRequest, MergeReadiness, PullRequestState, ReviewState,
-    SetBranchProtectionRequest, UpdatePullRequestRequest,
+    MergePullRequestRequest, PullRequestState, ReviewState, SetBranchProtectionRequest,
+    UpdatePullRequestRequest,
 };
+
+#[path = "support/policy.rs"]
+mod policy;
 
 fn core_with_repo() -> ForgeCore {
     let core = ForgeCore::new();
@@ -31,6 +34,18 @@ fn core_with_repo() -> ForgeCore {
     )
     .unwrap();
     core
+}
+
+fn register_fork_source(core: &ForgeCore) {
+    core.create_repository(
+        "fork-owner",
+        CreateRepositoryRequest {
+            name: "jeryu".to_string(),
+            default_branch: Some("main".to_string()),
+            ..Default::default()
+        },
+    )
+    .unwrap();
 }
 
 fn open_pr(core: &ForgeCore, head_sha: &str, draft: bool) -> u64 {
@@ -144,6 +159,7 @@ fn pull_request_uses_github_field_names() {
 #[test]
 fn create_pull_request_accepts_explicit_source_repository() {
     let core = core_with_repo();
+    register_fork_source(&core);
     let pr = core
         .create_pull_request(
             "alice",
@@ -164,6 +180,7 @@ fn create_pull_request_accepts_explicit_source_repository() {
 #[test]
 fn owner_and_fork_prs_hit_branch_protection_the_same_way() {
     let core = core_with_repo();
+    register_fork_source(&core);
     protect_main(&core, 1, &["ci/fast"]);
 
     let owner_pr =
@@ -175,12 +192,8 @@ fn owner_and_fork_prs_hit_branch_protection_the_same_way() {
         Some("fork-owner/jeryu".to_string()),
     );
 
-    let owner_eval = core
-        .evaluate_pull_request("alice", "jeryu", owner_pr, None)
-        .unwrap();
-    let fork_eval = core
-        .evaluate_pull_request("alice", "jeryu", fork_pr, None)
-        .unwrap();
+    let owner_eval = policy::evaluate_advisory(&core, "alice", "jeryu", owner_pr, None).unwrap();
+    let fork_eval = policy::evaluate_advisory(&core, "alice", "jeryu", fork_pr, None).unwrap();
     assert_eq!(owner_eval.blockers, fork_eval.blockers);
     assert!(!owner_eval.mergeable);
     assert!(owner_eval.blockers.iter().any(|blocker| matches!(
@@ -208,8 +221,8 @@ fn owner_and_fork_prs_hit_branch_protection_the_same_way() {
             MergePullRequestRequest::default(),
         )
         .unwrap_err();
-    assert!(matches!(owner_merge_err, ForgeError::BranchProtection(_)));
-    assert!(matches!(fork_merge_err, ForgeError::BranchProtection(_)));
+    assert!(matches!(owner_merge_err, ForgeError::WriterUnavailable(_)));
+    assert!(matches!(fork_merge_err, ForgeError::WriterUnavailable(_)));
 }
 
 #[test]
@@ -220,6 +233,15 @@ fn non_owner_pr_is_forbidden_from_bypassing_branch_protection() {
     // PR is denied the same way and source_repository grants no owner/admin
     // bypass. (non-owner forbidden.)
     let core = core_with_repo();
+    core.create_repository(
+        "non-owner",
+        CreateRepositoryRequest {
+            name: "jeryu-fork".to_string(),
+            default_branch: Some("main".to_string()),
+            ..Default::default()
+        },
+    )
+    .unwrap();
     protect_main(&core, 1, &["ci/fast"]);
 
     let non_owner_pr = open_pr_with_source_repository(
@@ -238,7 +260,7 @@ fn non_owner_pr_is_forbidden_from_bypassing_branch_protection() {
         )
         .unwrap_err();
     assert!(
-        matches!(merge_err, ForgeError::BranchProtection(_)),
+        matches!(merge_err, ForgeError::WriterUnavailable(_)),
         "a non-owner fork PR must be forbidden from bypassing branch protection"
     );
 }
@@ -291,7 +313,7 @@ fn draft_pr_cannot_be_merged_even_without_protection() {
     let err = core
         .merge_pull_request("alice", "jeryu", number, MergePullRequestRequest::default())
         .unwrap_err();
-    assert!(matches!(err, ForgeError::BranchProtection(_)));
+    assert!(matches!(err, ForgeError::WriterUnavailable(_)));
 }
 
 #[test]
@@ -393,7 +415,7 @@ fn branch_head_refresh_ignores_closed_pr() {
 }
 
 #[test]
-fn protection_blocks_then_review_plus_status_unblocks() {
+fn legacy_review_plus_status_does_not_unblock_protected_core_state() {
     let core = core_with_repo();
     protect_main(&core, 1, &["ci/fast"]);
     let number = open_pr(&core, "abc", false);
@@ -408,11 +430,18 @@ fn protection_blocks_then_review_plus_status_unblocks() {
     let pr = core.get_pull_request("alice", "jeryu", number).unwrap();
     assert!(!pr.mergeable);
 
-    // Now satisfy the required status -> becomes mergeable.
+    // A legacy status remains advisory even after a legacy approval.
     pass_status(&core, "abc", "ci/fast");
     let pr = core.get_pull_request("alice", "jeryu", number).unwrap();
-    assert_eq!(pr.state, PullRequestState::Mergeable);
-    assert!(pr.mergeable);
+    assert_eq!(pr.state, PullRequestState::BlockedByChecks);
+    assert!(!pr.mergeable);
+    assert_eq!(
+        core.review_qualification("alice", "jeryu", number)
+            .unwrap()
+            .advisory_reviews
+            .len(),
+        1
+    );
 }
 
 #[test]
@@ -461,9 +490,8 @@ fn latest_current_head_review_per_reviewer_controls_mergeability() {
         },
     )
     .unwrap();
-    let requested = core
-        .evaluate_pull_request("alice", "jeryu", number, Some("abc"))
-        .unwrap();
+    let requested =
+        policy::evaluate_advisory(&core, "alice", "jeryu", number, Some("abc")).unwrap();
     assert!(requested.blockers.iter().any(|blocker| matches!(
         blocker,
         MergeBlocker::ChangesRequested { reviewers } if reviewers == &["reviewer"]
@@ -483,7 +511,7 @@ fn latest_current_head_review_per_reviewer_controls_mergeability() {
     )
     .unwrap();
     assert!(
-        core.evaluate_pull_request("alice", "jeryu", number, Some("abc"))
+        policy::evaluate_advisory(&core, "alice", "jeryu", number, Some("abc"))
             .unwrap()
             .mergeable,
         "a later same-reviewer approval must supersede changes requested"
@@ -502,9 +530,7 @@ fn latest_current_head_review_per_reviewer_controls_mergeability() {
         },
     )
     .unwrap();
-    let blocked = core
-        .evaluate_pull_request("alice", "jeryu", number, Some("abc"))
-        .unwrap();
+    let blocked = policy::evaluate_advisory(&core, "alice", "jeryu", number, Some("abc")).unwrap();
     assert!(blocked.blockers.iter().any(|blocker| matches!(
         blocker,
         MergeBlocker::ChangesRequested { reviewers } if reviewers == &["second-reviewer"]
@@ -518,16 +544,14 @@ fn head_movement_stales_approvals_and_changes_requests_but_retains_history() {
     let number = open_pr(&core, "abc", false);
     approve(&core, number, "reviewer");
     assert!(
-        core.evaluate_pull_request("alice", "jeryu", number, Some("abc"))
+        policy::evaluate_advisory(&core, "alice", "jeryu", number, Some("abc"))
             .unwrap()
             .mergeable
     );
 
     core.refresh_pull_request_heads_for_ref("alice", "jeryu", "feature", "def")
         .unwrap();
-    let moved = core
-        .evaluate_pull_request("alice", "jeryu", number, Some("def"))
-        .unwrap();
+    let moved = policy::evaluate_advisory(&core, "alice", "jeryu", number, Some("def")).unwrap();
     assert!(
         moved
             .blockers
@@ -548,9 +572,8 @@ fn head_movement_stales_approvals_and_changes_requests_but_retains_history() {
         },
     )
     .unwrap();
-    let requested = core
-        .evaluate_pull_request("alice", "jeryu", number, Some("def"))
-        .unwrap();
+    let requested =
+        policy::evaluate_advisory(&core, "alice", "jeryu", number, Some("def")).unwrap();
     assert!(requested.blockers.iter().any(|blocker| matches!(
         blocker,
         MergeBlocker::ChangesRequested { reviewers } if reviewers == &["reviewer"]
@@ -558,9 +581,8 @@ fn head_movement_stales_approvals_and_changes_requests_but_retains_history() {
 
     core.refresh_pull_request_heads_for_ref("alice", "jeryu", "feature", "ghi")
         .unwrap();
-    let moved_again = core
-        .evaluate_pull_request("alice", "jeryu", number, Some("ghi"))
-        .unwrap();
+    let moved_again =
+        policy::evaluate_advisory(&core, "alice", "jeryu", number, Some("ghi")).unwrap();
     assert!(
         !moved_again
             .blockers
@@ -607,48 +629,45 @@ fn stale_expected_head_is_rejected_inside_review_write_lock() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn full_lifecycle_to_merged_closes_backing_issue() {
+fn legacy_success_rows_cannot_merge_or_close_the_backing_issue() {
     let core = core_with_repo();
     protect_main(&core, 1, &["ci/fast"]);
     let number = open_pr(&core, "abc", false);
     approve(&core, number, "reviewer");
     pass_status(&core, "abc", "ci/fast");
-
-    let result = core
-        .merge_pull_request("alice", "jeryu", number, MergePullRequestRequest::default())
+    let before = core.get_pull_request("alice", "jeryu", number).unwrap();
+    assert!(matches!(
+        core.merge_pull_request("alice", "jeryu", number, MergePullRequestRequest::default()),
+        Err(ForgeError::WriterUnavailable(_))
+    ));
+    assert_eq!(
+        core.get_pull_request("alice", "jeryu", number).unwrap(),
+        before
+    );
+    let issue = core
+        .get_issue("alice", "jeryu", before.issue_number)
         .unwrap();
-    assert!(result.merged);
-    assert!(result.sha.starts_with("merge-"));
-
-    let pr = core.get_pull_request("alice", "jeryu", number).unwrap();
-    assert_eq!(pr.state, PullRequestState::Merged);
-    assert!(pr.merged);
-    assert!(pr.merged_at.is_some());
-    assert!(pr.merge_commit_sha.is_some());
-    // Merge state is sticky -- re-reading keeps it merged, not "mergeable".
-    assert_eq!(pr.mergeable_state, "merged");
-    assert!(!pr.mergeable);
-
-    // Backing issue auto-closed on merge.
-    let issue = core.get_issue("alice", "jeryu", pr.issue_number).unwrap();
-    assert_eq!(issue.state, jeryu_core::IssueState::Closed);
-    assert!(issue.closed_at.is_some());
+    assert_eq!(issue.state, IssueState::Open);
+    assert!(issue.closed_at.is_none());
+    assert!(!before.merged);
+    assert!(before.merge_commit_sha.is_none());
 }
 
 #[test]
-fn merging_an_already_merged_pr_is_idempotent() {
+fn repeating_retired_merge_dispatch_never_creates_a_merge_result() {
     let core = core_with_repo();
     let number = open_pr(&core, "abc", false);
-    let first = core
-        .merge_pull_request("alice", "jeryu", number, MergePullRequestRequest::default())
-        .unwrap();
-    let second = core
-        .merge_pull_request("alice", "jeryu", number, MergePullRequestRequest::default())
-        .unwrap();
-    assert!(second.merged);
-    // Returns the original merge sha rather than minting a new one.
-    assert_eq!(first.sha, second.sha);
-    assert!(second.message.to_lowercase().contains("already"));
+    let before = core.get_pull_request("alice", "jeryu", number).unwrap();
+    for _ in 0..2 {
+        assert!(matches!(
+            core.merge_pull_request("alice", "jeryu", number, MergePullRequestRequest::default()),
+            Err(ForgeError::WriterUnavailable(_))
+        ));
+    }
+    assert_eq!(
+        core.get_pull_request("alice", "jeryu", number).unwrap(),
+        before
+    );
 }
 
 #[test]
@@ -660,7 +679,7 @@ fn merging_blocked_pr_is_rejected_with_branch_protection_error() {
     let err = core
         .merge_pull_request("alice", "jeryu", number, MergePullRequestRequest::default())
         .unwrap_err();
-    assert!(matches!(err, ForgeError::BranchProtection(_)));
+    assert!(matches!(err, ForgeError::WriterUnavailable(_)));
     // PR must remain unmerged after a rejected merge.
     let pr = core.get_pull_request("alice", "jeryu", number).unwrap();
     assert!(!pr.merged);
@@ -694,8 +713,8 @@ fn closed_pr_cannot_be_merged() {
     let err = core
         .merge_pull_request("alice", "jeryu", number, MergePullRequestRequest::default())
         .unwrap_err();
-    // Closed PRs are an illegal merge target -> Validation error, not protection.
-    assert!(matches!(err, ForgeError::Validation(_)));
+    // The retired route cannot dispatch a closed PR either.
+    assert!(matches!(err, ForgeError::WriterUnavailable(_)));
 }
 
 #[test]
@@ -745,25 +764,30 @@ fn merge_with_mismatched_sha_is_rejected() {
         )
         .unwrap_err();
     // SHA mismatch is a merge blocker (optimistic-concurrency guard).
-    assert!(matches!(err, ForgeError::BranchProtection(_)));
+    assert!(matches!(err, ForgeError::WriterUnavailable(_)));
 }
 
 #[test]
-fn merge_with_matching_sha_succeeds() {
+fn matching_sha_alone_cannot_authorize_legacy_merge_dispatch() {
     let core = core_with_repo();
     let number = open_pr(&core, "realhead", false);
-    let result = core
-        .merge_pull_request(
+    let before = core.get_pull_request("alice", "jeryu", number).unwrap();
+    assert!(matches!(
+        core.merge_pull_request(
             "alice",
             "jeryu",
             number,
             MergePullRequestRequest {
-                sha: Some("realhead".to_string()),
+                sha: Some("realhead".into()),
                 ..Default::default()
-            },
-        )
-        .unwrap();
-    assert!(result.merged);
+            }
+        ),
+        Err(ForgeError::WriterUnavailable(_))
+    ));
+    assert_eq!(
+        core.get_pull_request("alice", "jeryu", number).unwrap(),
+        before
+    );
 }
 
 #[test]
@@ -780,7 +804,7 @@ fn merge_unknown_pr_is_not_found() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn required_check_run_success_satisfies_protection() {
+fn unbound_check_run_success_does_not_satisfy_protection() {
     let core = core_with_repo();
     protect_main(&core, 0, &["ci/build"]);
     let number = open_pr(&core, "abc", false);
@@ -806,7 +830,7 @@ fn required_check_run_success_satisfies_protection() {
     .unwrap();
 
     let pr = core.get_pull_request("alice", "jeryu", number).unwrap();
-    assert!(pr.mergeable);
+    assert!(!pr.mergeable);
 }
 
 #[test]
@@ -906,7 +930,7 @@ fn review_on_unknown_pr_is_not_found() {
 }
 
 #[test]
-fn multiple_approvals_count_toward_threshold() {
+fn multiple_legacy_approvals_remain_advisory() {
     let core = core_with_repo();
     protect_main(&core, 2, &[]);
     let number = open_pr(&core, "abc", false);
@@ -922,38 +946,42 @@ fn multiple_approvals_count_toward_threshold() {
 
     approve(&core, number, "bob");
     assert!(
-        core.get_pull_request("alice", "jeryu", number)
+        !core
+            .get_pull_request("alice", "jeryu", number)
             .unwrap()
             .mergeable,
-        "two approvals satisfy the gate"
+        "unbound approvals cannot satisfy the gate"
     );
 }
 
 #[test]
 fn list_pull_requests_filters_by_state() {
     let core = core_with_repo();
-    // PR #1 stays open/mergeable, PR #2 gets merged.
     open_pr(&core, "h1", false);
     let n2 = open_pr(&core, "h2", false);
-    core.merge_pull_request("alice", "jeryu", n2, MergePullRequestRequest::default())
+    core.update_pull_request(
+        "alice",
+        "jeryu",
+        n2,
+        UpdatePullRequestRequest {
+            state: Some(PullRequestState::Closed),
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    let closed = core
+        .list_pull_requests("alice", "jeryu", Some(PullRequestState::Closed))
         .unwrap();
-
-    let merged = core
-        .list_pull_requests("alice", "jeryu", Some(PullRequestState::Merged))
-        .unwrap();
-    assert_eq!(merged.len(), 1);
-    assert_eq!(merged[0].number, n2);
-
+    assert_eq!(closed.len(), 1);
+    assert_eq!(closed[0].number, n2);
     let all = core.list_pull_requests("alice", "jeryu", None).unwrap();
     assert_eq!(all.len(), 2);
-    // Sorted by number ascending.
     assert_eq!(all[0].number, 1);
     assert_eq!(all[1].number, 2);
 }
 
 // ---------------------------------------------------------------------------
-// Two-phase merge API (B2): evaluate_merge_readiness + finalize_merge, plus
-// legacy back-compat for merge_pull_request.
+// Retired split merge API: refusal before Git dispatch or PR mutation.
 // ---------------------------------------------------------------------------
 
 #[test]
@@ -967,8 +995,8 @@ fn evaluate_merge_readiness_blocks_unmergeable_pr() {
         .evaluate_merge_readiness("alice", "jeryu", number, None)
         .unwrap_err();
     assert!(
-        matches!(err, ForgeError::BranchProtection(_)),
-        "expected BranchProtection, got {err:?}"
+        matches!(err, ForgeError::WriterUnavailable(_)),
+        "expected unavailable durable executor, got {err:?}"
     );
     // PR.merged stays false — readiness mutates nothing.
     let pr = core.get_pull_request("alice", "jeryu", number).unwrap();
@@ -977,63 +1005,22 @@ fn evaluate_merge_readiness_blocks_unmergeable_pr() {
 }
 
 #[test]
-fn evaluate_merge_readiness_ready_discloses_base_and_head() {
+fn split_readiness_does_not_release_a_caller_to_dispatch_git() {
     let core = core_with_repo();
-    protect_main(&core, 1, &[]);
-    // Seed a NON-default base_sha so the disclosure proves it reflects the
-    // actual PR state, not the create-time default ("base").
-    let number = core
-        .create_pull_request(
-            "alice",
-            "jeryu",
-            "alice",
-            CreatePullRequestRequest {
-                title: "change".to_string(),
-                body: Some("desc".to_string()),
-                head: "feature".to_string(),
-                base: "main".to_string(),
-                head_sha: Some("feat-sha".to_string()),
-                base_sha: Some("seeded-base-sha".to_string()),
-                draft: false,
-                ..Default::default()
-            },
-        )
-        .unwrap()
-        .number;
-    approve(&core, number, "bob");
-
-    let readiness = core
-        .evaluate_merge_readiness("alice", "jeryu", number, None)
-        .unwrap();
-    match readiness {
-        MergeReadiness::Ready {
-            base_ref,
-            base_sha,
-            head_ref,
-            head_sha,
-            require_linear_history,
-        } => {
-            assert_eq!(base_ref, "main");
-            // Disclosure reflects the ACTUAL seeded base_sha, not the default.
-            assert_eq!(base_sha, "seeded-base-sha");
-            assert_eq!(head_ref, "feature");
-            assert_eq!(head_sha, "feat-sha");
-            // protect_main sets required_linear_history=false (default request).
-            assert!(!require_linear_history);
-        }
-        other => panic!("expected Ready, got {other:?}"),
-    }
-    // Still not merged: readiness is read-only.
-    assert!(
-        !core
-            .get_pull_request("alice", "jeryu", number)
-            .unwrap()
-            .merged
+    let number = open_pr(&core, "feat-sha", false);
+    let before = core.get_pull_request("alice", "jeryu", number).unwrap();
+    assert!(matches!(
+        core.evaluate_merge_readiness("alice", "jeryu", number, Some("feat-sha")),
+        Err(ForgeError::WriterUnavailable(_))
+    ));
+    assert_eq!(
+        core.get_pull_request("alice", "jeryu", number).unwrap(),
+        before
     );
 }
 
 #[test]
-fn evaluate_merge_readiness_reports_required_linear_history() {
+fn split_readiness_refuses_even_with_linear_history_policy_and_legacy_approval() {
     let core = core_with_repo();
     core.set_branch_protection(
         "alice",
@@ -1048,41 +1035,50 @@ fn evaluate_merge_readiness_reports_required_linear_history() {
     .unwrap();
     let number = open_pr(&core, "feat-sha", false);
     approve(&core, number, "bob");
-
-    match core
-        .evaluate_merge_readiness("alice", "jeryu", number, None)
-        .unwrap()
-    {
-        MergeReadiness::Ready {
-            require_linear_history,
-            ..
-        } => assert!(require_linear_history),
-        other => panic!("expected Ready, got {other:?}"),
-    }
+    assert!(matches!(
+        core.evaluate_merge_readiness("alice", "jeryu", number, None),
+        Err(ForgeError::WriterUnavailable(_))
+    ));
+    assert!(
+        !core
+            .get_pull_request("alice", "jeryu", number)
+            .unwrap()
+            .merged
+    );
+    assert!(
+        core.get_branch_protection("alice", "jeryu", "main")
+            .unwrap()
+            .required_linear_history
+    );
 }
 
 #[test]
-fn finalize_merge_records_real_sha() {
+fn finalize_cannot_record_a_caller_supplied_real_shaped_sha() {
     let core = core_with_repo();
     protect_main(&core, 1, &[]);
     let number = open_pr(&core, "feat-sha", false);
     approve(&core, number, "bob");
-
-    let real_sha = "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef";
-    let result = core
-        .finalize_merge("alice", "jeryu", number, real_sha.to_string(), None)
-        .unwrap();
-    assert_eq!(result.sha, real_sha);
-    assert!(result.merged);
-
-    let pr = core.get_pull_request("alice", "jeryu", number).unwrap();
-    assert!(pr.merged);
-    assert_eq!(pr.merge_commit_sha.as_deref(), Some(real_sha));
-    assert_eq!(pr.state, PullRequestState::Merged);
-
-    // Backing issue is closed.
-    let issue = core.get_issue("alice", "jeryu", pr.issue_number).unwrap();
-    assert_eq!(issue.state, IssueState::Closed);
+    let before = core.get_pull_request("alice", "jeryu", number).unwrap();
+    assert!(matches!(
+        core.finalize_merge(
+            "alice",
+            "jeryu",
+            number,
+            "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef".into(),
+            None
+        ),
+        Err(ForgeError::WriterUnavailable(_))
+    ));
+    assert_eq!(
+        core.get_pull_request("alice", "jeryu", number).unwrap(),
+        before
+    );
+    assert_eq!(
+        core.get_issue("alice", "jeryu", before.issue_number)
+            .unwrap()
+            .state,
+        IssueState::Open
+    );
 }
 
 #[test]
@@ -1097,7 +1093,7 @@ fn finalize_merge_reevaluates_gate_under_lock() {
     let err = core
         .finalize_merge("alice", "jeryu", number, "realsha".to_string(), None)
         .unwrap_err();
-    assert!(matches!(err, ForgeError::BranchProtection(_)));
+    assert!(matches!(err, ForgeError::WriterUnavailable(_)));
     assert!(
         !core
             .get_pull_request("alice", "jeryu", number)
@@ -1107,21 +1103,14 @@ fn finalize_merge_reevaluates_gate_under_lock() {
 }
 
 #[test]
-fn legacy_merge_pull_request_keeps_synthetic_sha() {
+fn legacy_merge_pull_request_cannot_fabricate_a_synthetic_sha() {
     let core = core_with_repo();
-    protect_main(&core, 1, &[]);
     let number = open_pr(&core, "feat-sha", false);
-    approve(&core, number, "bob");
-
-    let result = core
-        .merge_pull_request("alice", "jeryu", number, MergePullRequestRequest::default())
-        .unwrap();
-    // Back-compat: the git-less path still self-fabricates a synthetic sha.
-    assert_eq!(result.sha, format!("merge-feat-sha-{number}"));
+    assert!(matches!(
+        core.merge_pull_request("alice", "jeryu", number, MergePullRequestRequest::default()),
+        Err(ForgeError::WriterUnavailable(_))
+    ));
     let pr = core.get_pull_request("alice", "jeryu", number).unwrap();
-    assert_eq!(
-        pr.merge_commit_sha,
-        Some(format!("merge-feat-sha-{number}"))
-    );
-    assert!(pr.merged);
+    assert!(pr.merge_commit_sha.is_none());
+    assert!(!pr.merged);
 }

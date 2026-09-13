@@ -13,6 +13,9 @@ use super::types::{
 };
 
 #[allow(clippy::too_many_arguments)]
+/// Pure policy calculation over supplied rows. Inputs are not authenticated by
+/// this function; its result is advisory and cannot authorize Git dispatch.
+/// Core's qualified projection selects persisted bound events separately.
 pub fn evaluate_branch_protection_with(
     pr: &PullRequest,
     protection: Option<&BranchProtectionRule>,

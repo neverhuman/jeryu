@@ -9,6 +9,9 @@ use std::{
 };
 use toml::Value;
 
+#[path = "monorepo_paths.rs"]
+mod source_paths;
+
 pub(super) fn validate_manifest(manifest: &Value, check_paths: bool) -> Result<()> {
     validate_storage(manifest)?;
     ensure!(
@@ -100,6 +103,7 @@ fn validate_sqlite_lock(lock: &Value) -> Result<()> {
 
 pub(super) fn check(root: &Path) -> Result<()> {
     crate::build_config::run(root, false)?;
+    source_paths::check(root)?;
     let lock: Value = toml::from_str(&fs::read_to_string(root.join("Cargo.lock"))?)?;
     validate_sqlite_lock(&lock)?;
     let output = Command::new("cargo")
@@ -245,6 +249,12 @@ fn validate_full_package_identities(
             ensure!(
                 !name.starts_with("jeryu-"),
                 "unowned Jeryu identity in dependency closure: {name}"
+            );
+            ensure!(
+                package["source"]
+                    .as_str()
+                    .is_some_and(|source| !source.is_empty()),
+                "unowned local package in dependency closure: {name}"
             );
         }
     }
@@ -630,5 +640,24 @@ two_consumer_proof_required = true
             .unwrap()
             .push(owned["packages"][0].clone());
         assert!(validate_full_package_identities(&owned, &duplicate).is_err());
+    }
+    #[test]
+    fn full_metadata_rejects_non_jeryu_local_dependencies_and_missing_source_identity() {
+        for source in [
+            serde_json::Value::Null,
+            serde_json::json!(""),
+            serde_json::json!(false),
+        ] {
+            let (owned, mut full) = complete_metadata();
+            full["packages"]
+                .as_array_mut()
+                .unwrap()
+                .push(serde_json::json!({
+                    "id":"path+file:///adjacent/ordinary#1.0.0", "name":"ordinary",
+                    "version":"1.0.0", "source":source,
+                    "manifest_path":"/adjacent/ordinary/Cargo.toml"
+                }));
+            assert!(validate_full_package_identities(&owned, &full).is_err());
+        }
     }
 }

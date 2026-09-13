@@ -1,0 +1,4 @@
+# Synthetic temporary-account password in an in-process HTTP regression.
+04376591615e31c505958c36702087ed3428acc4:crates/jeryu-api/src/web/tests.rs:generic-api-key:2868
+# Idempotency-Key example in historical API documentation; not authentication.
+270aff85f933aabd8362d53f57bf860b0203a1b4:docs/WEB_API.md:generic-api-key:217

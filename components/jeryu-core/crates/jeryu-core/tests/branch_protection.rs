@@ -1,6 +1,8 @@
-//! Branch-protection enforcement tests.
+//! Policy-calculation and public mutation-denial tests.
 //!
-//! These exercise `ForgeCore::evaluate_pull_request`, `merge_pull_request`, and
+//! `eval` exercises the pure advisory policy calculation over explicit fixture
+//! rows. Bound review/check authority is tested in authenticated review cases.
+//! These also exercise public `merge_pull_request` denial and
 //! `evaluate_ref_operation` against required status checks, required approving
 //! reviews, the jankurai-proof gate, the SHA-mismatch (optimistic concurrency)
 //! guard, and the GitHub-correctness rules added in this fix:
@@ -15,6 +17,9 @@ use jeryu_core::{
     MergePullRequestRequest, PullRequestCommit, RefOperation, RefOperationBlocker, ReviewState,
     SetBranchProtectionRequest,
 };
+
+#[path = "support/policy.rs"]
+mod policy;
 
 fn core_with_repo() -> ForgeCore {
     let core = ForgeCore::new();
@@ -53,8 +58,7 @@ fn open_pr(core: &ForgeCore, head_sha: &str) -> u64 {
 }
 
 fn eval(core: &ForgeCore, number: u64) -> jeryu_core::BranchProtectionEvaluation {
-    core.evaluate_pull_request("alice", "jeryu", number, None)
-        .unwrap()
+    policy::evaluate_advisory(core, "alice", "jeryu", number, None).unwrap()
 }
 
 /// Opens a PR carrying a specific commit list and changed-file set, for the
@@ -558,8 +562,8 @@ fn merge_blocked_message_names_the_blockers() {
         .merge_pull_request("alice", "jeryu", number, MergePullRequestRequest::default())
         .unwrap_err();
     match err {
-        ForgeError::BranchProtection(msg) => assert!(msg.contains("MissingReview")),
-        other => panic!("expected BranchProtection, got {other:?}"),
+        ForgeError::WriterUnavailable(msg) => assert!(msg.contains("Core-owned durable merge")),
+        other => panic!("expected unavailable durable executor, got {other:?}"),
     }
 }
 
@@ -588,11 +592,11 @@ fn required_linear_history_blocks_merge_commit() {
         b,
         MergeBlocker::NonLinearHistory { sha } if sha == "m1"
     )));
-    // The merge itself is rejected with a branch-protection error.
+    // Actual dispatch also refuses because the durable executor is unavailable.
     let err = core
         .merge_pull_request("alice", "jeryu", number, MergePullRequestRequest::default())
         .unwrap_err();
-    assert!(matches!(err, ForgeError::BranchProtection(_)));
+    assert!(matches!(err, ForgeError::WriterUnavailable(_)));
 }
 
 #[test]
@@ -650,7 +654,7 @@ fn require_signed_commits_blocks_unsigned_commit() {
     let err = core
         .merge_pull_request("alice", "jeryu", number, MergePullRequestRequest::default())
         .unwrap_err();
-    assert!(matches!(err, ForgeError::BranchProtection(_)));
+    assert!(matches!(err, ForgeError::WriterUnavailable(_)));
 }
 
 #[test]
@@ -853,7 +857,7 @@ fn codeowners_blocks_until_owner_of_changed_path_approves() {
     let err = core
         .merge_pull_request("alice", "jeryu", number, MergePullRequestRequest::default())
         .unwrap_err();
-    assert!(matches!(err, ForgeError::BranchProtection(_)));
+    assert!(matches!(err, ForgeError::WriterUnavailable(_)));
 
     // The code owner approving clears the gate; a non-owner approval does not.
     approve(&core, number, "bystander");

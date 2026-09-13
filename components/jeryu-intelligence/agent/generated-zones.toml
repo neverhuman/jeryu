@@ -2,3 +2,8 @@
 path = ".jankurai/"
 generator = "just score"
 manual_edits = false
+
+[[zones]]
+path = "contracts/codegraph.schema.json"
+generator = "cargo run --locked -p jeryu-codegraph --example symbol-schema"
+manual_edits = false

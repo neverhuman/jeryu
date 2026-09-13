@@ -6,47 +6,6 @@ use std::os::unix::fs::PermissionsExt;
 use std::process::{Command, Output};
 use std::time::{Duration, Instant};
 
-fn hosted_github_actions_lane() -> bool {
-    std::env::var_os("GITHUB_ACTIONS").is_some_and(|value| value == "true")
-        && std::env::var_os("JAIN_RELEASE_CI").is_none_or(|value| value != "1")
-}
-
-fn bubblewrap_confinement_available() -> bool {
-    if !Path::new("/usr/bin/bwrap").is_file() {
-        return false;
-    }
-    Command::new("/usr/bin/bwrap")
-        .args([
-            "--ro-bind",
-            "/usr",
-            "/usr",
-            "--ro-bind",
-            "/bin",
-            "/bin",
-            "--ro-bind",
-            "/lib",
-            "/lib",
-            "--ro-bind-try",
-            "/lib64",
-            "/lib64",
-            "--tmpfs",
-            "/tmp",
-            "--unshare-pid",
-            "--unshare-net",
-            "--die-with-parent",
-            "--proc",
-            "/proc",
-            "--dev",
-            "/dev",
-            "/bin/true",
-        ])
-        .env_clear()
-        .env("PATH", "/usr/bin:/bin")
-        .status()
-        .map(|status| status.success())
-        .unwrap_or(false)
-}
-
 const VERSION: &str = "fixture-unqualified";
 const CHILD_TEST: &str = "JERYU_AUDIT_EXECUTOR_FIXTURE_ENTRY";
 
@@ -85,12 +44,6 @@ fn successful(output: Output) -> String {
 fn isolated(test_name: &str, test: impl FnOnce()) {
     if std::env::var(CHILD_TEST).as_deref() == Ok(test_name) {
         test();
-        return;
-    }
-    if hosted_github_actions_lane() && !bubblewrap_confinement_available() {
-        eprintln!(
-            "host bwrap executor confinement remains host-only; GITHUB_ACTIONS runner cannot remount /tmp"
-        );
         return;
     }
     let output = command(Path::new("/"), "/usr/bin/timeout")

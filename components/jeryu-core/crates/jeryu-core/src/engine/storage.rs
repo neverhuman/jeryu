@@ -2,20 +2,29 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use rusqlite::{Connection, DatabaseName, OpenFlags, params};
+use rusqlite::{Connection, DatabaseName, OpenFlags, TransactionBehavior, params};
 
 use super::State;
 use super::audit::AuditEntry;
 use super::writer::WriterLease;
 use crate::errors::{ForgeError, Result};
 
+mod bound_reviews;
 mod codec;
+mod commissioning_effects;
 mod load;
 mod migrations;
 mod persist;
+mod publisher_enrollment;
+mod ref_operations;
+mod required_attempts;
+mod snapshot;
+
+#[cfg(test)]
+mod tests;
 
 use self::load::{backfill_missing_counters, load_state};
-use self::persist::{delete_all, persist_state};
+use self::persist::stage_state;
 
 use self::codec::*;
 use self::migrations::apply_migrations;
@@ -31,10 +40,17 @@ impl SqliteStore {
         let path = path.as_ref().to_path_buf();
         let store = Self { path, writer };
         let conn = store.connect()?;
-        apply_migrations(&conn)?;
+        let recovery = commissioning_effects::startup_barrier(&conn)?;
+        if !recovery {
+            apply_migrations(&conn)?;
+        }
         let mut state = load_state(&conn)?;
-        let mut backfilled = backfill_missing_counters(&mut state);
-        backfilled += super::backfill_default_branch_protections(&mut state);
+        let backfilled = if recovery {
+            0
+        } else {
+            backfill_missing_counters(&mut state)
+                + super::backfill_default_branch_protections(&mut state)
+        };
         drop(conn);
         if backfilled > 0 {
             store.persist(&state)?;
@@ -44,38 +60,27 @@ impl SqliteStore {
 
     pub(super) fn persist(&self, state: &State) -> Result<()> {
         let mut conn = self.connect()?;
+        conn.execute_batch("PRAGMA temp_store = MEMORY;")
+            .map_err(storage_error)?;
         let tx = conn.transaction().map_err(storage_error)?;
-        delete_all(&tx)?;
-        persist_state(&tx, state)?;
+        persist_snapshot(&tx, state)?;
         tx.commit().map_err(storage_error)?;
         Ok(())
     }
 
     /// Append one audit receipt through a fresh connection.
     ///
-    /// `forge_audit_log` is intentionally NOT part of `persist`/`delete_all`:
-    /// the full-state rewrite must never wipe the trail, so audit writes take
-    /// this dedicated path instead of riding the state snapshot.
+    /// `forge_audit_log` is independently owned and outside the State snapshot.
+    /// Its append-only trail uses this dedicated path; ordinary State saves
+    /// never delete or rewrite audit receipts.
     pub(super) fn append_audit(&self, entry: &AuditEntry) -> Result<()> {
-        let conn = self.connect()?;
-        conn.execute(
-            r#"
-            INSERT INTO forge_audit_log (
-              id, occurred_at, actor, action, subject, phase, detail_json
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
-            "#,
-            params![
-                entry.id,
-                entry.occurred_at,
-                entry.actor,
-                entry.action,
-                entry.subject,
-                entry.phase,
-                json(&entry.detail)?,
-            ],
-        )
-        .map_err(storage_error)?;
-        Ok(())
+        let mut conn = self.connect()?;
+        let tx = conn
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(storage_error)?;
+        commissioning_effects::require_ordinary_admission(&tx)?;
+        insert_audit(&tx, entry)?;
+        tx.commit().map_err(storage_error)
     }
 
     /// All audit entries for one subject, oldest first.
@@ -107,6 +112,19 @@ impl SqliteStore {
         Ok(entries)
     }
 
+    /// Barrier observation must not require a write when the guarded operation
+    /// is a no-op. This connection cannot be used to persist an admitted effect.
+    fn connect_observation(&self) -> Result<Connection> {
+        self.writer.validate()?;
+        let conn = Connection::open_with_flags(
+            &self.path,
+            OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NOFOLLOW,
+        )
+        .map_err(storage_error)?;
+        self.writer.validate()?;
+        Ok(conn)
+    }
+
     fn connect(&self) -> Result<Connection> {
         self.writer.validate()?;
         let conn = Connection::open_with_flags(
@@ -131,6 +149,40 @@ impl SqliteStore {
     pub(super) fn validate_writer(&self) -> Result<()> {
         self.writer.validate()
     }
+
+    pub(super) fn required_publisher_custody(&self) -> Result<super::RequiredPublisherCustody> {
+        self.writer.required_publisher_custody()
+    }
+
+    #[cfg(all(test, target_os = "linux"))]
+    pub(super) fn release_writer_lock_for_test(&self, index: usize) -> Result<()> {
+        self.writer.release_lock_for_test(index)
+    }
+}
+
+fn persist_snapshot(conn: &Connection, state: &State) -> Result<()> {
+    commissioning_effects::require_ordinary_admission(conn)?;
+    snapshot::create_tables(conn)?;
+    stage_state(conn, state)?;
+    snapshot::apply(conn)
+}
+
+fn insert_audit(conn: &Connection, entry: &AuditEntry) -> Result<()> {
+    conn.execute(
+        "INSERT INTO forge_audit_log (id, occurred_at, actor, action, subject, phase, detail_json)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        params![
+            entry.id,
+            entry.occurred_at,
+            entry.actor,
+            entry.action,
+            entry.subject,
+            entry.phase,
+            json(&entry.detail)?
+        ],
+    )
+    .map_err(storage_error)?;
+    Ok(())
 }
 
 pub(super) fn repo_id(

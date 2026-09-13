@@ -97,8 +97,8 @@ fn get_unknown_user_is_not_found() {
 #[test]
 fn ensure_user_is_idempotent() {
     let core = core();
-    let first = core.ensure_user("lazy");
-    let second = core.ensure_user("lazy");
+    let first = core.ensure_user("lazy").expect("create lazy profile");
+    let second = core.ensure_user("lazy").expect("reuse lazy profile");
     // ensure_user must not mint a new identity on the second call.
     assert_eq!(first.id, second.id);
     assert_eq!(core.get_user("lazy").unwrap().id, first.id);

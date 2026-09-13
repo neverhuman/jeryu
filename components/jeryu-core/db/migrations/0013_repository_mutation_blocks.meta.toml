@@ -1,0 +1,18 @@
+# jankurai:migration v1
+id = "0013_repository_mutation_blocks"
+owner = "jeryu-core"
+reviewer = "independent-review-required"
+change_type = "expand"
+safety = "online"
+transaction = "required"
+lock_timeout = "5s"
+statement_timeout = "60s"
+estimated_rows = 0
+deploy_phase = "expand"
+app_compatibility = "new_app_old_db"
+requires = ["0012_review_dismissal_target"]
+rollback = "db/rollbacks/0013_repository_mutation_blocks.sql"
+backfill = "none; restrictions require explicit maintenance custody"
+data_classification = "internal"
+tenant_impact = "none"
+tests = ["db-migration-analyze", "mutation_custody", "core::mutation::tests", "core::repository_creation::tests"]

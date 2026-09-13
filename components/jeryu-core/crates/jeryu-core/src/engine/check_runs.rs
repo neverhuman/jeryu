@@ -18,45 +18,47 @@ impl ForgeCore {
         repo: &str,
         request: CreateCheckRunRequest,
     ) -> Result<CheckRun> {
-        require_name("check run name", &request.name)?;
-        require_name("head sha", &request.head_sha)?;
-        self.ensure_repo_exists(owner, repo)?;
-        let completed = matches!(request.status, Some(CheckRunStatus::Completed))
-            || request.conclusion.is_some();
-        let check_run = CheckRun {
-            id: Uuid::new_v4(),
-            owner: owner.to_string(),
-            repo: repo.to_string(),
-            name: request.name,
-            head_sha: request.head_sha,
-            status: request.status.unwrap_or(if completed {
-                CheckRunStatus::Completed
-            } else {
-                CheckRunStatus::Queued
-            }),
-            conclusion: request.conclusion,
-            details_url: request.details_url,
-            output: request.output,
-            started_at: Utc::now(),
-            completed_at: if completed { Some(Utc::now()) } else { None },
-        };
-        let mut state = self.runtime.state.write();
-        let previous = state.clone();
-        state
-            .check_runs
-            .entry((owner.to_string(), repo.to_string()))
-            .or_default()
-            .push(check_run.clone());
-        refresh_pull_mergeability_for_sha(&mut state, owner, repo, &check_run.head_sha);
-        emit_event_locked(
-            &mut state,
-            owner,
-            repo,
-            "check_run",
-            event_payload("created", "check_run", json!(check_run.clone())),
-        );
-        self.persist_after_mutation(&mut state, previous)?;
-        Ok(check_run)
+        self.with_repository_mutation(owner, repo, || {
+            require_name("check run name", &request.name)?;
+            require_name("head sha", &request.head_sha)?;
+            self.ensure_repo_exists(owner, repo)?;
+            let completed = matches!(request.status, Some(CheckRunStatus::Completed))
+                || request.conclusion.is_some();
+            let check_run = CheckRun {
+                id: Uuid::new_v4(),
+                owner: owner.to_string(),
+                repo: repo.to_string(),
+                name: request.name,
+                head_sha: request.head_sha,
+                status: request.status.unwrap_or(if completed {
+                    CheckRunStatus::Completed
+                } else {
+                    CheckRunStatus::Queued
+                }),
+                conclusion: request.conclusion,
+                details_url: request.details_url,
+                output: request.output,
+                started_at: Utc::now(),
+                completed_at: if completed { Some(Utc::now()) } else { None },
+            };
+            let mut state = self.runtime.state.write();
+            let previous = state.clone();
+            state
+                .check_runs
+                .entry((owner.to_string(), repo.to_string()))
+                .or_default()
+                .push(check_run.clone());
+            refresh_pull_mergeability_for_sha(&mut state, owner, repo, &check_run.head_sha);
+            emit_event_locked(
+                &mut state,
+                owner,
+                repo,
+                "check_run",
+                event_payload("created", "check_run", json!(check_run.clone())),
+            );
+            self.persist_after_mutation(&mut state, previous)?;
+            Ok(check_run)
+        })
     }
 
     pub fn list_check_runs(

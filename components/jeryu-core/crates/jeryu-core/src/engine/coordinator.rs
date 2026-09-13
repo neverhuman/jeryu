@@ -1,4 +1,4 @@
-//! Lock-order primitives, independent from the later mutation-entrypoint rollout.
+//! Non-reentrant lock-order primitives shared by Core mutation admission.
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -15,6 +15,8 @@ pub struct MutationCoordinator {
     authority: RwLock<()>,
     repositories: Mutex<HashMap<Uuid, Arc<Mutex<()>>>>,
     process_id: u32,
+    #[cfg(test)]
+    admission_entries: std::sync::atomic::AtomicUsize,
 }
 
 impl Default for MutationCoordinator {
@@ -23,6 +25,8 @@ impl Default for MutationCoordinator {
             authority: RwLock::new(()),
             repositories: Mutex::new(HashMap::new()),
             process_id: std::process::id(),
+            #[cfg(test)]
+            admission_entries: std::sync::atomic::AtomicUsize::new(0),
         }
     }
 }
@@ -37,6 +41,9 @@ impl MutationCoordinator {
         operation: impl FnOnce() -> Result<T>,
     ) -> Result<T> {
         self.check_process()?;
+        #[cfg(test)]
+        self.admission_entries
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         let _authority = self.authority.read();
         self.with_repository_locks(repositories, operation)
     }
@@ -49,17 +56,26 @@ impl MutationCoordinator {
         operation: impl FnOnce() -> Result<T>,
     ) -> Result<T> {
         self.check_process()?;
+        #[cfg(test)]
+        self.admission_entries
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         let _authority = self.authority.write();
         self.with_repository_locks(repositories, operation)
     }
 
-    fn check_process(&self) -> Result<()> {
+    pub(super) fn check_process(&self) -> Result<()> {
         if self.process_id != std::process::id() {
             return Err(ForgeError::WriterUnavailable(
                 "a coordinator cannot be inherited by another process".to_string(),
             ));
         }
         Ok(())
+    }
+
+    #[cfg(test)]
+    pub(super) fn admission_entries(&self) -> usize {
+        self.admission_entries
+            .load(std::sync::atomic::Ordering::SeqCst)
     }
 
     fn with_repository_locks<T>(
@@ -114,5 +130,57 @@ mod tests {
             })
             .unwrap();
         assert!(coordinator.authority.try_read().is_some());
+    }
+
+    #[test]
+    fn inherited_public_mutators_fail_before_a_held_state_lock() {
+        use crate::{CreateCheckRunRequest, CreateUserRequest, ForgeCore};
+        use std::time::Duration;
+
+        let mut core = ForgeCore::new();
+        Arc::get_mut(&mut core.runtime)
+            .unwrap()
+            .coordinator
+            .process_id = std::process::id().checked_add(1).unwrap();
+        let held = core.runtime.state.write();
+        let (sender, receiver) = std::sync::mpsc::channel();
+        let (global, repository) = (core.clone(), core.clone());
+        let global_sender = sender.clone();
+        let first = std::thread::spawn(move || {
+            global_sender
+                .send(matches!(
+                    global.create_user(CreateUserRequest {
+                        login: "child".into(),
+                        ..Default::default()
+                    }),
+                    Err(ForgeError::WriterUnavailable(_))
+                ))
+                .unwrap();
+        });
+        let second = std::thread::spawn(move || {
+            sender
+                .send(matches!(
+                    repository.create_check_run(
+                        "alice",
+                        "demo",
+                        CreateCheckRunRequest {
+                            name: "required".into(),
+                            head_sha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".into(),
+                            ..Default::default()
+                        }
+                    ),
+                    Err(ForgeError::WriterUnavailable(_))
+                ))
+                .unwrap();
+        });
+        let results = [
+            receiver.recv_timeout(Duration::from_secs(5)),
+            receiver.recv_timeout(Duration::from_secs(5)),
+        ];
+        drop(held);
+        first.join().unwrap();
+        second.join().unwrap();
+        assert!(results.into_iter().all(|result| result == Ok(true)));
+        assert!(core.runtime.state.read().users.is_empty());
     }
 }

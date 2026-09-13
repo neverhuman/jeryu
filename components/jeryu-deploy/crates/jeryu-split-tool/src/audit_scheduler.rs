@@ -5,6 +5,9 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{fs, path::Path, process::Command};
 
+#[path = "audit_scheduler_process.rs"]
+mod process;
+
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub(super) enum Event {
@@ -31,19 +34,19 @@ pub(super) struct ExecutionIdentity {
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct Request {
-    schema_version: String,
-    identity: ExecutionIdentity,
-    event: Event,
-    source_ref: String,
+pub(super) struct Request {
+    pub(super) schema_version: String,
+    pub(super) identity: ExecutionIdentity,
+    pub(super) event: Event,
+    pub(super) source_ref: String,
     /// Push's previous full object ID, or null / all-zero ID for creation.
-    before: Option<String>,
+    pub(super) before: Option<String>,
     /// Full commit ID; release also accepts its full annotated-tag object ID.
-    after: Option<String>,
-    run_id: String,
-    run_attempt: u32,
+    pub(super) after: Option<String>,
+    pub(super) run_id: String,
+    pub(super) run_attempt: u32,
     /// Preserve a retry relationship without changing the source deduplication key.
-    previous_run_id: Option<String>,
+    pub(super) previous_run_id: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -93,7 +96,7 @@ fn git_command(repo: &Path) -> Command {
 }
 
 fn git(repo: &Path, args: &[&str]) -> Result<String> {
-    let output = git_command(repo).args(args).output()?;
+    let output = process::git_output(git_command(repo).args(args))?;
     ensure!(
         output.status.success() && output.stderr.is_empty(),
         "audit source graph unavailable: Git {} failed; supply complete local objects",
@@ -256,7 +259,7 @@ fn graph_rows(repo: &Path, after: &str, before: Option<&str>) -> Result<Vec<(Str
         .collect()
 }
 
-fn plan(repo: &Path, request: Request) -> Result<Plan> {
+pub(super) fn plan(repo: &Path, request: Request) -> Result<Plan> {
     validate(&request)?;
     admit_graph(repo)?;
     git(repo, &["check-ref-format", &request.source_ref])?;
@@ -281,12 +284,10 @@ fn plan(repo: &Path, request: Request) -> Result<Plan> {
         disposition = "excluded_evidence_branch";
     } else if let Some(after) = &after {
         if matches!(request.event, Event::PullRequest | Event::Release) {
-            let tree = git(
-                repo,
-                &["rev-parse", "--verify", &format!("{after}^{{tree}}")],
-            )?;
-            ensure!(hex(tree.trim(), 40), "invalid source tree");
-            rows.push((after.clone(), tree.trim().to_owned()));
+            // A PR or release may be the first enrolled reference to these
+            // commits. Include both merge parents and all ancestors; accepted
+            // identical execution identities are deduplicated by the ledger.
+            rows = graph_rows(repo, after, None)?;
             disposition = "exact_revision";
         } else {
             rows = graph_rows(repo, after, before.as_deref())?;

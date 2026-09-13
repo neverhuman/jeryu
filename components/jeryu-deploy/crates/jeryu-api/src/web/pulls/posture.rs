@@ -27,10 +27,9 @@ pub(super) fn passport_hash(
                 "require_jankurai_proof": rule.require_jankurai_proof,
             })
         });
-    let blocker_codes = blockers
-        .iter()
-        .map(|blocker| blocker.code.as_str())
-        .collect::<Vec<_>>();
+    let review_qualification = core
+        .review_qualification(&pr.owner, &pr.repo, pr.number)
+        .ok();
     let required_context_states = required_contexts
         .iter()
         .map(|context| {
@@ -47,7 +46,8 @@ pub(super) fn passport_hash(
         "mergeable": pr.mergeable,
         "mergeable_state": pr.mergeable_state,
         "status": status,
-        "blocker_codes": blocker_codes,
+        "blockers": blockers,
+        "review_qualification": review_qualification,
         "review": review,
         "branch_protection": branch_protection,
         "required_contexts": required_context_states,
@@ -59,6 +59,7 @@ pub(super) fn passport_hash(
 }
 
 pub(super) fn passport(
+    state: &WebState,
     summary: &PullRequestSummary,
     pr: &PullRequest,
     required_contexts: &[RequiredContextPosture],
@@ -71,12 +72,13 @@ pub(super) fn passport(
     MergePassport {
         status,
         head_sha: summary.head_sha.clone(),
-        blockers: passport_blockers(required_contexts, &summary.review, pr),
+        blockers: passport_blockers(state, required_contexts, &summary.review, pr),
         evaluated_at: server_time(),
     }
 }
 
 pub(super) fn passport_blockers(
+    state: &WebState,
     required_contexts: &[RequiredContextPosture],
     review: &ReviewPosture,
     pr: &PullRequest,
@@ -141,6 +143,37 @@ pub(super) fn passport_blockers(
             "The authoritative forge merge gate is blocked.",
             Some(&pr.mergeable_state),
         ));
+    }
+    match state
+        .core
+        .review_qualification(&pr.owner, &pr.repo, pr.number)
+    {
+        Ok(qualification) if qualification.head_sha == pr.head.sha => {
+            for reason in qualification.blockers {
+                blockers.push(blocker(
+                    "passport_blocked_authority",
+                    "The forge has not qualified this merge operation.",
+                    Some(&reason),
+                ));
+            }
+            if !qualification.merge_qualified && blockers.is_empty() {
+                blockers.push(blocker(
+                    "passport_blocked_authority",
+                    "The forge has not qualified this merge operation.",
+                    None,
+                ));
+            }
+        }
+        Ok(_) => blockers.push(blocker(
+            "passport_blocked_state_changed",
+            "The pull request changed while its qualification was read.",
+            None,
+        )),
+        Err(error) => blockers.push(blocker(
+            "passport_blocked_authority_unavailable",
+            "The forge could not read review qualification.",
+            Some(&error.to_string()),
+        )),
     }
     blockers
 }
@@ -398,10 +431,13 @@ fn conclusion(value: &CheckConclusion) -> String {
 }
 
 pub(super) fn review_posture(state: &WebState, pr: &PullRequest) -> ReviewPosture {
-    let reviews = state
+    let effective = state
         .github
         .core()
-        .list_reviews(&pr.owner, &pr.repo, pr.number)
+        .review_qualification(&pr.owner, &pr.repo, pr.number)
+        .ok()
+        .filter(|qualification| qualification.head_sha == pr.head.sha)
+        .map(|qualification| qualification.effective_reviews)
         .unwrap_or_default();
     let comments = state
         .github
@@ -414,7 +450,6 @@ pub(super) fn review_posture(state: &WebState, pr: &PullRequest) -> ReviewPostur
         .get_branch_protection(&pr.owner, &pr.repo, &pr.base.ref_name)
         .map(|rule| u32::try_from(rule.required_approving_review_count).unwrap_or(u32::MAX))
         .unwrap_or(0);
-    let effective = effective_reviews_for_pull_request(&reviews, pr);
     ReviewPosture {
         required_approvals,
         approvals: effective
@@ -436,17 +471,30 @@ pub(super) fn reviews_for_pr(state: &WebState, pr: &PullRequest) -> Vec<PullRequ
         .core()
         .list_reviews(&pr.owner, &pr.repo, pr.number)
         .unwrap_or_default();
-    project_reviews(pr, reviews)
-}
-
-pub(super) fn project_reviews(
-    pr: &PullRequest,
-    reviews: Vec<jeryu_core::Review>,
-) -> Vec<PullRequestReview> {
-    let effective_ids = effective_reviews_for_pull_request(&reviews, pr)
-        .into_iter()
-        .map(|review| review.id)
-        .collect::<BTreeSet<_>>();
+    let qualification = state
+        .github
+        .core()
+        .review_qualification(&pr.owner, &pr.repo, pr.number)
+        .ok()
+        .filter(|qualification| qualification.head_sha == pr.head.sha);
+    let effective_ids = qualification
+        .as_ref()
+        .map(|qualification| {
+            qualification
+                .effective_reviews
+                .iter()
+                .map(|review| review.id)
+                .collect::<BTreeSet<_>>()
+        })
+        .unwrap_or_default();
+    let bound_ids = qualification
+        .map(|qualification| {
+            qualification
+                .bound_review_ids
+                .into_iter()
+                .collect::<BTreeSet<_>>()
+        })
+        .unwrap_or_default();
     reviews
         .into_iter()
         .map(|review| {
@@ -457,7 +505,8 @@ pub(super) fn project_reviews(
                 state: review_state_wire(&review.state).to_string(),
                 body_markdown: review.body,
                 submitted_at: review.submitted_at.to_rfc3339(),
-                stale: review.head_sha.as_deref() != Some(pr.head.sha.as_str()),
+                stale: !bound_ids.contains(&review.id)
+                    || review.head_sha.as_deref() != Some(pr.head.sha.as_str()),
                 head_sha: review.head_sha,
                 dismissed_review_id: review.dismissed_review_id.map(|id| id.to_string()),
                 effective,
