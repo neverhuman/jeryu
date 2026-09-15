@@ -109,8 +109,8 @@ case ${1:-all} in
     cargo audit --deny warnings --file Cargo.lock
     cargo deny check
     gitleaks git --redact=100 --log-opts=HEAD
-    actionlint .github/workflows/ci.yml
-    zizmor .github/workflows/ci.yml
+    actionlint .github/workflows/ci.yml .github/workflows/nightly.yml
+    zizmor .github/workflows/ci.yml .github/workflows/nightly.yml
     mkdir -p target/security
     # This is the source inventory; caches and Git objects are not source inputs.
     # The native CycloneDX lane uses the same exclusions. Release archives need

@@ -13,15 +13,6 @@ use crate::audit_score::JsonObject;
 const REQUIRED: [&str; 7] = [
     "source", "public", "rust", "web", "runtime", "product", "security",
 ];
-const ADVISORY: [&str; 7] = [
-    "sandbox",
-    "oci",
-    "splits",
-    "legacy",
-    "auxiliary",
-    "audit",
-    "auditor",
-];
 
 #[derive(Debug, Args)]
 pub(super) struct Arguments {
@@ -96,11 +87,7 @@ fn verify(arguments: &Arguments, run: &[u8], pages: &[u8]) -> Result<()> {
         .iter()
         .map(|lane| format!("verify / {lane}"))
         .collect();
-    let advisory: BTreeSet<String> = ADVISORY
-        .iter()
-        .map(|lane| format!("host-or-nightly / {lane}"))
-        .collect();
-    let inventory = required.len() + advisory.len() + 1;
+    let inventory = required.len() + 1;
     let mut ids = BTreeSet::new();
     let mut names = BTreeSet::new();
     let mut count = 0;
@@ -137,14 +124,17 @@ fn verify(arguments: &Arguments, run: &[u8], pages: &[u8]) -> Result<()> {
                     job.status == "in_progress" && job.conclusion.is_none(),
                     "aggregate must validate its own running attempt"
                 );
-            } else if required.contains(&job.name) {
+            } else {
+                ensure!(
+                    required.contains(&job.name),
+                    "unexpected job: {}",
+                    job.name
+                );
                 ensure!(
                     job.status == "completed" && job.conclusion.as_deref() == Some("success"),
                     "required job {} did not complete successfully",
                     job.name
                 );
-            } else {
-                ensure!(advisory.contains(&job.name), "unexpected job: {}", job.name);
             }
         }
     }
@@ -152,9 +142,8 @@ fn verify(arguments: &Arguments, run: &[u8], pages: &[u8]) -> Result<()> {
         page_count > 0 && count == inventory,
         "incomplete job pagination"
     );
-    let expected: BTreeSet<String> = required.union(&advisory).cloned().collect();
     ensure!(
-        names.remove("jeryu/required") && names == expected,
+        names.remove("jeryu/required") && names == required,
         "missing required jobs"
     );
     Ok(())

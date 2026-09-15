@@ -13,7 +13,9 @@ bash scripts/ci.sh web
 These are selected contributor checks. The complete product qualification
 command is `bash scripts/ci.sh all`; every required result must be present and
 successful. Missing capabilities, failures, cancellation, timeout or skipped
-required proofs cannot qualify the aggregate. See
+required proofs cannot qualify the aggregate. GitHub pull requests run the
+seven hosted required lanes plus `jeryu/required`. The remaining lanes run on
+the nightly workflow and locally via `all`. See
 [CI coverage](migration/CI-COVERAGE.md) for the maintained obligation inventory.
 
 Rust checks preserve formatting, warning-denied Clippy, tests and supported

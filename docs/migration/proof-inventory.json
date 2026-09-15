@@ -18,7 +18,7 @@
       "kind": "workflow",
       "path": ".github/workflows/ci.yml",
       "port_status": "pending-equivalence-proof",
-      "sha256": "7a175eb8ed1f734c8c1e01b7e4ff97ed0b4703a3355e94e5105143ddbf57283a"
+      "sha256": "80890d6f5b1ce5ea347901364c52ba1b504982ca31e6f7f72a2d5ccc6d6bf37c"
     },
     {
       "component": "jeryu",
@@ -26,7 +26,15 @@
       "kind": "workflow",
       "path": ".github/workflows/jankurai-score.yml",
       "port_status": "pending-equivalence-proof",
-      "sha256": "d537c1bbe64d70f251fec7e8c7be6f589b96404638ba2e943e9b962a046ca8cf"
+      "sha256": "5ef04a724b808fd33c1a1d285b7a048e9fcde32a8655866e57c86e93a3b05342"
+    },
+    {
+      "component": "jeryu",
+      "declaration": null,
+      "kind": "workflow",
+      "path": ".github/workflows/nightly.yml",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "9a9f7823c006ff5a4cfb6342633c8c07fe3f1c973407e9d07f8b9541e86f60fb"
     },
     {
       "component": "jeryu",
@@ -3551,7 +3559,7 @@
       "kind": "proof-implementation-or-input",
       "path": "components/jeryu-deploy/crates/jeryu-split-tool/src/ci_required.rs",
       "port_status": "pending-equivalence-proof",
-      "sha256": "d7d5ca26fcefcf4651a692aa82ed78bfe498a5fd7799623fb63ebf9d5ea0d731"
+      "sha256": "7eadfea5e9a24aa24dd58d70dd202be844b31202b7d214606ba2a295a3c8e043"
     },
     {
       "component": "jeryu-deploy",
@@ -3559,7 +3567,7 @@
       "kind": "proof-implementation-or-input",
       "path": "components/jeryu-deploy/crates/jeryu-split-tool/src/ci_required_tests.rs",
       "port_status": "pending-equivalence-proof",
-      "sha256": "12b3389dce2598735aff8f9150f04734c28e72758cc64e8c44b343ef22b9e408"
+      "sha256": "281c4761230c669ea64c17cdfc457e824e29ce1ff7442de5498dabd6dd9656fa"
     },
     {
       "component": "jeryu-deploy",
@@ -9143,7 +9151,7 @@
       "kind": "proof-implementation-or-input",
       "path": "scripts/ci-lanes.sh",
       "port_status": "pending-equivalence-proof",
-      "sha256": "d6f3147906fd7035acc2b0bf56ea7bb5ce7938bc341d93d37e69ac41fccee018"
+      "sha256": "0c214e15932ba61929b7f192a874f63f6cdf275d396835a47c4bdb19fddc386c"
     },
     {
       "component": "jeryu",
@@ -9167,7 +9175,7 @@
       "kind": "proof-implementation-or-input",
       "path": "scripts/ci.sh",
       "port_status": "pending-equivalence-proof",
-      "sha256": "90d01fdddfd4386288885f5cd64f2419b6fb51328c695c7135915611f5cf4382"
+      "sha256": "cad6b1662ff935afd6bec766b431df989d69bfb4f47d96b91b94634363175ce4"
     },
     {
       "component": "jeryu",
@@ -9255,7 +9263,7 @@
       "kind": "proof-implementation-or-input",
       "path": "tests/ci-matrix.sh",
       "port_status": "pending-equivalence-proof",
-      "sha256": "d56898797eadf7ede65ead96fca010709a7372e611d2c91bfd5bc42eed73c385"
+      "sha256": "baff665d5c13ebdd6833ac44eba99345bc38f9c4b734a18cfdbaeae25d08d535"
     },
     {
       "component": "jeryu",

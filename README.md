@@ -1,14 +1,17 @@
 # Jeryu
 
+[![Required CI](https://github.com/neverhuman/jeryu/actions/workflows/ci.yml/badge.svg)](https://github.com/neverhuman/jeryu/actions/workflows/ci.yml)
+
 Jeryu is a self-hosted forge for Git repositories, issues, pull requests,
 reviews and protected merges, with a browser interface and optional CI runners.
 
 **Public development happens in this repository.** Clone `main` on
-[neverhuman/jeryu](https://github.com/neverhuman/jeryu). This is not a
-general-availability release: there is no signed binary installer yet, and
-protected merge execution is unavailable (the server refuses it instead of
-pretending to merge). Read [current status](docs/migration/STATUS.md) and
-the [dependency and audit dashboard](docs/dependencies.md).
+[neverhuman/jeryu](https://github.com/neverhuman/jeryu). Linux x86_64 source
+install only. This is not a general-availability release: GitHub Releases still
+list historical v4.x binaries that are not current; there is no signed v5
+installer, and protected merge execution is unavailable (the server refuses it
+instead of pretending to merge). Read [current status](docs/migration/STATUS.md)
+and the [dependency and audit dashboard](docs/dependencies.md).
 
 ## Quick start
 
