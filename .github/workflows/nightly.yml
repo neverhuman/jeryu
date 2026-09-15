@@ -1,0 +1,92 @@
+name: Jeryu nightly
+
+# Advisory lanes still fail closed. They are not the GitHub merge gate.
+# Local `bash scripts/ci.sh all` still runs the full union.
+on:
+  schedule:
+    - cron: '17 5 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: jeryu-nightly-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  advisory:
+    name: host-or-nightly / ${{ matrix.lane }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        lane: [sandbox, oci, splits, legacy, auxiliary, audit, auditor]
+    env:
+      CARGO_BUILD_JOBS: '2'
+      CI: 'true'
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '26.1.0'
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install host prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ripgrep bubblewrap acl apparmor
+      - name: Admit unprivileged audit sandbox
+        if: ${{ matrix.lane == 'audit' }}
+        run: bash scripts/check-audit-sandbox.sh --prepare-disposable-ci
+      - name: Install pinned Rust toolchain
+        run: rustup show active-toolchain
+      - name: Run shared local command
+        env:
+          JERYU_CI_LANE: ${{ matrix.lane }}
+          JERYU_AUDIT_OUTPUT_ROOT: ${{ runner.temp }}/jeryu-audit-census
+        run: |
+          if [ "$JERYU_CI_LANE" = sandbox ] || [ "$JERYU_CI_LANE" = oci ]; then
+            sudo -n env PATH="$PATH" CARGO_HOME="$HOME/.cargo" RUSTUP_HOME="$HOME/.rustup" \
+              CARGO_BUILD_JOBS=2 JERYU_DISPOSABLE_SANDBOX=1 bash ops/ci/monorepo.sh "$JERYU_CI_LANE"
+          else
+            bash ops/ci/monorepo.sh "$JERYU_CI_LANE"
+          fi
+      - name: Preserve split check diagnostics
+        if: ${{ always() && matrix.lane == 'splits' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: split-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            target/split-evidence/**/*.log
+            target/split-evidence/**/*.json
+          if-no-files-found: error
+          retention-days: 30
+      - name: Preserve audit census diagnostics
+        if: ${{ always() && matrix.lane == 'audit' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: audit-census-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/jeryu-audit-census/attempt.*/census/census.json
+            ${{ runner.temp }}/jeryu-audit-census/attempt.*/census/*/audit.log
+            ${{ runner.temp }}/jeryu-audit-census/attempt.*/census/*/report.json
+            ${{ runner.temp }}/jeryu-audit-census/attempt.*/census/*/report.md
+          if-no-files-found: error
+          retention-days: 30
+      - name: Preserve owning root audit findings
+        if: ${{ always() && matrix.lane == 'auditor' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: root-audit-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            .jankurai/repo-score.json
+            .jankurai/repo-score.md
+            target/jankurai/repair-queue.jsonl
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30

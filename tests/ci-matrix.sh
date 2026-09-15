@@ -4,12 +4,13 @@ set -euo pipefail
 root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)
 source "$root/scripts/ci-lanes.sh"
 
-mapfile -t hosted_lines < <(sed -n 's/^        lane: \[\(.*\)\]$/\1/p' "$root/.github/workflows/ci.yml")
-[[ ${#hosted_lines[@]} == 2 ]] || {
-  printf 'Hosted CI must declare one required matrix and one advisory matrix\n' >&2; exit 1;
+mapfile -t required_lines < <(sed -n 's/^        lane: \[\(.*\)\]$/\1/p' "$root/.github/workflows/ci.yml")
+mapfile -t advisory_lines < <(sed -n 's/^        lane: \[\(.*\)\]$/\1/p' "$root/.github/workflows/nightly.yml")
+[[ ${#required_lines[@]} == 1 && ${#advisory_lines[@]} == 1 ]] || {
+  printf 'Hosted CI must declare one required matrix and one nightly advisory matrix\n' >&2; exit 1;
 }
-required_hosted=${hosted_lines[0]//, / }
-advisory_hosted=${hosted_lines[1]//, / }
+required_hosted=${required_lines[0]//, / }
+advisory_hosted=${advisory_lines[0]//, / }
 [[ $required_hosted == "${JERYU_HOSTED_REQUIRED_CI_LANES[*]}" ]] || {
   printf 'Local and hosted required CI lanes differ\n' >&2; exit 1;
 }

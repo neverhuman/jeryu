@@ -23,12 +23,6 @@ fn fixture() -> (Arguments, Value, Value) {
             })
         })
         .collect();
-    jobs.extend(ADVISORY.iter().enumerate().map(|(index, lane)| {
-        json!({
-            "id":index+50,"name":format!("host-or-nightly / {lane}"),"run_id":42,"run_attempt":3,
-            "head_sha":arguments.source,"workflow_name":"Jeryu","status":"completed","conclusion":"failure"
-        })
-    }));
     jobs.push(json!({"id":99,"name":"jeryu/required","run_id":42,"run_attempt":3,
         "head_sha":arguments.source,"workflow_name":"Jeryu","status":"in_progress","conclusion":null}));
     (
@@ -54,8 +48,8 @@ fn accepts_complete_exact_attempt_and_complete_pagination() {
     let total = all.len();
     let pages = format!(
         "{}\n{}",
-        json!({"total_count":total,"jobs":&all[..7]}),
-        json!({"total_count":total,"jobs":&all[7..]})
+        json!({"total_count":total,"jobs":&all[..4]}),
+        json!({"total_count":total,"jobs":&all[4..]})
     );
     verify(
         &arguments,
@@ -66,13 +60,17 @@ fn accepts_complete_exact_attempt_and_complete_pagination() {
 }
 
 #[test]
-fn advisory_failures_do_not_block_the_required_aggregate() {
-    let (arguments, run, jobs) = fixture();
-    check(&arguments, &run, &jobs).unwrap();
+fn rejects_advisory_jobs_in_the_required_workflow() {
     let (arguments, run, mut jobs) = fixture();
-    jobs["jobs"][REQUIRED.len()]["status"] = json!("in_progress");
-    jobs["jobs"][REQUIRED.len()]["conclusion"] = Value::Null;
-    check(&arguments, &run, &jobs).unwrap();
+    jobs["jobs"]
+        .as_array_mut()
+        .unwrap()
+        .insert(0, json!({
+            "id":50,"name":"host-or-nightly / auditor","run_id":42,"run_attempt":3,
+            "head_sha":arguments.source,"workflow_name":"Jeryu","status":"completed","conclusion":"failure"
+        }));
+    jobs["total_count"] = json!(jobs["jobs"].as_array().unwrap().len());
+    assert!(check(&arguments, &run, &jobs).is_err());
 }
 
 #[test]
@@ -112,7 +110,7 @@ fn rejects_incomplete_duplicate_and_substituted_jobs() {
             "missing" => {
                 jobs["jobs"].as_array_mut().unwrap().remove(0);
             }
-            "total" => jobs["total_count"] = json!(14),
+            "total" => jobs["total_count"] = json!(7),
             "duplicate-id" => jobs["jobs"][1]["id"] = jobs["jobs"][0]["id"].clone(),
             "duplicate-name" => jobs["jobs"][1]["name"] = jobs["jobs"][0]["name"].clone(),
             "unexpected" => jobs["jobs"][0]["name"] = json!("verify / easy"),
@@ -161,7 +159,7 @@ fn rejects_malformed_empty_and_duplicate_field_pages() {
         "[]",
         "null",
         "{}",
-        "{\"total_count\":15,\"total_count\":15,\"jobs\":[]}",
+        "{\"total_count\":8,\"total_count\":8,\"jobs\":[]}",
     ] {
         assert!(
             verify(&arguments, &run, pages.as_bytes()).is_err(),

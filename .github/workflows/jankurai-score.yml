@@ -1,9 +1,8 @@
 name: Jankurai score
 
 on:
-  pull_request:
-  push:
-    branches: [main, 'codex/public-monorepo-*']
+  schedule:
+    - cron: '47 5 * * *'
   workflow_call:
   workflow_dispatch:
 

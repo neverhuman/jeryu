@@ -10,8 +10,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: jeryu-${{ github.run_id }}-${{ github.run_attempt }}
-  cancel-in-progress: false
+  group: jeryu-${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   verify:
@@ -34,15 +34,21 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: '26.1.0'
+          cache: npm
+          cache-dependency-path: package-lock.json
       - name: Install host prerequisites
         run: |
           sudo apt-get update
           sudo apt-get install -y ripgrep bubblewrap acl apparmor
       - name: Admit unprivileged audit sandbox
-        if: ${{ matrix.lane == 'rust' || matrix.lane == 'audit' }}
+        if: ${{ matrix.lane == 'rust' }}
         run: bash scripts/check-audit-sandbox.sh --prepare-disposable-ci
       - name: Install pinned Rust toolchain
         run: rustup show active-toolchain
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        if: ${{ matrix.lane != 'rust' && matrix.lane != 'runtime' }}
+        with:
+          shared-key: jeryu-required
       - name: Prepare dedicated process test identity
         if: ${{ matrix.lane == 'runtime' || matrix.lane == 'rust' }}
         env:
@@ -65,10 +71,7 @@ jobs:
           JERYU_CI_LANE: ${{ matrix.lane }}
           JERYU_AUDIT_OUTPUT_ROOT: ${{ runner.temp }}/jeryu-audit-census
         run: |
-          if [ "$JERYU_CI_LANE" = sandbox ] || [ "$JERYU_CI_LANE" = oci ]; then
-            sudo -n env PATH="$PATH" CARGO_HOME="$HOME/.cargo" RUSTUP_HOME="$HOME/.rustup" \
-              CARGO_BUILD_JOBS=2 JERYU_DISPOSABLE_SANDBOX=1 bash ops/ci/monorepo.sh "$JERYU_CI_LANE"
-          elif [ "$JERYU_CI_LANE" = runtime ] || [ "$JERYU_CI_LANE" = rust ]; then
+          if [ "$JERYU_CI_LANE" = runtime ] || [ "$JERYU_CI_LANE" = rust ]; then
             # Process-custody checks require visibility of every process with
             # the fixture UID. The hosted runner's own UID includes private
             # supervisor processes; keep their identity outside this proof.
@@ -150,219 +153,6 @@ jobs:
             components/jeryu-core/contracts/generated/*.ts
             components/jeryu-jira/contracts/generated/*.ts
             components/jeryu-web/contracts/generated/*.ts
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Preserve split check diagnostics
-        if: ${{ always() && matrix.lane == 'splits' }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        with:
-          name: split-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
-          path: |
-            target/split-evidence/**/*.log
-            target/split-evidence/**/*.json
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Preserve audit census diagnostics
-        if: ${{ always() && matrix.lane == 'audit' }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        with:
-          name: audit-census-${{ github.run_id }}-${{ github.run_attempt }}
-          path: |
-            ${{ runner.temp }}/jeryu-audit-census/attempt.*/census/census.json
-            ${{ runner.temp }}/jeryu-audit-census/attempt.*/census/*/audit.log
-            ${{ runner.temp }}/jeryu-audit-census/attempt.*/census/*/report.json
-            ${{ runner.temp }}/jeryu-audit-census/attempt.*/census/*/report.md
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Preserve owning root audit findings
-        if: ${{ always() && matrix.lane == 'auditor' }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        with:
-          name: root-audit-${{ github.run_id }}-${{ github.run_attempt }}
-          path: |
-            .jankurai/repo-score.json
-            .jankurai/repo-score.md
-            target/jankurai/repair-queue.jsonl
-          include-hidden-files: true
-          if-no-files-found: error
-          retention-days: 30
-
-  advisory:
-    name: host-or-nightly / ${{ matrix.lane }}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 90
-    strategy:
-      fail-fast: false
-      matrix:
-        lane: [sandbox, oci, splits, legacy, auxiliary, audit, auditor]
-    env:
-      CARGO_BUILD_JOBS: '2'
-      CI: 'true'
-    steps:
-      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
-        with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-          fetch-depth: 0
-          persist-credentials: false
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
-        with:
-          node-version: '26.1.0'
-      - name: Install host prerequisites
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ripgrep bubblewrap acl apparmor
-      - name: Admit unprivileged audit sandbox
-        if: ${{ matrix.lane == 'rust' || matrix.lane == 'audit' }}
-        run: bash scripts/check-audit-sandbox.sh --prepare-disposable-ci
-      - name: Install pinned Rust toolchain
-        run: rustup show active-toolchain
-      - name: Prepare dedicated process test identity
-        if: ${{ matrix.lane == 'runtime' || matrix.lane == 'rust' }}
-        env:
-          JERYU_CI_LANE: ${{ matrix.lane }}
-        run: |
-          sudo -n useradd --uid 45165 --user-group --no-create-home --home-dir /home/jeryu-runtime --shell /bin/bash jeryu-runtime
-          sudo -n mkdir --mode=0700 /home/jeryu-runtime
-          # Hosted parent directories can carry default ACLs, which override
-          # umask for new descendants such as the private auditor installation.
-          sudo -n setfacl --remove-all --remove-default /home/jeryu-runtime
-          sudo -n chmod 0700 /home/jeryu-runtime
-          sudo -n mkdir --mode=0700 /home/jeryu-runtime/tmp
-          sudo -n mv "$HOME/.cargo" "$HOME/.rustup" /home/jeryu-runtime/
-          sudo -n chown -R jeryu-runtime:jeryu-runtime "$GITHUB_WORKSPACE" /home/jeryu-runtime
-          if [ "$JERYU_CI_LANE" = rust ]; then
-            sudo -n usermod --append --groups docker jeryu-runtime
-          fi
-      - name: Run shared local command
-        env:
-          JERYU_CI_LANE: ${{ matrix.lane }}
-          JERYU_AUDIT_OUTPUT_ROOT: ${{ runner.temp }}/jeryu-audit-census
-        run: |
-          if [ "$JERYU_CI_LANE" = sandbox ] || [ "$JERYU_CI_LANE" = oci ]; then
-            sudo -n env PATH="$PATH" CARGO_HOME="$HOME/.cargo" RUSTUP_HOME="$HOME/.rustup" \
-              CARGO_BUILD_JOBS=2 JERYU_DISPOSABLE_SANDBOX=1 bash ops/ci/monorepo.sh "$JERYU_CI_LANE"
-          elif [ "$JERYU_CI_LANE" = runtime ] || [ "$JERYU_CI_LANE" = rust ]; then
-            # Process-custody checks require visibility of every process with
-            # the fixture UID. The hosted runner's own UID includes private
-            # supervisor processes; keep their identity outside this proof.
-            # Auditor custody also checks every source ancestor's owner.
-            # Move this checkout beneath the private identity for the command,
-            # then restore it for the runner's normal post-job cleanup.
-            isolated_source=/home/jeryu-runtime/source
-            test -d "$GITHUB_WORKSPACE/.git" && test ! -L "$GITHUB_WORKSPACE/.git"
-            checkout_identity=$(sudo -n stat -c '%d:%i' "$GITHUB_WORKSPACE")
-            sudo -n test ! -e "$isolated_source"
-            sudo -n test ! -L "$isolated_source"
-            restore_source() {
-              result=$?
-              trap - EXIT
-              if ! sudo -n mv --no-copy --no-clobber --no-target-directory "$isolated_source" "$GITHUB_WORKSPACE" ||
-                sudo -n test -e "$isolated_source" ||
-                test "$(sudo -n stat -c '%d:%i' "$GITHUB_WORKSPACE")" != "$checkout_identity"; then
-                echo 'isolated checkout restoration failed; retain source at its private path' >&2
-                exit 1
-              fi
-              exit "$result"
-            }
-            sudo -n mv --no-copy --no-clobber --no-target-directory "$GITHUB_WORKSPACE" "$isolated_source"
-            test "$(sudo -n stat -c '%d:%i' "$isolated_source")" = "$checkout_identity"
-            trap restore_source EXIT
-            sudo -n -u jeryu-runtime env -i HOME=/home/jeryu-runtime \
-              TMPDIR=/home/jeryu-runtime/tmp \
-              PATH="/home/jeryu-runtime/.cargo/bin:$PATH" \
-              CARGO_HOME=/home/jeryu-runtime/.cargo RUSTUP_HOME=/home/jeryu-runtime/.rustup \
-              CARGO_BUILD_JOBS=2 CI=true bash "$isolated_source/ops/ci/monorepo.sh" "$JERYU_CI_LANE"
-          else
-            bash ops/ci/monorepo.sh "$JERYU_CI_LANE"
-          fi
-      - name: Prepare generated contract diagnostics
-        if: ${{ failure() && matrix.lane == 'web' }}
-        timeout-minutes: 10
-        env:
-          JERYU_CI_SOURCE: ${{ github.event.pull_request.head.sha || github.sha }}
-        run: |
-          set -euo pipefail
-          umask 077
-          test "$(git rev-parse HEAD)" = "$JERYU_CI_SOURCE"
-          test -z "$(GIT_OPTIONAL_LOCKS=0 git status --porcelain)"
-          source_tree=$(git rev-parse 'HEAD^{tree}')
-          # The earlier required command remains failed. This owning generation
-          # supplies reviewable source artifacts; it does not waive contract drift.
-          bash scripts/contracts.sh --write
-          test "$(git rev-parse HEAD)" = "$JERYU_CI_SOURCE"
-          test "$(git rev-parse 'HEAD^{tree}')" = "$source_tree"
-          git diff --exit-code -- . \
-            ':!components/jeryu-core/contracts/generated' \
-            ':!components/jeryu-jira/contracts/generated' \
-            ':!components/jeryu-web/contracts/generated'
-          mkdir -p target
-          sha256sum components/jeryu-core/contracts/generated/*.ts \
-            components/jeryu-jira/contracts/generated/*.ts \
-            components/jeryu-web/contracts/generated/*.ts > target/contract-checksums.sha256
-          jq -n --arg source "$JERYU_CI_SOURCE" --arg tree "$source_tree" \
-            --arg repository "$GITHUB_REPOSITORY" --arg run "$GITHUB_RUN_ID" \
-            --arg attempt "$GITHUB_RUN_ATTEMPT" --arg workflow "$GITHUB_WORKFLOW_REF" \
-            --arg compiler "$(rustc --version)" \
-            --arg core "$(sha256sum target/debug/export_contracts | cut -d ' ' -f1)" \
-            --arg work "$(sha256sum target/debug/jeryu-jira-export-contracts | cut -d ' ' -f1)" \
-            --arg checksums "$(sha256sum target/contract-checksums.sha256 | cut -d ' ' -f1)" \
-            '{schema_version:"jeryu.contract-diagnostics/v1",source_commit:$source,source_tree:$tree,
-              repository:$repository,run_id:$run,run_attempt:$attempt,workflow_ref:$workflow,
-              rustc:$compiler,core_generator_sha256:$core,work_generator_sha256:$work,
-              checksums_sha256:$checksums,command:"bash scripts/contracts.sh --write",
-              generation_exit:0,source_qualified:false,publication_qualified:false}' \
-            > target/contract-diagnostics.json
-      - name: Preserve generated contract diagnostics
-        if: ${{ failure() && matrix.lane == 'web' }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        with:
-          name: generated-contracts-${{ github.run_id }}-${{ github.run_attempt }}
-          path: |
-            target/contract-diagnostics.json
-            target/contract-checksums.sha256
-            components/jeryu-core/contracts/generated/*.ts
-            components/jeryu-jira/contracts/generated/*.ts
-            components/jeryu-web/contracts/generated/*.ts
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Preserve split check diagnostics
-        if: ${{ always() && matrix.lane == 'splits' }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        with:
-          name: split-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
-          path: |
-            target/split-evidence/**/*.log
-            target/split-evidence/**/*.json
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Preserve audit census diagnostics
-        if: ${{ always() && matrix.lane == 'audit' }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        with:
-          name: audit-census-${{ github.run_id }}-${{ github.run_attempt }}
-          path: |
-            ${{ runner.temp }}/jeryu-audit-census/attempt.*/census/census.json
-            ${{ runner.temp }}/jeryu-audit-census/attempt.*/census/*/audit.log
-            ${{ runner.temp }}/jeryu-audit-census/attempt.*/census/*/report.json
-            ${{ runner.temp }}/jeryu-audit-census/attempt.*/census/*/report.md
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Preserve owning root audit findings
-        if: ${{ always() && matrix.lane == 'auditor' }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        with:
-          name: root-audit-${{ github.run_id }}-${{ github.run_attempt }}
-          path: |
-            .jankurai/repo-score.json
-            .jankurai/repo-score.md
-            target/jankurai/repair-queue.jsonl
-          include-hidden-files: true
           if-no-files-found: error
           retention-days: 30
 
