@@ -125,11 +125,7 @@ fn verify(arguments: &Arguments, run: &[u8], pages: &[u8]) -> Result<()> {
                     "aggregate must validate its own running attempt"
                 );
             } else {
-                ensure!(
-                    required.contains(&job.name),
-                    "unexpected job: {}",
-                    job.name
-                );
+                ensure!(required.contains(&job.name), "unexpected job: {}", job.name);
                 ensure!(
                     job.status == "completed" && job.conclusion.as_deref() == Some("success"),
                     "required job {} did not complete successfully",
