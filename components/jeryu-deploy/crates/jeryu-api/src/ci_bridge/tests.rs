@@ -839,41 +839,12 @@ fn assert_reviewed_main_preserved(explicit_version: bool) {
         )
         .unwrap();
     let merged = router.put(&merge_path, "{}");
-    assert_eq!(merged.status, 200, "{}", merged.body);
-    let response: serde_json::Value = serde_json::from_str(&merged.body).unwrap();
-    assert_eq!(response["sha"], head);
-    assert_eq!(
-        git_out(&bare, &["rev-parse", "refs/heads/main"]),
-        head,
-        "the post-merge push bridge must not append an unreviewed version commit"
-    );
-    assert_eq!(
-        git_out(&bare, &["rev-parse", "refs/heads/main^{tree}"]),
-        git_out(work.path(), &["rev-parse", "HEAD^{tree}"])
-    );
-    for path in ["Cargo.toml", "CHANGELOG.md"] {
-        assert_eq!(
-            git_out(&bare, &["show", &format!("refs/heads/main:{path}")]),
-            fs::read_to_string(work.path().join(path)).unwrap().trim()
-        );
-    }
+    assert_eq!(merged.status, 503, "{}", merged.body);
+    assert_eq!(git_out(&bare, &["rev-parse", "refs/heads/main"]), base);
     let final_pr = router.get(&format!("/repos/jeryu/demo/pulls/{number}"));
     assert_eq!(final_pr.status, 200, "{}", final_pr.body);
     let final_pr: serde_json::Value = serde_json::from_str(&final_pr.body).unwrap();
-    assert_eq!(final_pr["merged"], true);
-    assert_eq!(final_pr["merge_commit_sha"], head);
-    let refs = git_out(&bare, &["show-ref"]);
-    // A duplicate callback must also leave every branch and immutable tag at
-    // the same objects, even though advisory check recording may repeat.
-    on_push(
-        router.core(),
-        &manager,
-        "jeryu",
-        "demo",
-        &[ref_update("refs/heads/main", &base, &head)],
-        "http://127.0.0.1:8787",
-    );
-    assert_eq!(git_out(&bare, &["show-ref"]), refs);
+    assert_eq!(final_pr["merged"], false);
     assert_eq!(
         git_out(&bare, &["rev-parse", "refs/tags/demo-v4.0.0-split.0"]),
         base

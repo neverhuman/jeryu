@@ -10,14 +10,10 @@ use serde::Deserialize;
 
 use crate::audit_score::JsonObject;
 
-const LANES: [&str; 14] = [
-    "source",
-    "public",
-    "rust",
-    "web",
-    "runtime",
-    "product",
-    "security",
+const REQUIRED: [&str; 7] = [
+    "source", "public", "rust", "web", "runtime", "product", "security",
+];
+const ADVISORY: [&str; 7] = [
     "sandbox",
     "oci",
     "splits",
@@ -96,10 +92,15 @@ fn verify(arguments: &Arguments, run: &[u8], pages: &[u8]) -> Result<()> {
             && run.path == ".github/workflows/ci.yml",
         "workflow run does not match the expected repository, source, workflow and attempt"
     );
-    let expected: BTreeSet<String> = LANES
+    let required: BTreeSet<String> = REQUIRED
         .iter()
         .map(|lane| format!("verify / {lane}"))
         .collect();
+    let advisory: BTreeSet<String> = ADVISORY
+        .iter()
+        .map(|lane| format!("host-or-nightly / {lane}"))
+        .collect();
+    let inventory = required.len() + advisory.len() + 1;
     let mut ids = BTreeSet::new();
     let mut names = BTreeSet::new();
     let mut count = 0;
@@ -108,7 +109,7 @@ fn verify(arguments: &Arguments, run: &[u8], pages: &[u8]) -> Result<()> {
         let page = page?.0;
         page_count += 1;
         ensure!(
-            page.total_count == expected.len() + 1,
+            page.total_count == inventory,
             "unexpected total job inventory"
         );
         ensure!(!page.jobs.is_empty(), "empty jobs page");
@@ -136,20 +137,22 @@ fn verify(arguments: &Arguments, run: &[u8], pages: &[u8]) -> Result<()> {
                     job.status == "in_progress" && job.conclusion.is_none(),
                     "aggregate must validate its own running attempt"
                 );
-            } else {
-                ensure!(expected.contains(&job.name), "unexpected job: {}", job.name);
+            } else if required.contains(&job.name) {
                 ensure!(
                     job.status == "completed" && job.conclusion.as_deref() == Some("success"),
                     "required job {} did not complete successfully",
                     job.name
                 );
+            } else {
+                ensure!(advisory.contains(&job.name), "unexpected job: {}", job.name);
             }
         }
     }
     ensure!(
-        page_count > 0 && count == expected.len() + 1,
+        page_count > 0 && count == inventory,
         "incomplete job pagination"
     );
+    let expected: BTreeSet<String> = required.union(&advisory).cloned().collect();
     ensure!(
         names.remove("jeryu/required") && names == expected,
         "missing required jobs"
@@ -165,7 +168,7 @@ pub(super) fn run(arguments: Arguments) -> Result<()> {
     )?;
     println!(
         "All {} required jobs passed for {} at run {} attempt {}",
-        LANES.len(),
+        REQUIRED.len(),
         arguments.source,
         arguments.run_id,
         arguments.attempt

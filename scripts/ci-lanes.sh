@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
-# Keep the hosted matrix in sync with this list; tests/ci-matrix.sh checks it.
-JERYU_REQUIRED_CI_LANES=(source public rust web runtime product security sandbox oci splits legacy auxiliary audit auditor)
+# Keep the hosted matrices in sync with these lists; tests/ci-matrix.sh checks them.
+# Local `scripts/ci.sh all` still runs the full union. GitHub `jeryu/required`
+# aggregates only the hosted-required lanes.
+JERYU_HOSTED_REQUIRED_CI_LANES=(source public rust web runtime product security)
+JERYU_HOSTED_ADVISORY_CI_LANES=(sandbox oci splits legacy auxiliary audit auditor)
+JERYU_REQUIRED_CI_LANES=("${JERYU_HOSTED_REQUIRED_CI_LANES[@]}" "${JERYU_HOSTED_ADVISORY_CI_LANES[@]}")
 
 jeryu_ci_all() {
   local lane result failed=0

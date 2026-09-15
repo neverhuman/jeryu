@@ -2,8 +2,9 @@
 
 Open issues and pull requests at [neverhuman/jeryu](https://github.com/neverhuman/jeryu).
 The root Rust and npm workspaces are the development entrypoint. Edit the owning
-component under `components/`; standalone repositories are downstream mirror
-targets. Work keeps its `jeryu-jira` package and repository identity.
+component under `components/`; the ten `neverhuman/jeryu-*` GitHub repositories
+are historical identities and future mirrors, not contribution targets. Work
+keeps its `jeryu-jira` package and repository identity.
 
 Read [AGENTS.md](AGENTS.md), the owning component's guidance and
 [architecture](docs/architecture.md) before changing source. Preserve public

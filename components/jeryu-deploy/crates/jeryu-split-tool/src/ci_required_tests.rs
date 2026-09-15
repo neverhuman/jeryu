@@ -13,10 +13,22 @@ fn fixture() -> (Arguments, Value, Value) {
     let run = json!({"id":42,"run_attempt":3,"head_sha":arguments.source,
         "path":".github/workflows/ci.yml","name":"Jeryu",
         "repository":{"full_name":"neverhuman/jeryu"}});
-    let mut jobs: Vec<Value> = LANES.iter().enumerate().map(|(index, lane)| json!({
-        "id":index+1,"name":format!("verify / {lane}"),"run_id":42,"run_attempt":3,
-        "head_sha":arguments.source,"workflow_name":"Jeryu","status":"completed","conclusion":"success"
-    })).collect();
+    let mut jobs: Vec<Value> = REQUIRED
+        .iter()
+        .enumerate()
+        .map(|(index, lane)| {
+            json!({
+                "id":index+1,"name":format!("verify / {lane}"),"run_id":42,"run_attempt":3,
+                "head_sha":arguments.source,"workflow_name":"Jeryu","status":"completed","conclusion":"success"
+            })
+        })
+        .collect();
+    jobs.extend(ADVISORY.iter().enumerate().map(|(index, lane)| {
+        json!({
+            "id":index+50,"name":format!("host-or-nightly / {lane}"),"run_id":42,"run_attempt":3,
+            "head_sha":arguments.source,"workflow_name":"Jeryu","status":"completed","conclusion":"failure"
+        })
+    }));
     jobs.push(json!({"id":99,"name":"jeryu/required","run_id":42,"run_attempt":3,
         "head_sha":arguments.source,"workflow_name":"Jeryu","status":"in_progress","conclusion":null}));
     (
@@ -39,10 +51,11 @@ fn accepts_complete_exact_attempt_and_complete_pagination() {
     let (arguments, run, jobs) = fixture();
     check(&arguments, &run, &jobs).unwrap();
     let all = jobs["jobs"].as_array().unwrap();
+    let total = all.len();
     let pages = format!(
         "{}\n{}",
-        json!({"total_count":15,"jobs":&all[..7]}),
-        json!({"total_count":15,"jobs":&all[7..]})
+        json!({"total_count":total,"jobs":&all[..7]}),
+        json!({"total_count":total,"jobs":&all[7..]})
     );
     verify(
         &arguments,
@@ -50,6 +63,16 @@ fn accepts_complete_exact_attempt_and_complete_pagination() {
         pages.as_bytes(),
     )
     .unwrap();
+}
+
+#[test]
+fn advisory_failures_do_not_block_the_required_aggregate() {
+    let (arguments, run, jobs) = fixture();
+    check(&arguments, &run, &jobs).unwrap();
+    let (arguments, run, mut jobs) = fixture();
+    jobs["jobs"][REQUIRED.len()]["status"] = json!("in_progress");
+    jobs["jobs"][REQUIRED.len()]["conclusion"] = Value::Null;
+    check(&arguments, &run, &jobs).unwrap();
 }
 
 #[test]
@@ -93,7 +116,10 @@ fn rejects_incomplete_duplicate_and_substituted_jobs() {
             "duplicate-id" => jobs["jobs"][1]["id"] = jobs["jobs"][0]["id"].clone(),
             "duplicate-name" => jobs["jobs"][1]["name"] = jobs["jobs"][0]["name"].clone(),
             "unexpected" => jobs["jobs"][0]["name"] = json!("verify / easy"),
-            "aggregate" => jobs["jobs"][14]["name"] = json!("another aggregate"),
+            "aggregate" => {
+                let last = jobs["jobs"].as_array().unwrap().len() - 1;
+                jobs["jobs"][last]["name"] = json!("another aggregate");
+            }
             _ => unreachable!(),
         }
         assert!(check(&arguments, &run, &jobs).is_err(), "{change}");

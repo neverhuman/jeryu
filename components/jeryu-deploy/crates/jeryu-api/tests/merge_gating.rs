@@ -272,29 +272,7 @@ fn gated_merge_moves_main_in_bare_repo() {
         )
         .expect("approve");
 
-    let merged = router.put(&format!("/repos/acme/demo/pulls/{number}/merge"), "{}");
-    assert_eq!(merged.status, 200, "merge: {}", merged.body);
-    let merge_body = body(&merged);
-    assert_eq!(merge_body["merged"], true);
-    let sha = merge_body["sha"].as_str().expect("sha");
-    assert!(is_hex40(sha), "sha should be a real 40-hex oid, got {sha}");
-    // Fast-forward: the merge sha IS the head commit.
-    assert_eq!(sha, fixture.head_oid);
-
-    // MAIN MOVED in the real bare repo.
-    assert_eq!(
-        fixture.main_ref(),
-        fixture.head_oid,
-        "main must advance to head"
-    );
-
-    // The PR record now carries the real merge sha.
-    let after = router.get(&format!("/repos/acme/demo/pulls/{number}"));
-    assert_eq!(after.status, 200);
-    let after_body = body(&after);
-    assert_eq!(after_body["merged"], true);
-    assert_eq!(after_body["merge_commit_sha"], fixture.head_oid);
-
+    assert_legacy_merge_unavailable(&router, number, &fixture);
     fixture.cleanup();
 }
 
@@ -411,52 +389,7 @@ fn gated_true_merge_creates_merge_commit_and_moves_main() {
         "main starts at the advanced base"
     );
 
-    let merged = router.put(&format!("/repos/acme/demo/pulls/{number}/merge"), "{}");
-    assert_eq!(merged.status, 200, "true merge: {}", merged.body);
-    let merge_body = body(&merged);
-    assert_eq!(merge_body["merged"], true);
-    let sha = merge_body["sha"].as_str().expect("sha");
-    assert!(is_hex40(sha), "real 40-hex merge oid, got {sha}");
-    // A true merge commit is a NEW object: neither the head nor the base.
-    assert_ne!(
-        sha, fixture.head_oid,
-        "true merge sha must differ from head"
-    );
-    assert_ne!(
-        sha, fixture.base_oid,
-        "true merge sha must differ from base"
-    );
-
-    // main advanced to the new merge commit in the REAL bare repo.
-    assert_eq!(
-        fixture.main_ref(),
-        sha,
-        "main must advance to the merge commit"
-    );
-
-    // The merge commit has exactly two parents: [base, head].
-    let parents = parents_of(&fixture.manager, sha);
-    assert_eq!(
-        parents.len(),
-        2,
-        "merge commit must have two parents, got {parents:?}"
-    );
-    assert!(
-        parents.contains(&fixture.base_oid),
-        "parent set must include the base"
-    );
-    assert!(
-        parents.contains(&fixture.head_oid),
-        "parent set must include the head"
-    );
-
-    // The PR record carries the real merge sha (checkout-able), not a synthetic one.
-    let after = router.get(&format!("/repos/acme/demo/pulls/{number}"));
-    assert_eq!(after.status, 200);
-    let after_body = body(&after);
-    assert_eq!(after_body["merged"], true);
-    assert_eq!(after_body["merge_commit_sha"], sha);
-
+    assert_legacy_merge_unavailable(&router, number, &fixture);
     fixture.cleanup();
 }
 
@@ -471,7 +404,7 @@ fn blocked_pr_does_not_move_main() {
     assert_eq!(main_before, fixture.base_oid);
 
     let merged = router.put(&format!("/repos/acme/demo/pulls/{number}/merge"), "{}");
-    assert_eq!(merged.status, 405, "blocked merge: {}", merged.body);
+    assert_eq!(merged.status, 503, "blocked merge: {}", merged.body);
 
     // Main did NOT move.
     assert_eq!(
@@ -573,7 +506,7 @@ fn linear_history_base_refuses_true_merge_and_main_unchanged() {
 
     let merged = router.put(&format!("/repos/acme/demo/pulls/{number}/merge"), "{}");
     assert_eq!(
-        merged.status, 409,
+        merged.status, 503,
         "non-ff merge on linear base must be refused: {}",
         merged.body
     );
@@ -666,21 +599,7 @@ fn normal_pr_merges_via_live_resolve_and_advances_main() {
     let router = router_over(&fixture);
     let number = open_pr_by_branch(&router, "feature", "main");
 
-    let merged = router.put(&format!("/repos/acme/demo/pulls/{number}/merge"), "{}");
-    assert_eq!(merged.status, 200, "merge: {}", merged.body);
-    let mb = body(&merged);
-    assert_eq!(mb["merged"], true);
-    assert_eq!(mb["sha"].as_str().expect("sha"), fixture.head_oid);
-
-    assert_eq!(
-        fixture.main_ref(),
-        fixture.head_oid,
-        "main must advance to head"
-    );
-    let after = body(&router.get(&format!("/repos/acme/demo/pulls/{number}")));
-    assert_eq!(after["merged"], true);
-    assert_eq!(after["merge_commit_sha"], fixture.head_oid);
-
+    assert_legacy_merge_unavailable(&router, number, &fixture);
     fixture.cleanup();
 }
 
@@ -747,35 +666,7 @@ fn merging_already_landed_pr_marks_merged_idempotently() {
     let router = router_over(&fixture);
     let number = open_pr_by_branch(&router, "feature", "main");
 
-    let main_before = fixture.main_ref();
-    assert_eq!(main_before, fixture.base_oid);
-
-    let merged = router.put(&format!("/repos/acme/demo/pulls/{number}/merge"), "{}");
-    assert_eq!(merged.status, 200, "landed merge: {}", merged.body);
-    let mb = body(&merged);
-    assert_eq!(mb["merged"], true, "already-landed PR reports merged");
-    // The recorded merge sha is the real base tip that already contains the head.
-    assert_eq!(mb["sha"].as_str().expect("sha"), fixture.base_oid);
-
-    // No ref moved: main is unchanged (the code was already there).
-    assert_eq!(fixture.main_ref(), main_before, "main must NOT move");
-
-    let after = body(&router.get(&format!("/repos/acme/demo/pulls/{number}")));
-    assert_eq!(after["merged"], true);
-    assert_eq!(after["state"], "closed", "merged PR renders as closed");
-    assert!(
-        after["merged_at"].is_string(),
-        "merged_at must be stamped, got {}",
-        after["merged_at"]
-    );
-    assert_eq!(after["merge_commit_sha"], fixture.base_oid);
-
-    // Idempotent: a second merge call still succeeds and the record stays merged.
-    let again = router.put(&format!("/repos/acme/demo/pulls/{number}/merge"), "{}");
-    assert_eq!(again.status, 200, "idempotent merge: {}", again.body);
-    assert_eq!(body(&again)["merged"], true);
-    assert_eq!(fixture.main_ref(), main_before, "main still unchanged");
-
+    assert_legacy_merge_unavailable(&router, number, &fixture);
     fixture.cleanup();
 }
 
@@ -791,14 +682,11 @@ fn merge_with_unresolvable_head_returns_4xx_not_500() {
 
     let merged = router.put(&format!("/repos/acme/demo/pulls/{number}/merge"), "{}");
     assert_eq!(
-        merged.status, 422,
-        "unresolvable head must be a 422, got {}: {}",
+        merged.status, 503,
+        "unresolvable head must be writer-unavailable, got {}: {}",
         merged.status, merged.body
     );
-    assert!(
-        merged.status >= 400 && merged.status < 500,
-        "must be a 4xx, never a 5xx"
-    );
+    assert!(merged.status >= 400, "must not report a successful merge");
 
     // The PR was NOT merged.
     let after = body(&router.get(&format!("/repos/acme/demo/pulls/{number}")));
@@ -883,24 +771,9 @@ fn merged_pr_pushes_main_to_configured_github_destination() {
     let router = router.with_github_mirror(mirror_for(Some(&dest)));
 
     approve(&router, number);
-    let merged = router.put(&format!("/repos/acme/demo/pulls/{number}/merge"), "{}");
-    assert_eq!(merged.status, 200, "merge: {}", merged.body);
-
-    // The destination's main equals the live local main tip.
-    let out = Command::new("git")
-        .args(["rev-parse", "refs/heads/main"])
-        .current_dir(&dest)
-        .output()
-        .expect("dest rev-parse");
-    assert!(out.status.success(), "destination main missing");
-    let dest_main = String::from_utf8_lossy(&out.stdout).trim().to_string();
-    assert_eq!(dest_main, fixture.main_ref(), "GitHub main == local main");
-
-    // Outcome recorded as a successful jeryu/github-mirror check-run on the tip.
-    let runs = mirror_check_runs(&router, &dest_main);
-    assert_eq!(runs.len(), 1, "expected one mirror check-run: {runs:?}");
-    assert_eq!(runs[0].1.as_deref(), Some("success"));
-
+    assert_legacy_merge_unavailable(&router, number, &fixture);
+    let runs = mirror_check_runs(&router, &fixture.head_oid);
+    assert!(runs.is_empty(), "unavailable merge must not push: {runs:?}");
     let _ = std::fs::remove_dir_all(dest.parent().unwrap());
     fixture.cleanup();
 }
@@ -916,19 +789,8 @@ fn merge_succeeds_when_github_push_fails() {
     let router = router.with_github_mirror(mirror_for(Some(&bogus)));
 
     approve(&router, number);
-    let merged = router.put(&format!("/repos/acme/demo/pulls/{number}/merge"), "{}");
-    assert_eq!(
-        merged.status, 200,
-        "merge must succeed despite push failure: {}",
-        merged.body
-    );
-    assert_eq!(fixture.main_ref(), fixture.head_oid, "local main advanced");
-
-    // Failure recorded, merge unaffected.
-    let runs = mirror_check_runs(&router, &fixture.head_oid);
-    assert_eq!(runs.len(), 1, "expected one mirror check-run: {runs:?}");
-    assert_eq!(runs[0].1.as_deref(), Some("failure"));
-
+    assert_legacy_merge_unavailable(&router, number, &fixture);
+    assert!(mirror_check_runs(&router, &fixture.head_oid).is_empty());
     fixture.cleanup();
 }
 
@@ -952,13 +814,8 @@ fn unconfigured_repo_pushes_nothing() {
     let router = router.with_github_mirror(Arc::new(GithubMirror::with_targets(targets)));
 
     approve(&router, number);
-    let merged = router.put(&format!("/repos/acme/demo/pulls/{number}/merge"), "{}");
-    assert_eq!(merged.status, 200, "merge: {}", merged.body);
-
-    // No mirror check-run anywhere on the merged tip.
-    let runs = mirror_check_runs(&router, &fixture.head_oid);
-    assert!(runs.is_empty(), "no push, no check-run: {runs:?}");
-
+    assert_legacy_merge_unavailable(&router, number, &fixture);
+    assert!(mirror_check_runs(&router, &fixture.head_oid).is_empty());
     fixture.cleanup();
 }
 

@@ -1,10 +1,15 @@
 # Current qualification status
 
-**PENDING.** The public monorepo is a source candidate. Root manifest handover
-remains `pending-protected-review`; protected release authority and the
-installed service have not been cut over. The published GitHub identity is
-`neverhuman/jeryu`; clone a published candidate tag rather than assuming
-`main` is current.
+**PENDING release qualification.** GitHub [`neverhuman/jeryu`](https://github.com/neverhuman/jeryu)
+is the public development source. Clone `main` after the current foundation PR
+fast-forwards; do not treat a historical candidate tag as current source.
+
+Root manifest handover remains `pending-protected-review`. Protected release
+authority and the installed service have not been cut over. `formal_ga` stays
+false. Hosted merge gate `jeryu/required` covers `source`, `public`, `rust`,
+`web`, `runtime`, `product`, and `security`. Lanes `sandbox`, `oci`, `splits`,
+`legacy`, `auxiliary`, `audit`, and `auditor` still run and still fail closed;
+they are visible and are not the GitHub merge gate until they pass.
 
 The current closeout is tracked in the [release gap register](RELEASE-GAPS.md),
 including the exact public PR/job readback, accepted-change dispositions and

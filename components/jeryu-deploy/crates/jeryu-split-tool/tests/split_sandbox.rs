@@ -48,6 +48,7 @@ fn runner_export_preserves_the_committed_shared_sandbox_entrypoint() {
         ("Cargo.lock", "version = 4\n"),
         ("LICENSE", "Apache-2.0 fixture\n"),
         ("scripts/source-build.sh", "committed source helper\n"),
+        ("tests/scratch.sh", "committed scratch helper\n"),
         ("rust-toolchain.toml", "[toolchain]\nchannel = \"1.97.1\"\n"),
         (".cargo/config.toml", "[build]\njobs = 2\n"),
         ("components/jeryu-ci-runner/AGENTS.md", "Runner fixture\n"),

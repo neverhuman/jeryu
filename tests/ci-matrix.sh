@@ -4,9 +4,20 @@ set -euo pipefail
 root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)
 source "$root/scripts/ci-lanes.sh"
 
-hosted=$(sed -n 's/^        lane: \[\(.*\)\]$/\1/p' "$root/.github/workflows/ci.yml")
-[[ ${hosted//, / } == "${JERYU_REQUIRED_CI_LANES[*]}" ]] || {
+mapfile -t hosted_lines < <(sed -n 's/^        lane: \[\(.*\)\]$/\1/p' "$root/.github/workflows/ci.yml")
+[[ ${#hosted_lines[@]} == 2 ]] || {
+  printf 'Hosted CI must declare one required matrix and one advisory matrix\n' >&2; exit 1;
+}
+required_hosted=${hosted_lines[0]//, / }
+advisory_hosted=${hosted_lines[1]//, / }
+[[ $required_hosted == "${JERYU_HOSTED_REQUIRED_CI_LANES[*]}" ]] || {
   printf 'Local and hosted required CI lanes differ\n' >&2; exit 1;
+}
+[[ $advisory_hosted == "${JERYU_HOSTED_ADVISORY_CI_LANES[*]}" ]] || {
+  printf 'Local and hosted advisory CI lanes differ\n' >&2; exit 1;
+}
+[[ ${JERYU_REQUIRED_CI_LANES[*]} == "${JERYU_HOSTED_REQUIRED_CI_LANES[*]} ${JERYU_HOSTED_ADVISORY_CI_LANES[*]}" ]] || {
+  printf 'Required CI union does not match hosted required+advisory lanes\n' >&2; exit 1;
 }
 [[ " ${JERYU_REQUIRED_CI_LANES[*]} " == *' auxiliary '* &&
    " ${JERYU_REQUIRED_CI_LANES[*]} " != *' redline '* ]]
