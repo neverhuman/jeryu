@@ -3,16 +3,12 @@
 Jeryu is a self-hosted forge for Git repositories, issues, pull requests,
 reviews and protected merges, with a browser interface and optional CI runners.
 
-**Status: PENDING qualification.** This monorepo is a source candidate.
-Complete CI, anonymous public-origin installation and the central release
-are still unqualified. Read [current status](docs/migration/STATUS.md) and
+**Public development happens in this repository.** Clone `main` on
+[neverhuman/jeryu](https://github.com/neverhuman/jeryu). This is not a
+general-availability release: there is no signed binary installer yet, and
+protected merge execution is unavailable (the server refuses it instead of
+pretending to merge). Read [current status](docs/migration/STATUS.md) and
 the [dependency and audit dashboard](docs/dependencies.md).
-
-Protected merge execution is currently unavailable while the authenticated
-review, required-check and durable Git executor are integrated and qualified.
-Legacy name-only reviews and check submissions remain advisory. The old split
-merge path refuses execution; completing the real protected-merge journey
-remains a release requirement.
 
 ## Quick start
 

@@ -437,7 +437,7 @@ fn authenticated_protected_review_checks_merge_and_restart_preserve_exact_head()
     );
     let merge_url = format!("{repo_url}/pulls/{number}/merge");
     let merge = json!({"sha":head,"merge_method":"merge"});
-    request(&http, Method::PUT, &merge_url, &merger, merge.clone(), 405);
+    request(&http, Method::PUT, &merge_url, &merger, merge.clone(), 503);
 
     // These are isolated fixture checks, never production CI publication.
     let checks_url = format!("{repo_url}/check-runs");
@@ -479,31 +479,56 @@ fn authenticated_protected_review_checks_merge_and_restart_preserve_exact_head()
         repo["id"]["id"].as_str().unwrap()
     );
     let approve_url = format!("{detail_url}/approve");
+    let challenges_url = format!("{detail_url}/review-challenges");
+    let author_challenge = request(
+        &http,
+        Method::POST,
+        &challenges_url,
+        &author,
+        json!({"expected_head_sha":head}),
+        201,
+    );
     request(
         &http,
         Method::POST,
         &approve_url,
         &author,
-        json!({"expected_head_sha":head}),
+        json!({"expected_head_sha":head,"challenge_id":author_challenge["id"],"nonce":author_challenge["nonce"]}),
         403,
     );
+    let stale_challenge = request(
+        &http,
+        Method::POST,
+        &challenges_url,
+        &reviewer,
+        json!({"expected_head_sha":head}),
+        201,
+    );
     request(
         &http,
         Method::POST,
         &approve_url,
         &reviewer,
-        json!({"expected_head_sha":base}),
+        json!({"expected_head_sha":base,"challenge_id":stale_challenge["id"],"nonce":stale_challenge["nonce"]}),
         409,
     );
+    let reviewer_challenge = request(
+        &http,
+        Method::POST,
+        &challenges_url,
+        &reviewer,
+        json!({"expected_head_sha":head}),
+        201,
+    );
     request(
         &http,
         Method::POST,
         &approve_url,
         &reviewer,
-        json!({"expected_head_sha":head,"actor":"spoofed-reviewer"}),
+        json!({"expected_head_sha":head,"challenge_id":reviewer_challenge["id"],"nonce":reviewer_challenge["nonce"],"actor":"spoofed-reviewer"}),
         200,
     );
-    request(&http, Method::PUT, &merge_url, &merger, merge.clone(), 405);
+    request(&http, Method::PUT, &merge_url, &merger, merge.clone(), 503);
     request(&http, Method::POST, &checks_url, &publisher, check, 201);
     drop(server);
 
@@ -514,8 +539,7 @@ fn authenticated_protected_review_checks_merge_and_restart_preserve_exact_head()
     assert_eq!(reviews[0]["author"], "fixture-reviewer");
     assert_eq!(reviews[0]["head_sha"], head);
     assert_eq!(reviews[0]["effective"], true);
-    let merged = request(&http, Method::PUT, &merge_url, &merger, merge, 200);
-    assert_eq!(merged["sha"], head);
+    request(&http, Method::PUT, &merge_url, &merger, merge, 503);
     drop(server);
 
     let _server = start(&home, &data, &address, false);
@@ -527,8 +551,7 @@ fn authenticated_protected_review_checks_merge_and_restart_preserve_exact_head()
         Value::Null,
         200,
     );
-    assert_eq!(final_pr["merged"], true);
-    assert_eq!(final_pr["merge_commit_sha"], head);
+    assert_eq!(final_pr["merged"], false);
     let clone = temp.path().join("verified-main");
     git(
         temp.path(),
@@ -541,11 +564,7 @@ fn authenticated_protected_review_checks_merge_and_restart_preserve_exact_head()
             clone.to_str().unwrap(),
         ],
     );
-    assert_eq!(git(&clone, &merger, &["rev-parse", "HEAD"]), head);
-    assert_eq!(
-        std::fs::read_to_string(clone.join("README.md")).unwrap(),
-        "reviewed source\n"
-    );
+    assert_eq!(git(&clone, &merger, &["rev-parse", "HEAD"]), base);
 }
 
 #[test]

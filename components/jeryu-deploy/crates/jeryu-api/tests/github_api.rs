@@ -14,6 +14,17 @@ fn body(response: &jeryu_api::Response) -> Value {
         .unwrap_or_else(|err| panic!("response body is not JSON ({err}): {}", response.body))
 }
 
+fn assert_merge_executor_unavailable(response: &jeryu_api::Response) {
+    assert_eq!(response.status, 503, "merge executor: {}", response.body);
+    let parsed = body(response);
+    let message = parsed["message"].as_str().unwrap_or("");
+    assert!(
+        message.contains("Core-owned durable merge"),
+        "expected writer-unavailable merge: {}",
+        response.body
+    );
+}
+
 fn router_with_repo() -> GithubRouter {
     let router = GithubRouter::new();
     let response = router.post(
@@ -148,21 +159,10 @@ fn full_pull_request_lifecycle_create_check_status_protect_and_merge() {
         "ci/fast"
     );
 
-    // Before the check passes, the PR is not mergeable -> GitHub 405.
+    // Durable merge execution is retired. Protection-specific 405s are
+    // unreachable until Core owns an authenticated merge executor.
     let blocked = router.put(&format!("/repos/alice/jeryu/pulls/{number}/merge"), "{}");
-    assert_eq!(blocked.status, 405, "premature merge: {}", blocked.body);
-    assert!(
-        body(&blocked)["message"]
-            .as_str()
-            .expect("message")
-            .contains("MissingStatusCheck")
-            || body(&blocked)["message"]
-                .as_str()
-                .expect("message")
-                .contains("ci/fast"),
-        "405 message should name the missing check: {}",
-        blocked.body
-    );
+    assert_merge_executor_unavailable(&blocked);
 
     // Register a successful check-run for the head sha.
     let check = router.post(
@@ -195,32 +195,20 @@ fn full_pull_request_lifecycle_create_check_status_protect_and_merge() {
     assert_eq!(combined_body["sha"], "deadbeef");
     assert_eq!(combined_body["total_count"].as_u64().expect("count"), 1);
 
-    // The check-run now satisfies protection: GET the PR shows mergeable.
     let refreshed = router.get(&format!("/repos/alice/jeryu/pulls/{number}"));
     assert_eq!(refreshed.status, 200);
-    assert_eq!(body(&refreshed)["mergeable"], true);
+    assert_eq!(body(&refreshed)["merged"], false);
 
-    // Merge succeeds with 200 and a GitHub-shaped merge result.
     let merged = router.put(
         &format!("/repos/alice/jeryu/pulls/{number}/merge"),
         r#"{"merge_method":"squash"}"#,
     );
-    assert_eq!(merged.status, 200, "merge: {}", merged.body);
-    let merge_body = body(&merged);
-    assert_eq!(merge_body["merged"], true);
-    assert!(
-        merge_body["sha"]
-            .as_str()
-            .expect("sha")
-            .starts_with("merge-")
-    );
-
-    // After merge the PR state is `closed` (GitHub normalizes merged -> closed).
+    assert_merge_executor_unavailable(&merged);
     let after = router.get(&format!("/repos/alice/jeryu/pulls/{number}"));
     assert_eq!(after.status, 200);
     let after_body = body(&after);
-    assert_eq!(after_body["state"], "closed");
-    assert_eq!(after_body["merged"], true);
+    assert_eq!(after_body["state"], "open");
+    assert_eq!(after_body["merged"], false);
 }
 
 #[test]
@@ -261,20 +249,7 @@ fn fork_source_repository_still_requires_signed_commits() {
     assert_eq!(pr["source_repository"], "fork-owner/jeryu");
 
     let blocked = router.put(&format!("/repos/alice/jeryu/pulls/{number}/merge"), "{}");
-    assert_eq!(
-        blocked.status, 405,
-        "merge should remain blocked: {}",
-        blocked.body
-    );
-    let blocked_body = body(&blocked);
-    let message = blocked_body["message"]
-        .as_str()
-        .expect("merge blocker message");
-    assert!(
-        message.contains("UnsignedCommits"),
-        "signed-commit enforcement should still reject fork provenance: {}",
-        blocked.body
-    );
+    assert_merge_executor_unavailable(&blocked);
 }
 
 /// Collects the per-repo `number` of every PR in a list response body.
@@ -292,8 +267,8 @@ fn pull_numbers(response: &jeryu_api::Response) -> Vec<u64> {
 fn pulls_list_honors_state_query_filter() {
     let router = router_with_repo();
 
-    // One PR stays open; the other is merged so GitHub renders it as `closed`
-    // (a closed sub-state with `merged_at` set). No protection -> both mergeable.
+    // One PR stays open; the other is closed through the update API. Merge
+    // execution is unavailable, so closed state is not produced by merging.
     let open = router.post(
         "/repos/alice/jeryu/pulls",
         r#"{"title":"stays open","head":"feat-open","base":"main","head_sha":"sha-open"}"#,
@@ -307,13 +282,18 @@ fn pulls_list_honors_state_query_filter() {
     );
     assert_eq!(to_merge.status, 201, "open pr to merge: {}", to_merge.body);
     let merged_number = body(&to_merge)["number"].as_u64().expect("merge pr number");
-
-    let merged = router.put(
+    assert_merge_executor_unavailable(&router.put(
         &format!("/repos/alice/jeryu/pulls/{merged_number}/merge"),
         "{}",
+    ));
+    let closed = router.handle(
+        Method::Patch,
+        &format!("/repos/alice/jeryu/pulls/{merged_number}"),
+        r#"{"state":"closed"}"#,
     );
-    assert_eq!(merged.status, 200, "merge pr: {}", merged.body);
-    assert_eq!(body(&merged)["merged"], true);
+    assert_eq!(closed.status, 200, "close pr: {}", closed.body);
+    assert_eq!(body(&closed)["state"], "closed");
+    assert_eq!(body(&closed)["merged"], false);
 
     // `?state=open` returns only the open PR, never the merged one.
     let open_only = pull_numbers(&router.get("/repos/alice/jeryu/pulls?state=open"));
