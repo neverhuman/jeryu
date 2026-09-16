@@ -11,16 +11,16 @@ false. Hosted merge gate `jeryu/required` covers `source`, `public`, `rust`,
 `legacy`, `auxiliary`, `audit`, and `auditor` run on the nightly workflow and
 still fail closed; they are not the GitHub merge gate until they pass.
 
-The current closeout is tracked in the [release gap register](RELEASE-GAPS.md),
-including the exact public PR/job readback, accepted-change dispositions and
-the remaining service, producer, mirror and artifact obligations. The public
-commits through `da8868da` are integrated with the preserved local pending
-slice. Corrective source and targeted checks do not establish release-ready main.
+The current closeout is tracked in the [release gap register](RELEASE-GAPS.md)
+and [#68](https://github.com/neverhuman/jeryu/issues/68). Public GitHub `main`
+is `d4c64e2d` (2026-09-16): required hosted CI is green; this is **not**
+release-ready. Protected merge remains HTTP 503, nightly advisory lanes still
+fail closed, and there is no signed v5 installer.
 
 The historical source readback below is bound to
-`679d9cff275973ce0357d5e1db12118166c1d6a7`, tree
-`cfb8642e3e401513d2537ba5ba05b0c389d63bda`, and public readbacks on
-2026-09-10. Implementation added after that revision requires its own evidence.
+`679d9cff275973ce0357d5e1db12118166c1d6a7` (2026-09-10). It is **not**
+evidence for current `main`. Implementation after that revision requires
+its own evidence.
 The complete chronological record is preserved in
 [historical status](history/STATUS-2026-09-10-679d9cff.md).
 
