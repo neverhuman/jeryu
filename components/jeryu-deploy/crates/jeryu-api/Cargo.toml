@@ -9,7 +9,7 @@ build = "build.rs"
 [dependencies]
 rustix = { version = "1.1.4", features = ["fs"] }
 anyhow = { version = "1" }
-base64 = { version = "0.22", optional = true }
+base64 = { version = "0.23", optional = true }
 chrono.workspace = true
 jeryu-bench = { workspace = true }
 jeryu-obs = { workspace = true }
@@ -42,7 +42,7 @@ uuid = { workspace = true, optional = true }
 tokio = { version = "1", features = ["fs", "macros", "net", "rt-multi-thread", "sync", "time"], optional = true }
 
 [dev-dependencies]
-base64 = "0.22"
+base64 = "0.23"
 reqwest = { version = "0.12", features = ["json"] }
 tempfile = { workspace = true }
 tower = "0.5"
