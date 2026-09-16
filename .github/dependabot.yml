@@ -14,6 +14,12 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: vite
         update-types: ["version-update:semver-major"]
+      - dependency-name: axum
+        update-types: ["version-update:semver-major"]
+      - dependency-name: rusqlite
+        update-types: ["version-update:semver-major"]
+      - dependency-name: rand
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: npm
     directory: /
     schedule:
@@ -33,6 +39,8 @@ updates:
       - dependency-name: "@types/react"
         update-types: ["version-update:semver-major"]
       - dependency-name: "@types/react-dom"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: eslint
         update-types: ["version-update:semver-major"]
   - package-ecosystem: github-actions
     directory: /
