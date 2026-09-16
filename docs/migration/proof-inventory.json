@@ -8135,7 +8135,7 @@
       "kind": "proof-implementation-or-input",
       "path": "components/jeryu-web/apps/web/package.json",
       "port_status": "pending-equivalence-proof",
-      "sha256": "23419eb7f01c81e0f22fc20633fca6ab1e7e66a4147d900ae67206e9a3ddf37f"
+      "sha256": "5df49140b785a8fdf5c1a08da20615679e041ba2d116a75d0749f98dffd28639"
     },
     {
       "component": "jeryu-web",
