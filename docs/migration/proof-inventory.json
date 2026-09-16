@@ -3087,7 +3087,7 @@
       "kind": "proof-implementation-or-input",
       "path": "components/jeryu-deploy/crates/jeryu-api/tests/spine_live_http.rs",
       "port_status": "pending-equivalence-proof",
-      "sha256": "87af687f9be5ec0d99f4f2c635770fab84f24d3d399fd30345725853e0c4f02e"
+      "sha256": "7c8c7843025597ceffab3ac07b012d354fcd17e040ae778900e4058c9953f8be"
     },
     {
       "component": "jeryu-deploy",
