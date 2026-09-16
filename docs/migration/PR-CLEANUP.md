@@ -85,3 +85,11 @@ Originals closed as superseded **before** #94 merged (process miss vs campaign r
 ## Closed-before-replacement (process)
 
 Originals 70–93 were closed during an earlier empty-queue pass. This campaign treats those closes as **not** final until replacements merge. Branch refs are preserved on GitHub (`dependabot/*`) and locally (`refs/remotes/github/dependabot/*`, `refs/remotes/github/pr-{65,66}`).
+
+## 2026-09-16 update
+
+- #94 merged `b67b99ff` then rebase `c67a76da` lineage via #104/#105.
+- #104 Packet B merged as `d4b7700f`.
+- #105 Packet C merged as `c67a76da`.
+- Table v9 (`#92`) **not** landed: TanStack Table 9 replaces `useReactTable`/`getCoreRowModel` with `useTable`/`createCoreRowModel` and `TableFeatures`. Kept v8.21.3. Virtual 3.14 landed separately.
+- React 19.3 (`#80`/`#90`) **not** landed: 25 test files failed on original PR.
