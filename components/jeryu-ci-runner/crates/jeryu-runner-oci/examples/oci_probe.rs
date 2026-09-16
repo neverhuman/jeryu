@@ -46,7 +46,12 @@ fn main() {
     let args: Vec<String> = std::env::args().collect();
     match args.get(1).map(String::as_str).expect("probe mode") {
         "identity" => emit(
-            json!({"source_sha256": format!("{:x}", Sha256::digest(include_bytes!("oci_probe.rs")))}),
+            json!({"source_sha256": Sha256::digest(include_bytes!("oci_probe.rs"))
+            .iter()
+            .fold(String::with_capacity(64), |mut out, byte| {
+                out.push_str(&format!("{byte:02x}"));
+                out
+            })}),
         ),
         "idle" => std::thread::sleep(Duration::from_secs(60)),
         "filesystem" => {

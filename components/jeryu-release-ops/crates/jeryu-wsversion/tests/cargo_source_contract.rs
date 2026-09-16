@@ -22,9 +22,8 @@ fn string_field<'a>(table: &'a toml::Table, key: &str) -> Result<&'a str, String
 }
 
 fn validate_source_contract(manifest: &str, lock: &str) -> Result<(), String> {
-    let manifest: toml::Value = manifest
-        .parse()
-        .map_err(|error| format!("invalid manifest TOML: {error}"))?;
+    let manifest: toml::Value =
+        toml::from_str(manifest).map_err(|error| format!("invalid manifest TOML: {error}"))?;
     let dependency = manifest
         .get("dependencies")
         .and_then(|dependencies| dependencies.get(PACKAGE))
@@ -50,9 +49,8 @@ fn validate_source_contract(manifest: &str, lock: &str) -> Result<(), String> {
         return Err(format!("{PACKAGE} package identity must not change"));
     }
 
-    let lock: toml::Value = lock
-        .parse()
-        .map_err(|error| format!("invalid lock TOML: {error}"))?;
+    let lock: toml::Value =
+        toml::from_str(lock).map_err(|error| format!("invalid lock TOML: {error}"))?;
     let packages = lock
         .get("package")
         .and_then(toml::Value::as_array)

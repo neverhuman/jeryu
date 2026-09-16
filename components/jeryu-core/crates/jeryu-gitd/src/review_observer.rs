@@ -76,7 +76,13 @@ mod native {
             }
             digest.update(&buffer[..length]);
         }
-        Ok(format!("{:x}", digest.finalize()))
+        let digest = digest.finalize();
+        Ok(digest
+            .iter()
+            .fold(String::with_capacity(64), |mut out, byte| {
+                out.push_str(&format!("{byte:02x}"));
+                out
+            }))
     }
 
     fn io_error(error: std::io::Error) -> ForgeError {

@@ -88,7 +88,7 @@ fn signature_matches_known_vector() {
     // Cross-check against a precomputed HMAC-SHA256 of "hi" keyed by "key".
     let sig = sign_webhook_payload("key", b"hi");
     let expected = {
-        use hmac::{Hmac, Mac};
+        use hmac::{Hmac, KeyInit, Mac};
         use sha2::Sha256;
         let mut mac = <Hmac<Sha256>>::new_from_slice(b"key").unwrap();
         mac.update(b"hi");
