@@ -17,19 +17,34 @@ export default defineConfig({
     // their own lazily-evaluated chunks.
     rollupOptions: {
       output: {
-        manualChunks: {
-          'monaco-vendor': ['@monaco-editor/react'],
-          'xterm-vendor': ['@xterm/xterm', '@xterm/addon-fit'],
-          'markdown-vendor': [
-            'react-markdown', 'remark-gfm', 'rehype-autolink-headings',
-            'rehype-highlight', 'rehype-raw', 'rehype-sanitize',
-            'rehype-slug', 'dompurify',
-          ],
-          'tanstack-vendor': [
-            '@tanstack/react-query', '@tanstack/react-table',
-            '@tanstack/react-virtual',
-          ],
-          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+        // Vite 8 / Rollup 4 accept only the function form of manualChunks.
+        // Keep the same vendor groups as the previous object form.
+        manualChunks(id) {
+          if (id.includes('monaco-editor') || id.includes('@monaco-editor')) {
+            return 'monaco-vendor';
+          }
+          if (id.includes('@xterm/')) {
+            return 'xterm-vendor';
+          }
+          if (
+            id.includes('react-markdown') ||
+            id.includes('remark-gfm') ||
+            id.includes('rehype-') ||
+            id.includes('/dompurify/')
+          ) {
+            return 'markdown-vendor';
+          }
+          if (id.includes('@tanstack/')) {
+            return 'tanstack-vendor';
+          }
+          if (
+            id.includes('/node_modules/react/') ||
+            id.includes('/node_modules/react-dom/') ||
+            id.includes('react-router-dom')
+          ) {
+            return 'react-vendor';
+          }
+          return undefined;
         },
       },
     },
