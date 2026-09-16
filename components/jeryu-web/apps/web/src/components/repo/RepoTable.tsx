@@ -10,6 +10,7 @@ import {
   getCoreRowModel,
   getSortedRowModel,
   useReactTable,
+  type CellContext,
   type ColumnDef,
   type SortingState,
 } from '@tanstack/react-table';
@@ -33,6 +34,8 @@ export interface RepoTableProps {
   repos: RepositorySummary[];
 }
 
+type RepoCell = CellContext<RepositorySummary, unknown>;
+
 export function RepoTable({ repos }: RepoTableProps): JSX.Element {
   const navigate = useNavigate();
   const [sorting, setSorting] = useState<SortingState>([
@@ -45,7 +48,7 @@ export function RepoTable({ repos }: RepoTableProps): JSX.Element {
         id: 'name',
         header: 'Repository',
         accessorFn: (row) => row.id.name,
-        cell: ({ row }) => (
+        cell: ({ row }: RepoCell) => (
           <span className="repo-table__repo-cell">
             <strong>{row.original.id.name}</strong>
             <RepoRoleBadge role={row.original.repo_role} />
@@ -56,7 +59,7 @@ export function RepoTable({ repos }: RepoTableProps): JSX.Element {
         id: 'family',
         header: 'Family',
         accessorFn: (row) => row.family ?? '',
-        cell: ({ row }) => {
+        cell: ({ row }: RepoCell) => {
           const family = row.original.family;
           if (!family) return null;
           return (
@@ -75,7 +78,7 @@ export function RepoTable({ repos }: RepoTableProps): JSX.Element {
         id: 'description',
         header: 'Description',
         accessorFn: (row) => row.description ?? '',
-        cell: ({ row }) =>
+        cell: ({ row }: RepoCell) =>
           row.original.description ?? (
             <span className="text-muted">No description</span>
           ),
@@ -84,7 +87,7 @@ export function RepoTable({ repos }: RepoTableProps): JSX.Element {
         id: 'posture',
         header: 'Posture',
         accessorFn: (row) => row.health,
-        cell: ({ row }) => <RepoHealthPill health={row.original.health} />,
+        cell: ({ row }: RepoCell) => <RepoHealthPill health={row.original.health} />,
       },
       {
         id: 'score',
@@ -92,7 +95,7 @@ export function RepoTable({ repos }: RepoTableProps): JSX.Element {
         // Unscored repos sort below every real score (worst-first when
         // ascending) instead of throwing the comparator off with nulls.
         accessorFn: (row) => row.jankurai_score ?? -1,
-        cell: ({ row }) => (
+        cell: ({ row }: RepoCell) => (
           <JankuraiScoreBadge
             score={row.original.jankurai_score}
             decision={row.original.jankurai_decision}
@@ -104,7 +107,7 @@ export function RepoTable({ repos }: RepoTableProps): JSX.Element {
         id: 'mirror',
         header: 'Mirror',
         enableSorting: false,
-        cell: ({ row }) => <MirrorStatusBadge mirror={row.original.mirror} />,
+        cell: ({ row }: RepoCell) => <MirrorStatusBadge mirror={row.original.mirror} />,
       },
       {
         id: 'open_prs',
@@ -115,7 +118,7 @@ export function RepoTable({ repos }: RepoTableProps): JSX.Element {
         id: 'failing_checks',
         header: 'Checks',
         accessorFn: (row) => row.failing_checks,
-        cell: ({ row }) => (
+        cell: ({ row }: RepoCell) => (
           <span className="repo-table__checks">
             {row.original.failing_checks}
             {row.original.running_jobs > 0 ? (
