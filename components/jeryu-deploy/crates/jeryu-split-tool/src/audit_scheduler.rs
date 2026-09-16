@@ -229,7 +229,7 @@ fn commit(repo: &Path, oid: &str, tag_allowed: bool) -> Result<String> {
 }
 
 pub(super) fn digest(value: &impl Serialize) -> Result<String> {
-    Ok(format!("{:x}", Sha256::digest(serde_json::to_vec(value)?)))
+    Ok(hex::encode(Sha256::digest(serde_json::to_vec(value)?)))
 }
 
 fn graph_rows(repo: &Path, after: &str, before: Option<&str>) -> Result<Vec<(String, String)>> {

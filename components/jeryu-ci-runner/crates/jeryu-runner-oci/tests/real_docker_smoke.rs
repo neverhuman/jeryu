@@ -40,8 +40,18 @@ fn strings(args: &[&str]) -> Vec<String> {
     args.iter().map(|arg| (*arg).to_owned()).collect()
 }
 
+fn digest_hex(bytes: impl AsRef<[u8]>) -> String {
+    bytes
+        .as_ref()
+        .iter()
+        .fold(String::with_capacity(64), |mut out, byte| {
+            out.push_str(&format!("{byte:02x}"));
+            out
+        })
+}
+
 fn digest(path: &Path) -> Result<String> {
-    Ok(format!("{:x}", Sha256::digest(fs::read(path)?)))
+    Ok(digest_hex(Sha256::digest(fs::read(path)?)))
 }
 
 fn physical(path: &Path) -> Result<PathBuf> {
@@ -814,10 +824,7 @@ fn hardened_oci_profile_enforces_required_matrix() -> Result<()> {
     let identity: Value = serde_json::from_str(identity.out.trim())?;
     ensure!(
         identity["source_sha256"]
-            == format!(
-                "{:x}",
-                Sha256::digest(include_bytes!("../examples/oci_probe.rs"))
-            ),
+            == digest_hex(Sha256::digest(include_bytes!("../examples/oci_probe.rs"))),
         "probe was built from stale source"
     );
     let info = engine.json(&strings(&["info", "--format", "{{json .}}"]))?;

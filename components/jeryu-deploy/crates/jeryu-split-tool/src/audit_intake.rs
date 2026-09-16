@@ -1,7 +1,7 @@
 //! Durable reception before planning. No execution or publisher authority.
 use anyhow::{Context, Result, bail, ensure};
 use clap::Subcommand;
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, KeyInit, Mac};
 use rusqlite::{Connection, OptionalExtension, TransactionBehavior, params};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};

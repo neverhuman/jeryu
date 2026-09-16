@@ -16,6 +16,7 @@ use std::time::{Duration, Instant};
 
 use flate2::Compression;
 use flate2::write::GzEncoder;
+use hex;
 use jeryu_api::web::{WebServerConfig, serve};
 use sha2::Digest;
 
@@ -479,7 +480,7 @@ async fn s4_git_lfs_batch_and_locks_verify_routes_return_protocol_json() {
 
     let credential = "Basic dGVzdC11c2VyOnRlc3QtdG9rZW4=";
     let object = b"authenticated-lfs-download";
-    let oid = format!("{:x}", sha2::Sha256::digest(object));
+    let oid = hex::encode(sha2::Sha256::digest(object));
     let upload = client
         .put(format!(
             "http://{addr}/git/jeryu/lfs-routes.git/info/lfs/objects/{oid}"

@@ -88,7 +88,7 @@ struct Policy {
 }
 
 pub(super) fn hash(bytes: &[u8]) -> String {
-    format!("{:x}", Sha256::digest(bytes))
+    hex::encode(Sha256::digest(bytes))
 }
 
 pub(super) fn policy(source: &str, owner: &str, floor: u8) -> Result<u8> {

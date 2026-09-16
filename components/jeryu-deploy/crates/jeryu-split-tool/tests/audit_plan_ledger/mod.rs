@@ -10,12 +10,11 @@ fn pure_rewind_plan_roundtrips_through_durable_import_without_new_jobs() {
     let policy = b"workspace='jeryu'\nminimum_score=85\nhard_findings_allowed=0\n";
     let config = serde_json::to_vec(&json!({"schema_version":"jeryu.audit-ledger-execution/v1",
         "auditor_version":"1.6.11","policy_path":"./agent/audit-policy.toml","minimum":85,"max_soft":0,
-        "candidate_policy_sha256":format!("{:x}",Sha256::digest(policy)),
+        "candidate_policy_sha256":hex::encode(Sha256::digest(policy)),
         "executor_inputs":{"fixture":"unqualified planner/import roundtrip"}})).unwrap();
     let mut request = f.request(Some(&before), Some(&ancestor));
-    request["identity"]["governing_policy_sha256"] = json!(format!("{:x}", Sha256::digest(policy)));
-    request["identity"]["execution_config_sha256"] =
-        json!(format!("{:x}", Sha256::digest(&config)));
+    request["identity"]["governing_policy_sha256"] = json!(hex::encode(Sha256::digest(policy)));
+    request["identity"]["execution_config_sha256"] = json!(hex::encode(Sha256::digest(&config)));
     let plan = f.plan(&request);
     assert_eq!(plan["disposition"], "rewritten");
     assert!(plan["jobs"].as_array().unwrap().is_empty());

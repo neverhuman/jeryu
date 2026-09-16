@@ -1,4 +1,5 @@
 use super::*;
+use hmac::KeyInit;
 #[path = "audit_intake_queue_tests.rs"]
 mod queue_tests;
 #[path = "audit_service_tests.rs"]
@@ -77,7 +78,7 @@ impl Fixture {
 fn signature(bytes: &[u8]) -> String {
     let mut mac = Hmac::<Sha256>::new_from_slice(SECRET).unwrap();
     mac.update(bytes);
-    format!("sha256={:x}", mac.finalize().into_bytes())
+    format!("sha256={}", hex::encode(mac.finalize().into_bytes()))
 }
 fn headers(body: &[u8], event: &str, guid: &str) -> Vec<u8> {
     serde_json::to_vec(&json!({"delivery":guid,"event":event,"signature_256":signature(body)}))
