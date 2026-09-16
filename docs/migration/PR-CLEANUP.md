@@ -73,23 +73,24 @@ Originals closed as superseded **before** #94 merged (process miss vs campaign r
 | 72 | `624a6cd9` | upload-artifact 4 → 7 | Inventory drift | In #94 SHA pin `043fb46d…` |
 | 73 | `903534b5` | checkout 4 → 7 | Inventory drift | In #94 SHA pin `3d3c42e5…` |
 
-## Merge order (remaining after #94)
+## Final dispositions (2026-09-16)
 
-1. #94 required-green → resulting `main` (grouped A + safe E + F; lockfiles make separate sequential Dependabot merges unsafe).
-2. Packet B: hmac 0.13 + sha2 0.11; toml 1.x contract; reqwest 0.13 + deny license decision.
-3. Packet C: Vite 8 + plugin-react 6 + esbuild 0.28.2 + function `manualChunks`.
-4. Packet D: React 19.3 only if tests pass without weakening lint.
-5. Packet E remainder: virtual 3.14, then table v9.
-6. Stop if resulting `main` `jeryu/required` fails.
+`main` after Packet E: `11ea30c2`. Required Jeryu workflow on that SHA: success.
+
+| Replacement | Merged as | Covers originals |
+| --- | --- | --- |
+| #94 | rebase onto `main` (tree of `74b0966c`) | 76 78 79 83 84 87 91 77 85 86 88 71 72 73 |
+| #104 | `d4b7700f` | 81 89 93 |
+| #105 | `c67a76da` | 70 75 82 |
+| #106 | `11ea30c2` | 74 (virtual only) |
+| Finish-1 | this PR | 95 96 98 (new wave; source-only inventory drift) |
+
+**Deferred (would regress if Dependabot bump were merged):**
+
+- Table v9 (#92): v9 API is `useTable` / `createCoreRowModel` / `TableFeatures`. Stay on 8.21.3 until a dedicated migration PR has green `jeryu/required`.
+- React 19.3 (#80/#90): 25 test files failed. Stay on 19.2.6 until tests are repaired without disabling lint/`act`.
+- axum 0.8, rusqlite 0.40, eslint 10, rand 0.10: majors, not this campaign. Dependabot ignore added.
 
 ## Closed-before-replacement (process)
 
-Originals 70–93 were closed during an earlier empty-queue pass. This campaign treats those closes as **not** final until replacements merge. Branch refs are preserved on GitHub (`dependabot/*`) and locally (`refs/remotes/github/dependabot/*`, `refs/remotes/github/pr-{65,66}`).
-
-## 2026-09-16 update
-
-- #94 merged `b67b99ff` then rebase `c67a76da` lineage via #104/#105.
-- #104 Packet B merged as `d4b7700f`.
-- #105 Packet C merged as `c67a76da`.
-- Table v9 (`#92`) **not** landed: TanStack Table 9 replaces `useReactTable`/`getCoreRowModel` with `useTable`/`createCoreRowModel` and `TableFeatures`. Kept v8.21.3. Virtual 3.14 landed separately.
-- React 19.3 (`#80`/`#90`) **not** landed: 25 test files failed on original PR.
+Originals 70–93 were closed during an earlier empty-queue pass. Branch refs remain on GitHub (`dependabot/*`). Replacements above are the accepted work.
