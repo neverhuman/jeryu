@@ -37,7 +37,7 @@ toml = "0.8"
 uuid = { version = "1", features = ["v4", "serde"] }
 vt100 = "0.16"
 jeryu-repogate = { path = "components/jeryu-release-ops/crates/jeryu-repogate" }
-rusqlite = { version = "0.32", features = ["bundled"] }
+rusqlite = { version = "0.40", features = ["bundled"] }
 ts-rs = { version = "12", features = ["serde-compat", "uuid-impl"] }
 regex = "1"
 jeryu-agent-auth = { path = "components/jeryu-ci-runner/crates/jeryu-agent-auth" }
