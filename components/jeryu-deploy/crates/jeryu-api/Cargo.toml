@@ -29,7 +29,7 @@ jeryu-runner-core = { workspace = true, optional = true }
 jeryu-runner-oci = { workspace = true, optional = true }
 jeryu-runnerd = { workspace = true, optional = true }
 jeryu-wsversion = { workspace = true, optional = true }
-axum = { version = "0.7", features = ["ws"], optional = true }
+axum = { version = "0.8", features = ["ws"], optional = true }
 clap = { workspace = true }
 futures-util = { version = "0.3", optional = true }
 flate2 = { version = "1", default-features = false, features = ["rust_backend"], optional = true }
