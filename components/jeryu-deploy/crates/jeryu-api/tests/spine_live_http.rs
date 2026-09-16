@@ -16,7 +16,6 @@ use std::time::{Duration, Instant};
 
 use flate2::Compression;
 use flate2::write::GzEncoder;
-use hex;
 use jeryu_api::web::{WebServerConfig, serve};
 use sha2::Digest;
 
